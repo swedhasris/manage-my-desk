@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Role, ROLE_HIERARCHY, ROLE_LABELS, ROLE_COLORS, assignableRoles, canManage } from "../lib/roles";
 import {
   ShieldAlert, UserCog, Mail, ShieldCheck, ShieldOff,
-  Crown, Shield, Search, ChevronDown, KeyRound, Unlock, Lock, Plus, X
+  Crown, Shield, Search, ChevronDown, KeyRound, Unlock, Lock, Plus, X, Edit, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -314,6 +314,25 @@ export function Users() {
                         >
                           {updating === u.id ? "..." : isDisabled ? "Grant Access" : "Remove Access"}
                         </Button>
+                        <button
+                          className="h-7 w-7 flex items-center justify-center rounded border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors"
+                          onClick={() => alert("Edit user feature coming soon!")}
+                          title="Edit User"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          className="h-7 w-7 flex items-center justify-center rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                          onClick={async () => {
+                            if (confirm(`Are you sure you want to delete user ${u.email}?`)) {
+                              const { deleteDoc, doc } = await import("firebase/firestore");
+                              await deleteDoc(doc(db, "users", u.id));
+                            }
+                          }}
+                          title="Delete User"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     )}
                   </td>

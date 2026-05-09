@@ -23,7 +23,7 @@ export function Groups() {
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
   
-  const [form, setForm] = useState({ 
+  const INITIAL_FORM_STATE = { 
     name: '', 
     code: '',
     description: '', 
@@ -42,7 +42,9 @@ export function Groups() {
     queueCapacity: 50,
     region: 'Global',
     status: 'active'
-  });
+  };
+
+  const [form, setForm] = useState(INITIAL_FORM_STATE);
   const [availableSearch, setAvailableSearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [activeTab, setActiveTab] = useState("general");
@@ -59,7 +61,7 @@ export function Groups() {
   const handleCreateOrUpdate = async () => {
     if (!form.name) return;
     try {
-      const managerName = form.managerId ? users.find(u => u.uid === form.managerId)?.name || "" : "";
+      const managerName = form.managerId ? users.find(u => u.id === form.managerId || u.uid === form.managerId)?.name || "" : "";
       
       const groupData = {
         name: form.name,
@@ -75,14 +77,21 @@ export function Groups() {
         parentGroupId: form.parentGroupId,
         defaultAssigneeId: form.defaultAssigneeId,
         autoAssignmentEnabled: form.autoAssignmentEnabled,
-        roundRobinEnabled: form.roundRobinEnabled,
-        skillTags: form.skillTags.split(',').map(s => s.trim()).filter(Boolean),
+        roundRobinEnabled: form.roundRobinEnabled || false,
+        skillTags: Array.isArray(form.skillTags) ? form.skillTags : typeof form.skillTags === 'string' ? form.skillTags.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
         queueCapacity: Number(form.queueCapacity),
         region: form.region,
         status: form.status,
         updatedAt: new Date().toISOString(),
         updatedBy: profile?.name || 'System'
       };
+
+      // Firestore throws an error if any field is undefined. Clean the data.
+      Object.keys(groupData).forEach((k) => {
+        if ((groupData as any)[k] === undefined) {
+          delete (groupData as any)[k];
+        }
+      });
 
       if (selectedGroup) {
         const batch = writeBatch(db);
@@ -103,7 +112,7 @@ export function Groups() {
       setIsModalOpen(false);
     } catch (e) {
       console.error(e);
-      alert("Error saving group.");
+      alert("Error saving group: " + (e.message || String(e)));
     }
   };
 
@@ -181,7 +190,7 @@ export function Groups() {
           <h1 className="text-2xl font-bold text-sn-dark">Group Management</h1>
           <p className="text-muted-foreground text-sm">Manage assignment groups and members</p>
         </div>
-        <Button onClick={() => { setSelectedGroup(null); setForm({name:'', description:'', email:''}); setIsModalOpen(true); }} className="bg-sn-green text-sn-dark font-bold">
+        <Button onClick={() => { setSelectedGroup(null); setForm(INITIAL_FORM_STATE); setIsModalOpen(true); }} className="bg-sn-green text-sn-dark font-bold">
           <Plus className="w-4 h-4 mr-2" /> Create Group
         </Button>
       </div>
@@ -300,7 +309,7 @@ export function Groups() {
                       defaultAssigneeId: group.defaultAssigneeId || '',
                       autoAssignmentEnabled: group.autoAssignmentEnabled || false,
                       roundRobinEnabled: group.roundRobinEnabled || false,
-                      skillTags: (group.skillTags || []).join(', '),
+                      skillTags: Array.isArray(group.skillTags) ? group.skillTags.join(', ') : (group.skillTags || ''),
                       queueCapacity: group.queueCapacity || 50,
                       region: group.region || 'Global',
                       status: group.status || 'active'
@@ -394,8 +403,8 @@ export function Groups() {
                       <label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1.5">Manager</label>
                       <select value={form.managerId} onChange={e => setForm({...form, managerId: e.target.value})} className="w-full border border-border rounded-lg p-2.5 text-sm text-sn-dark focus:ring-2 focus:ring-sn-green outline-none h-11">
                         <option value="">-- Unassigned --</option>
-                        {users.filter(u => u.role === 'agent' || u.role === 'admin' || u.role === 'sub_admin').map(u => (
-                          <option key={u.id} value={u.uid}>{u.name || u.email}</option>
+                        {users.filter(u => u.role === 'agent' || u.role === 'admin' || u.role === 'sub_admin' || u.role === 'super_admin' || u.role === 'ultra_super_admin').map(u => (
+                          <option key={u.id} value={u.id}>{u.name || u.email}</option>
                         ))}
                       </select>
                     </div>
@@ -489,7 +498,7 @@ export function Groups() {
                       <select value={form.defaultAssigneeId} onChange={e => setForm({...form, defaultAssigneeId: e.target.value})} className="w-full border border-border rounded-lg p-2.5 text-sm text-sn-dark focus:ring-2 focus:ring-sn-green outline-none h-11">
                         <option value="">-- Unassigned --</option>
                         {users.filter(u => (selectedGroup?.memberIds || []).includes(u.id)).map(u => (
-                          <option key={u.id} value={u.uid}>{u.name || u.email}</option>
+                          <option key={u.id} value={u.id}>{u.name || u.email}</option>
                         ))}
                       </select>
                     </div>

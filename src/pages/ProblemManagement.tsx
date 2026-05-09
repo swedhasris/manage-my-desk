@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { collection, onSnapshot, addDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { AlertOctagon, Search, Plus, Clock, User, Activity, X } from "lucide-react";
+import { AlertOctagon, Search, Plus, Clock, User, Activity, X, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -89,7 +89,7 @@ export function ProblemManagement() {
               {problems.length === 0 ? "No problems recorded yet. Create the first one." : "No results found."}
             </div>
           ) : filtered.map(p => (
-            <div key={p.id} className="p-6 hover:bg-muted/10 transition-colors">
+            <div key={p.id} className="p-6 hover:bg-muted/10 transition-colors group">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-2 flex-grow">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -110,6 +110,19 @@ export function ProblemManagement() {
                       {formatDate(p.createdAt)}
                     </span>
                   </div>
+                </div>
+                <div className="flex flex-col items-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => alert("Edit problem feature coming soon!")} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="Edit Problem">
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button onClick={async () => {
+                    if (confirm(`Are you sure you want to delete problem ${p.id.slice(0,8)}?`)) {
+                      const { deleteDoc, doc } = await import("firebase/firestore");
+                      await deleteDoc(doc(db, "problems", p.id));
+                    }
+                  }} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors" title="Delete Problem">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>

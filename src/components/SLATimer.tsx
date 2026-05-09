@@ -13,6 +13,27 @@ interface SLATimerProps {
   waitUntil?: string | null;
 }
 
+/**
+ * Safely parse any date value (ISO string, Firestore timestamp object, or Date)
+ * into milliseconds. Returns NaN if unparseable.
+ */
+function toMs(val: any): number {
+  if (!val) return NaN;
+  // Firestore Timestamp object: { seconds: number, nanoseconds: number }
+  if (typeof val === 'object' && val.seconds !== undefined) {
+    return val.seconds * 1000 + (val.nanoseconds || 0) / 1_000_000;
+  }
+  // Firestore Timestamp with toDate()
+  if (typeof val === 'object' && typeof val.toDate === 'function') {
+    return val.toDate().getTime();
+  }
+  // Already a number (ms)
+  if (typeof val === 'number') return val;
+  // ISO string or any string Date can parse
+  const ms = new Date(val).getTime();
+  return ms;
+}
+
 export function SLATimer({
   label,
   deadline,
@@ -38,11 +59,14 @@ export function SLATimer({
 
     // SLA already met — freeze the display
     if (metAt) {
-      setStatus("met");
-      setDisplayTime("MET ✓");
-      setBreachDuration("");
-      setPercentage(100);
-      return;
+      const metMs = toMs(metAt);
+      if (!isNaN(metMs)) {
+        setStatus("met");
+        setDisplayTime("MET ✓");
+        setBreachDuration("");
+        setPercentage(100);
+        return;
+      }
     }
 
     // Resolution SLA: waiting for first response before starting
@@ -53,8 +77,8 @@ export function SLATimer({
       return;
     }
 
-    const deadlineMs = new Date(deadline).getTime();
-    const startMs = startTime ? new Date(startTime).getTime() : (deadlineMs - 24 * 3_600_000); // Default to 24h if no start time
+    const deadlineMs = toMs(deadline);
+    const startMs = startTime ? toMs(startTime) : (deadlineMs - 24 * 3_600_000); // Default to 24h if no start time
     
     if (isNaN(deadlineMs)) {
       setDisplayTime("--:--:--");
@@ -63,18 +87,20 @@ export function SLATimer({
 
     const tick = () => {
       const now = Date.now();
-      const effectiveNow =
-        isPaused && onHoldStart
-          ? new Date(onHoldStart).getTime()
-          : now;
+      let effectiveNow = now;
+      
+      if (isPaused && onHoldStart) {
+        const holdMs = toMs(onHoldStart);
+        if (!isNaN(holdMs)) effectiveNow = holdMs;
+      }
 
       // Adjust for paused time
       const diff = deadlineMs - effectiveNow + (totalPausedTime || 0);
-      const totalDuration = deadlineMs - startMs;
+      const totalDuration = deadlineMs - (isNaN(startMs) ? deadlineMs - 24 * 3_600_000 : startMs);
       
       // Calculate percentage used: (elapsed / total) * 100
-      const elapsed = effectiveNow - startMs - (totalPausedTime || 0);
-      const calculatedPercentage = Math.min(Math.max((elapsed / totalDuration) * 100, 0), 100);
+      const elapsed = effectiveNow - (isNaN(startMs) ? deadlineMs - 24 * 3_600_000 : startMs) - (totalPausedTime || 0);
+      const calculatedPercentage = totalDuration > 0 ? Math.min(Math.max((elapsed / totalDuration) * 100, 0), 100) : 0;
 
       if (diff <= 0) {
         // === BREACHED: Clamp display to 00:00:00 ===

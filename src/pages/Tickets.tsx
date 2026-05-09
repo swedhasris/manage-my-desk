@@ -1,35 +1,50 @@
 import React, { useEffect, useState } from "react";
-import { collection, addDoc, query, onSnapshot, updateDoc, doc, serverTimestamp, orderBy, where } from "firebase/firestore";
+import { collection, addDoc, query, onSnapshot, updateDoc, doc, serverTimestamp, orderBy, where, deleteDoc } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { ROLE_HIERARCHY, Role } from "../lib/roles";
-import { Plus, Filter, MoreVertical, Search } from "lucide-react";
+import { Plus, Filter, MoreVertical, Search, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
 import { useServiceCatalog } from "../lib/serviceCatalog";
 
 import { Link, useSearchParams } from "react-router-dom";
 
-function SLATimer({ deadline, metAt, isPaused, onHoldStart, totalPausedTime = 0, label, waitUntil }: { deadline: string, metAt?: string, isPaused?: boolean, onHoldStart?: string, totalPausedTime?: number, label: string, waitUntil?: string | null }) {
+function toMs(val: any): number {
+  if (!val) return NaN;
+  if (typeof val === 'object' && val.seconds !== undefined) return val.seconds * 1000 + (val.nanoseconds || 0) / 1_000_000;
+  if (typeof val === 'object' && typeof val.toDate === 'function') return val.toDate().getTime();
+  if (typeof val === 'number') return val;
+  return new Date(val).getTime();
+}
+
+function SLATimer({ deadline, metAt, isPaused, onHoldStart, totalPausedTime = 0, label, waitUntil, startTime }: { deadline: string, metAt?: string, isPaused?: boolean, onHoldStart?: string, totalPausedTime?: number, label: string, waitUntil?: string | null, startTime?: any }) {
   const [displayTime, setDisplayTime] = useState("");
   const [status, setStatus] = useState<"waiting" | "met" | "breached" | "active" | "paused">("active");
 
   useEffect(() => {
-    if (metAt) { setStatus("met"); setDisplayTime("MET ✓"); return; }
+    if (metAt) {
+      const metMs = toMs(metAt);
+      if (!isNaN(metMs)) { setStatus("met"); setDisplayTime("MET ✓"); return; }
+    }
 
     // Resolution waiting for response — only when waitUntil is explicitly passed as null/empty
     if (waitUntil !== undefined && (waitUntil === null || waitUntil === "")) {
       setStatus("waiting"); setDisplayTime("—"); return;
     }
 
-    const deadlineMs = new Date(deadline).getTime();
+    const deadlineMs = toMs(deadline);
     if (isNaN(deadlineMs)) { setDisplayTime("--:--:--"); return; }
 
     let timer: ReturnType<typeof setInterval> | null = null;
 
     const tick = () => {
       const now = Date.now();
-      const effectiveNow = (isPaused && onHoldStart) ? new Date(onHoldStart).getTime() : now;
+      let effectiveNow = now;
+      if (isPaused && onHoldStart) {
+        const holdMs = toMs(onHoldStart);
+        if (!isNaN(holdMs)) effectiveNow = holdMs;
+      }
       const diff = deadlineMs - effectiveNow + (totalPausedTime || 0);
 
       if (diff <= 0) {
@@ -122,7 +137,18 @@ export function Tickets() {
     impact: "2 - Medium",
     urgency: "2 - Medium",
     assignmentGroup: "",
-    assignedTo: ""
+    assignedTo: "",
+    businessPhone: "",
+    location: "",
+    configurationItem: "",
+    computerName: "",
+    knowledgeArticleUsed: false,
+    originalAssignmentGroup: "",
+    acknowledged: false,
+    passwordReset: "No",
+    rackspaceTicketNo: "",
+    additionalInformation: "",
+    affectedUser: ""
   });
 
   const [assignedTo, setAssignedTo] = useState("");
@@ -439,7 +465,18 @@ export function Tickets() {
         impact: "2 - Medium",
         urgency: "2 - Medium",
         assignmentGroup: "",
-        assignedTo: ""
+        assignedTo: "",
+        businessPhone: "",
+        location: "",
+        configurationItem: "",
+        computerName: "",
+        knowledgeArticleUsed: false,
+        originalAssignmentGroup: "",
+        acknowledged: false,
+        passwordReset: "No",
+        rackspaceTicketNo: "",
+        additionalInformation: "",
+        affectedUser: ""
       });
     } catch (error: any) {
       console.error("CRITICAL: Error creating ticket:", error);
@@ -519,6 +556,7 @@ export function Tickets() {
                 <th className="data-table-header p-2 text-[11px] font-bold uppercase tracking-tight">Assignment Group</th>
                 <th className="data-table-header p-2 text-[11px] font-bold uppercase tracking-tight">Assigned To</th>
                 <th className="data-table-header p-2 text-[11px] font-bold uppercase tracking-tight">SLA</th>
+                <th className="data-table-header p-2 text-[11px] font-bold uppercase tracking-tight text-right">Actions</th>
               </tr>
               <tr className="bg-white border-b border-border">
                 <td className="p-1.5"><input value={columnFilters.number} onChange={e => setColumnFilters({ ...columnFilters, number: e.target.value })} placeholder="Search" className="w-full p-1 border border-border rounded text-[11px] outline-none focus:ring-1 focus:ring-sn-green" /></td>
@@ -530,13 +568,14 @@ export function Tickets() {
                 <td className="p-1.5"><input value={columnFilters.assignmentGroup} onChange={e => setColumnFilters({ ...columnFilters, assignmentGroup: e.target.value })} placeholder="Search" className="w-full p-1 border border-border rounded text-[11px] outline-none focus:ring-1 focus:ring-sn-green" /></td>
                 <td className="p-1.5"><input value={columnFilters.assignedTo} onChange={e => setColumnFilters({ ...columnFilters, assignedTo: e.target.value })} placeholder="Search" className="w-full p-1 border border-border rounded text-[11px] outline-none focus:ring-1 focus:ring-sn-green" /></td>
                 <td className="p-1.5"></td>
+                <td className="p-1.5"></td>
               </tr>
             </thead>
             <tbody>
               {filteredTickets.map((ticket, idx) => {
                 const assignedAgent = agents.find(a => a.id === ticket.assignedTo);
                 return (
-                  <tr key={ticket.id} className="data-table-row border-b border-border hover:bg-muted/10 transition-colors">
+                  <tr key={ticket.id} className="data-table-row border-b border-border hover:bg-muted/10 transition-colors group">
                     <td className="p-2">
                       <Link to={`/tickets/${ticket.id}`} className="font-mono text-[11px] font-bold text-blue-600 hover:underline">
                         {ticket.number || `INC000${idx + 1}`}
@@ -581,6 +620,20 @@ export function Tickets() {
                         />
                       </div>
                     </td>
+                    <td className="p-2 text-right">
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Link to={`/tickets/${ticket.id}`} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="Edit Ticket">
+                          <Edit className="w-3.5 h-3.5" />
+                        </Link>
+                        <button onClick={async () => {
+                          if (confirm(`Are you sure you want to delete ticket ${ticket.number}?`)) {
+                            await deleteDoc(doc(db, "tickets", ticket.id));
+                          }
+                        }} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors" title="Delete Ticket">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -610,12 +663,15 @@ export function Tickets() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
                 {/* Left Column */}
                 <div className="space-y-4">
+                  {/* Number */}
                   <div className="grid grid-cols-3 items-center gap-4">
                     <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Number</label>
-                    <input disabled className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs font-mono"
+                    <input disabled className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs font-mono h-8"
                       value={previewNumber}
                     />
                   </div>
+
+                  {/* Reporting User */}
                   <div className="grid grid-cols-3 items-center gap-4">
                     <label className="text-[11px] text-right font-medium uppercase leading-tight flex items-center justify-end gap-1">
                       <span className="text-red-500">*</span> Reporting User
@@ -659,13 +715,16 @@ export function Tickets() {
                       )}
                     </div>
                   </div>
+
+                  {/* Affected User */}
                   <div className="grid grid-cols-3 items-center gap-4">
                     <label className="text-[11px] text-right font-medium uppercase leading-tight flex items-center justify-end gap-1">
-                      Affected User
+                      <span className="text-red-500">*</span> Affected User
                     </label>
                     <div className="col-span-2 relative">
                       <div className="flex gap-1">
                         <input
+                          required
                           placeholder="Search affected user..."
                           value={affectedSearch || newTicket.affectedUser || ''}
                           onChange={e => {
@@ -701,9 +760,37 @@ export function Tickets() {
                       )}
                     </div>
                   </div>
+
+                  {/* Business Phone */}
                   <div className="grid grid-cols-3 items-center gap-4">
-                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Category</label>
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Business phone</label>
+                    <input
+                      value={newTicket.businessPhone}
+                      onChange={e => setNewTicket({ ...newTicket, businessPhone: e.target.value })}
+                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8"
+                    />
+                  </div>
+
+                  {/* Location */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Location</label>
+                    <div className="col-span-2 flex gap-1">
+                      <input
+                        value={newTicket.location}
+                        onChange={e => setNewTicket({ ...newTicket, location: e.target.value })}
+                        className="flex-grow p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8"
+                      />
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Search className="w-3 h-3" /></Button>
+                    </div>
+                  </div>
+
+                  {/* Category */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">
+                      <span className="text-red-500">*</span> Category
+                    </label>
                     <select
+                      required
                       value={newTicket.categoryId}
                       onChange={e => {
                         const category = visibleCategories.find((item) => item.id === e.target.value);
@@ -717,42 +804,102 @@ export function Tickets() {
                       ))}
                     </select>
                   </div>
+
+                  {/* Configuration Item */}
                   <div className="grid grid-cols-3 items-center gap-4">
-                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Subcategory</label>
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Configuration item</label>
+                    <div className="col-span-2 flex gap-1">
+                      <input
+                        value={newTicket.configurationItem}
+                        onChange={e => setNewTicket({ ...newTicket, configurationItem: e.target.value })}
+                        className="flex-grow p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8"
+                      />
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Search className="w-3 h-3" /></Button>
+                    </div>
+                  </div>
+
+                  {/* Computer Name */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Computer Name</label>
+                    <div className="col-span-2 flex gap-1">
+                      <input
+                        value={newTicket.computerName}
+                        onChange={e => setNewTicket({ ...newTicket, computerName: e.target.value })}
+                        className="flex-grow p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8"
+                      />
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Search className="w-3 h-3" /></Button>
+                    </div>
+                  </div>
+
+                  {/* Impact */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Impact</label>
                     <select
-                      value={newTicket.subcategoryId}
-                      onChange={e => {
-                        const subcategory = visibleSubcategories.find((item) => item.id === e.target.value);
-                        setNewTicket({ ...newTicket, subcategoryId: e.target.value, subcategory: subcategory?.name || "" });
-                      }}
-                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green outline-none h-8"
+                      value={newTicket.impact}
+                      onChange={e => setNewTicket({ ...newTicket, impact: e.target.value })}
+                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8 transition-colors"
                     >
-                      <option value="">-- None --</option>
-                      {visibleSubcategories.map((item) => (
-                        <option key={item.id} value={item.id}>{item.name}</option>
-                      ))}
+                      <option>1 - High</option>
+                      <option>2 - Medium</option>
+                      <option>3 - Low</option>
                     </select>
                   </div>
+
+                  {/* Urgency */}
                   <div className="grid grid-cols-3 items-center gap-4">
-                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Service Provider</label>
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Urgency</label>
                     <select
-                      value={newTicket.serviceId}
-                      onChange={e => {
-                        const service = visibleProviders.find((item) => item.id === e.target.value);
-                        setNewTicket({ ...newTicket, serviceId: e.target.value, service: service?.name || "", serviceProvider: service?.name || "" });
-                      }}
-                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green outline-none h-8"
+                      value={newTicket.urgency}
+                      onChange={e => setNewTicket({ ...newTicket, urgency: e.target.value })}
+                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8 transition-colors"
                     >
-                      <option value="">-- None --</option>
-                      {visibleProviders.map((item) => (
-                        <option key={item.id} value={item.id}>{item.name}</option>
-                      ))}
+                      <option>1 - High</option>
+                      <option>2 - Medium</option>
+                      <option>3 - Low</option>
                     </select>
+                  </div>
+
+                  {/* Priority */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Priority</label>
+                    <input
+                      disabled
+                      className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs font-bold text-blue-600 h-8"
+                      value={calculatePriority(newTicket.impact, newTicket.urgency)}
+                    />
+                  </div>
+
+                  {/* Knowledge Article Used */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Knowledge Article Used?</label>
+                    <input
+                      type="checkbox"
+                      checked={newTicket.knowledgeArticleUsed}
+                      onChange={e => setNewTicket({ ...newTicket, knowledgeArticleUsed: e.target.checked })}
+                      className="w-4 h-4 accent-sn-green"
+                    />
                   </div>
                 </div>
 
                 {/* Right Column */}
                 <div className="space-y-4">
+                  {/* Opened */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Opened</label>
+                    <input disabled className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs h-8"
+                      value={new Date().toLocaleString()}
+                    />
+                  </div>
+
+                  {/* Opened by */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Opened by</label>
+                    <input disabled className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs h-8"
+                      value={profile?.name || user?.email || ""}
+                    />
+                  </div>
+
+                  {/* State */}
                   <div className="grid grid-cols-3 items-center gap-4">
                     <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">State</label>
                     <select
@@ -762,68 +909,122 @@ export function Tickets() {
                       <option>New</option>
                     </select>
                   </div>
-                  <div className="grid grid-cols-3 items-center gap-4">
-                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Impact</label>
-                    <select
-                      value={newTicket.impact}
-                      onChange={e => setNewTicket({ ...newTicket, impact: e.target.value })}
-                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8"
-                    >
-                      <option>1 - High</option>
-                      <option>2 - Medium</option>
-                      <option>3 - Low</option>
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-3 items-center gap-4">
-                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Urgency</label>
-                    <select
-                      value={newTicket.urgency}
-                      onChange={e => setNewTicket({ ...newTicket, urgency: e.target.value })}
-                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8"
-                    >
-                      <option>1 - High</option>
-                      <option>2 - Medium</option>
-                      <option>3 - Low</option>
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-3 items-center gap-4">
-                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Priority</label>
-                    <input
-                      disabled
-                      className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs font-bold text-blue-600 h-8"
-                      value={calculatePriority(newTicket.impact, newTicket.urgency)}
-                    />
-                  </div>
+
+                  {/* Assignment group */}
                   <div className="grid grid-cols-3 items-center gap-4">
                     <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Assignment group</label>
-                    <select
-                      value={newTicket.assignmentGroup}
-                      onChange={e => {
-                        const group = visibleGroups.find(g => g.name === e.target.value);
-                        setNewTicket({ ...newTicket, assignmentGroup: e.target.value, selectedGroupId: group?.id || "", assignedTo: "" });
-                      }}
-                      className="col-span-2 p-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-sn-green h-8"
-                    >
-                      <option value="">-- Auto Assign --</option>
-                      {visibleGroups.map((item) => (
-                        <option key={item.id} value={item.name}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="col-span-2 flex gap-1">
+                      <select
+                        value={newTicket.assignmentGroup}
+                        onChange={e => {
+                          const group = visibleGroups.find(g => g.name === e.target.value);
+                          setNewTicket({ ...newTicket, assignmentGroup: e.target.value, selectedGroupId: group?.id || "", assignedTo: "" });
+                        }}
+                        className="flex-grow p-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-sn-green h-8"
+                      >
+                        <option value="">-- Auto Assign --</option>
+                        {visibleGroups.map((item) => (
+                          <option key={item.id} value={item.name}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Search className="w-3 h-3" /></Button>
+                    </div>
                   </div>
+
+                  {/* Assigned to */}
                   <div className="grid grid-cols-3 items-center gap-4">
                     <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Assigned to</label>
+                    <div className="col-span-2 flex gap-1">
+                      <select
+                        value={newTicket.assignedTo}
+                        onChange={e => setNewTicket({ ...newTicket, assignedTo: e.target.value })}
+                        className="flex-grow p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8"
+                      >
+                        <option value="">-- Select Member --</option>
+                        {visibleMembers.map(m => (
+                          <option key={m.id} value={m.id}>{m.name || m.userName}</option>
+                        ))}
+                      </select>
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Search className="w-3 h-3" /></Button>
+                    </div>
+                  </div>
+
+                  {/* Original Assignment Group */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Original Assignment Group</label>
+                    <input disabled className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs h-8"
+                      value={newTicket.assignmentGroup || ""}
+                    />
+                  </div>
+
+                  {/* Acknowledged */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Acknowledged</label>
+                    <input
+                      type="checkbox"
+                      checked={newTicket.acknowledged}
+                      onChange={e => setNewTicket({ ...newTicket, acknowledged: e.target.checked })}
+                      className="w-4 h-4 accent-sn-green"
+                    />
+                  </div>
+
+                  {/* Channel */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Channel</label>
                     <select
-                      value={newTicket.assignedTo}
-                      onChange={e => setNewTicket({ ...newTicket, assignedTo: e.target.value })}
+                      value={newTicket.channel}
+                      onChange={e => setNewTicket({ ...newTicket, channel: e.target.value })}
                       className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8"
                     >
-                      <option value="">-- Select Member --</option>
-                      {visibleMembers.map(m => (
-                        <option key={m.id} value={m.id}>{m.name || m.userName}</option>
-                      ))}
+                      <option>Self-service</option>
+                      <option>Email</option>
+                      <option>Phone</option>
+                      <option>Chat</option>
+                      <option>Portal</option>
                     </select>
+                  </div>
+
+                  {/* Password Reset? */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Password Reset?</label>
+                    <select
+                      value={newTicket.passwordReset}
+                      onChange={e => setNewTicket({ ...newTicket, passwordReset: e.target.value })}
+                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8"
+                    >
+                      <option>No</option>
+                      <option>Yes</option>
+                    </select>
+                  </div>
+
+                  {/* Rackspace Ticket No */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Rackspace Ticket No</label>
+                    <input
+                      value={newTicket.rackspaceTicketNo}
+                      onChange={e => setNewTicket({ ...newTicket, rackspaceTicketNo: e.target.value })}
+                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8"
+                    />
+                  </div>
+
+                  {/* Additional Information */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Additional Information</label>
+                    <input
+                      value={newTicket.additionalInformation}
+                      onChange={e => setNewTicket({ ...newTicket, additionalInformation: e.target.value })}
+                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8"
+                    />
+                  </div>
+
+                  {/* SLA due */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">SLA due</label>
+                    <input disabled className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs font-mono h-8"
+                      value={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleString()}
+                    />
                   </div>
                 </div>
               </div>

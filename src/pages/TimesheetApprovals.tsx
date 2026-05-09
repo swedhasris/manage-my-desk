@@ -20,6 +20,8 @@ export function TimesheetApprovals() {
   const [statusFilter, setStatusFilter] = useState("Submitted");
   const [viewTs, setViewTs] = useState<any>(null);
   const [viewCards, setViewCards] = useState<any[]>([]);
+  const [viewActivities, setViewActivities] = useState<any[]>([]);
+  const [viewTab, setViewTab] = useState<"entries" | "screenshots">("entries");
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [loading, setLoading] = useState(true);
@@ -93,16 +95,27 @@ export function TimesheetApprovals() {
     if (!rejectId || !rejectReason.trim()) return;
     try {
       await fetch(`/api/timesheets/${rejectId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: "Rejected",
-          rejection_reason: rejectReason
-        })
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Rejected", rejection_reason: rejectReason })
       });
       setRejectId(null);
       setRejectReason("");
+      setViewTs(null);
       loadData();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleScreenshotApproval = async (actId: string, status: string) => {
+    try {
+      const res = await fetch(`/api/activity-entries/${actId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approval_status: status, approved_by: profile?.name || 'Admin' })
+      });
+      if (res.ok) {
+        setViewActivities(prev => prev.map(a => a.id === actId ? { ...a, approval_status: status, approved_by: profile?.name || 'Admin' } : a));
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -123,10 +136,17 @@ export function TimesheetApprovals() {
 
   const handleView = async (ts: any) => {
     setViewTs(ts);
+    setViewTab("entries");
     try {
+      // Fetch time cards
       const tcRes = await fetch(`/api/time-cards?timesheet_id=${ts.id}`);
       const cards = await tcRes.json();
       setViewCards(cards);
+
+      // Fetch AI activity snapshots (screenshots)
+      const actRes = await fetch(`/api/activity-entries?user_id=${ts.user_id}&start_date=${ts.week_start}&end_date=${ts.week_end}&limit=200`);
+      const activities = await actRes.json();
+      setViewActivities(activities);
     } catch (e) { console.error(e); }
   };
 
@@ -256,29 +276,126 @@ export function TimesheetApprovals() {
                 <div><span className="text-muted-foreground">Submitted:</span> <span className="ml-1">{formatDate(viewTs.submitted_at)}</span></div>
                 {viewTs.rejection_reason && <div className="col-span-2 text-red-600"><span className="font-medium">Rejection:</span> {viewTs.rejection_reason}</div>}
               </div>
-              <div>
-                <h4 className="font-semibold text-sm mb-2">Time Entries ({viewCards.length})</h4>
-                <table className="w-full text-sm border border-border rounded overflow-hidden">
-                  <thead><tr className="bg-muted/30 text-[10px] uppercase font-bold text-muted-foreground">
-                    <th className="p-2 text-left">Date</th>
-                    <th className="p-2 text-left">Task</th>
-                    <th className="p-2 text-right">Minutes</th>
-                    <th className="p-2 text-left">Notes</th>
-                  </tr></thead>
-                  <tbody className="divide-y divide-border">
-                    {viewCards.length === 0 ? (
-                      <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">No entries</td></tr>
-                    ) : viewCards.map(c => (
-                      <tr key={c.id}>
-                        <td className="p-2">{c.entry_date?.substring?.(0,10) || "—"}</td>
-                        <td className="p-2 font-medium">{c.task || c.taskId || "—"}</td>
-                        <td className="p-2 text-right font-bold">{(parseFloat(c.hours_worked) || 0).toFixed(0)}</td>
-                        <td className="p-2 text-muted-foreground">{c.description || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex border-b border-border mb-4">
+                <button onClick={() => setViewTab("entries")}
+                  className={cn("px-4 py-2 text-sm font-bold border-b-2 transition-colors", viewTab === "entries" ? "border-sn-green text-sn-dark" : "border-transparent text-muted-foreground")}>
+                  Time Entries ({viewCards.length})
+                </button>
+                <button onClick={() => setViewTab("screenshots")}
+                  className={cn("px-4 py-2 text-sm font-bold border-b-2 transition-colors", viewTab === "screenshots" ? "border-blue-600 text-blue-600" : "border-transparent text-muted-foreground")}>
+                  AI Evidence ({viewActivities.length})
+                </button>
+                {viewTs.screenshot_url && (
+                  <button onClick={() => setViewTab("submission_screenshot" as any)}
+                    className={cn("px-4 py-2 text-sm font-bold border-b-2 transition-colors", viewTab === "submission_screenshot" ? "border-purple-600 text-purple-600" : "border-transparent text-muted-foreground")}>
+                    Submission Screenshot
+                  </button>
+                )}
               </div>
+
+              {viewTab === "entries" ? (
+                <div>
+                  <table className="w-full text-sm border border-border rounded overflow-hidden">
+                    <thead><tr className="bg-muted/30 text-[10px] uppercase font-bold text-muted-foreground">
+                      <th className="p-2 text-left">Date</th>
+                      <th className="p-2 text-left">Task</th>
+                      <th className="p-2 text-right">Minutes</th>
+                      <th className="p-2 text-left">Notes</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-border">
+                      {viewCards.length === 0 ? (
+                        <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">No entries</td></tr>
+                      ) : viewCards.map(c => (
+                        <tr key={c.id}>
+                          <td className="p-2">{c.entry_date?.substring?.(0, 10) || "—"}</td>
+                          <td className="p-2 font-medium">{c.task || c.taskId || "—"}</td>
+                          <td className="p-2 text-right font-bold">{(parseFloat(c.hours_worked) || 0).toFixed(0)}</td>
+                          <td className="p-2 text-muted-foreground">{c.description || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : viewTab === "submission_screenshot" ? (
+                <div className="space-y-4">
+                  <p className="text-xs text-muted-foreground italic">This screenshot was captured automatically when the user clicked 'Submit'.</p>
+                  <div className="border border-border rounded-lg overflow-hidden group cursor-zoom-in" onClick={() => window.open(viewTs.screenshot_url, '_blank')}>
+                    <img src={viewTs.screenshot_url} alt="Submission Screenshot" className="w-full h-auto max-h-[500px] object-contain bg-black/5" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                      <Eye className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 drop-shadow-md" />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  {viewActivities.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground text-sm italic">No screenshots or AI activity recorded for this period.</div>
+                  ) : viewActivities.map((act, i) => (
+                    <div key={act.id || i} className={cn("bg-muted/10 border rounded-lg overflow-hidden transition-colors", 
+                      act.approval_status === 'Approved' ? 'border-green-300 bg-green-50/50' : 
+                      act.approval_status === 'Rejected' ? 'border-red-300 bg-red-50/50' : 'border-border')}>
+                      <div className={cn("flex items-center justify-between p-2 border-b",
+                        act.approval_status === 'Approved' ? 'bg-green-100/50 border-green-200' : 
+                        act.approval_status === 'Rejected' ? 'bg-red-100/50 border-red-200' : 'bg-muted/20 border-border')}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded uppercase">{act.activity_label || "Active"}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">{new Date(act.captured_at).toLocaleString()}</span>
+                          {act.approval_status !== 'Pending' && (
+                            <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ml-2",
+                              act.approval_status === 'Approved' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800')}>
+                              {act.approval_status}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-[10px] text-muted-foreground">
+                            {act.keystrokes} Keys · {act.clicks} Clicks
+                          </div>
+                          {act.approval_status === 'Pending' && (
+                            <div className="flex gap-1">
+                              <button onClick={() => handleScreenshotApproval(act.id, 'Approved')} className="p-1 text-green-600 hover:bg-green-100 rounded" title="Approve">
+                                <CheckCircle className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleScreenshotApproval(act.id, 'Rejected')} className="p-1 text-red-600 hover:bg-red-100 rounded" title="Reject">
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                          {act.approval_status !== 'Pending' && (
+                            <button onClick={() => handleScreenshotApproval(act.id, 'Pending')} className="text-[10px] text-muted-foreground hover:underline ml-2">
+                              Undo
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-4 p-3">
+                        {act.screenshot_url && (
+                          <div className="w-1/3 flex-shrink-0 group relative cursor-zoom-in" onClick={() => window.open(act.screenshot_url, '_blank')}>
+                            <img src={act.screenshot_url} alt="Activity" className="w-full h-24 object-cover rounded border border-border" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                              <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100" />
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0 flex flex-col">
+                          <p className="text-xs text-sn-dark font-medium leading-relaxed mb-1 line-clamp-3 italic">
+                            "{act.description || "User was working on system tasks."}"
+                          </p>
+                          <div className="flex items-center justify-between mt-auto">
+                            <div className="flex items-center gap-2">
+                               <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                               <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">AI Verified • {Math.round(act.confidence * 100 || 90)}% Confidence</span>
+                            </div>
+                            {act.approved_by && act.approval_status !== 'Pending' && (
+                              <span className="text-[9px] text-muted-foreground">by {act.approved_by}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

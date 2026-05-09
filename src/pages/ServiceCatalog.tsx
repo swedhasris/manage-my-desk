@@ -11,7 +11,9 @@ import {
   Search,
   ChevronRight,
   ShoppingCart,
-  Clock
+  Clock,
+  Edit,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -112,22 +114,42 @@ export function ServiceCatalog() {
               {section.items.map((item) => (
                 <div 
                   key={item.id}
-                  onClick={() => {
-                    setSelectedItem({ ...item, category: section.category });
-                    setIsModalOpen(true);
-                  }}
                   className="sn-card p-4 flex items-center gap-4 hover:border-sn-green transition-all cursor-pointer group"
                 >
-                  <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center group-hover:bg-sn-green/10 transition-colors">
+                  <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center group-hover:bg-sn-green/10 transition-colors" onClick={() => {
+                    setSelectedItem({ ...item, category: section.category });
+                    setIsModalOpen(true);
+                  }}>
                     <item.icon className="w-6 h-6 text-sn-dark group-hover:text-sn-green" />
                   </div>
-                  <div className="flex-grow">
+                  <div className="flex-grow" onClick={() => {
+                    setSelectedItem({ ...item, category: section.category });
+                    setIsModalOpen(true);
+                  }}>
                     <div className="font-bold text-sn-dark">{item.name}</div>
                     <div className="text-xs text-muted-foreground line-clamp-1">{item.description}</div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right flex items-center gap-2">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {profile && ["admin", "super_admin", "ultra_super_admin"].includes(profile.role) && (
+                        <>
+                          <button onClick={e => {
+                            e.stopPropagation();
+                            alert("Edit catalog item coming soon!");
+                          }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="Edit Item">
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button onClick={e => {
+                            e.stopPropagation();
+                            alert("Delete catalog item coming soon!");
+                          }} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors" title="Delete Item">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                     <div className="text-sm font-bold text-sn-green">{item.price}</div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
+                    <ChevronRight className="w-4 h-4 text-muted-foreground ml-2" />
                   </div>
                 </div>
               ))}

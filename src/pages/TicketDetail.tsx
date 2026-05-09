@@ -154,7 +154,7 @@ export function TicketDetail() {
 
     try {
       const historyEntries: any[] = [];
-      const fields = ["category", "categoryId", "subcategory", "subcategoryId", "service", "serviceId", "serviceProvider", "status", "impact", "urgency", "assignmentGroup", "title", "description", "assignedTo", "affectedUser", "resolutionCode", "resolutionNotes", "resolutionMethod", "closureReason", "watchList", "workNotesList"];
+      const fields = ["category", "categoryId", "subcategory", "subcategoryId", "service", "serviceId", "serviceProvider", "status", "impact", "urgency", "assignmentGroup", "title", "description", "assignedTo", "affectedUser", "resolutionCode", "resolutionNotes", "resolutionMethod", "closureReason", "watchList", "workNotesList", "businessPhone", "location", "configurationItem", "computerName", "knowledgeArticleUsed", "originalAssignmentGroup", "acknowledged", "passwordReset", "rackspaceTicketNo", "additionalInformation"];
 
       const fieldChanges: any[] = [];
 
@@ -201,8 +201,21 @@ export function TicketDetail() {
 
         // Stop Response SLA if the state is changed out of "New" (i.e. acknowledging the ticket)
         if (editedTicket.status !== "New" && !ticket.firstResponseAt) {
-          updates.firstResponseAt = new Date().toISOString();
+          const responseNow = new Date();
+          updates.firstResponseAt = responseNow.toISOString();
           updates.responseSlaStatus = "Completed";
+
+          // START Resolution SLA from this moment
+          // Calculate the original resolution window and shift it to start now
+          if (ticket.resolutionDeadline && ticket.responseDeadline) {
+            const origResDeadline = new Date(ticket.resolutionDeadline).getTime();
+            const origRespDeadline = new Date(ticket.responseDeadline).getTime();
+            if (!isNaN(origResDeadline) && !isNaN(origRespDeadline)) {
+              const resolutionWindow = origResDeadline - origRespDeadline; // pure resolution time in ms
+              updates.resolutionDeadline = new Date(responseNow.getTime() + resolutionWindow).toISOString();
+              updates.resolutionSlaStartTime = responseNow.toISOString();
+            }
+          }
         }
 
         if (isResolved && !ticket.resolvedAt) {
@@ -394,7 +407,20 @@ export function TicketDetail() {
       try {
         const now = new Date().toISOString();
         const updates: any = { updatedAt: serverTimestamp(), history: [...(ticket.history || []), { action: "Comment Added", timestamp: now, user: profile?.name || user.email }] };
-        if (!ticket.firstResponseAt) { updates.firstResponseAt = now; updates.responseSlaStatus = "Completed"; }
+        if (!ticket.firstResponseAt) {
+          updates.firstResponseAt = now;
+          updates.responseSlaStatus = "Completed";
+          // START Resolution SLA from this moment
+          if (ticket.resolutionDeadline && ticket.responseDeadline) {
+            const origResDeadline = new Date(ticket.resolutionDeadline).getTime();
+            const origRespDeadline = new Date(ticket.responseDeadline).getTime();
+            if (!isNaN(origResDeadline) && !isNaN(origRespDeadline)) {
+              const resolutionWindow = origResDeadline - origRespDeadline;
+              updates.resolutionDeadline = new Date(new Date(now).getTime() + resolutionWindow).toISOString();
+              updates.resolutionSlaStartTime = now;
+            }
+          }
+        }
         await updateDoc(doc(db, "tickets", id), updates);
       } catch (e) { /* Firestore update non-critical */ }
 
@@ -434,7 +460,20 @@ export function TicketDetail() {
       try {
         const now = new Date().toISOString();
         const updates: any = { updatedAt: serverTimestamp(), history: [...(ticket.history || []), { action: "Work Note Added", timestamp: now, user: profile?.name || user.email }] };
-        if (!ticket.firstResponseAt) { updates.firstResponseAt = now; updates.responseSlaStatus = "Completed"; }
+        if (!ticket.firstResponseAt) {
+          updates.firstResponseAt = now;
+          updates.responseSlaStatus = "Completed";
+          // START Resolution SLA from this moment
+          if (ticket.resolutionDeadline && ticket.responseDeadline) {
+            const origResDeadline = new Date(ticket.resolutionDeadline).getTime();
+            const origRespDeadline = new Date(ticket.responseDeadline).getTime();
+            if (!isNaN(origResDeadline) && !isNaN(origRespDeadline)) {
+              const resolutionWindow = origResDeadline - origRespDeadline;
+              updates.resolutionDeadline = new Date(new Date(now).getTime() + resolutionWindow).toISOString();
+              updates.resolutionSlaStartTime = now;
+            }
+          }
+        }
         await updateDoc(doc(db, "tickets", id), updates);
       } catch (e) { /* Firestore update non-critical */ }
 
@@ -840,19 +879,58 @@ export function TicketDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         <div className="bg-white border border-border rounded-lg shadow-sm p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-            <div className="space-y-4">
+              {/* Number */}
               <div className="grid grid-cols-3 items-center gap-4">
                 <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Number</label>
-                <input readOnly className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs font-mono" value={ticket.number} />
+                <input readOnly className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs font-mono h-8" value={ticket.number} />
               </div>
+
+              {/* Reporting User */}
               <div className="grid grid-cols-3 items-center gap-4">
                 <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Reporting User</label>
-                <input readOnly className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs" value={ticket.caller || ''} />
+                <div className="col-span-2 flex gap-1">
+                  <input readOnly className="flex-grow p-1.5 bg-muted/30 border border-border rounded text-xs h-8" value={ticket.caller || ''} />
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Search className="w-3 h-3" /></Button>
+                </div>
               </div>
+
+              {/* Affected User */}
               <div className="grid grid-cols-3 items-center gap-4">
                 <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Affected User</label>
-                <input readOnly className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs" value={ticket.affected_user || ticket.affectedUser || '-'} />
+                <div className="col-span-2 flex gap-1">
+                  <input
+                    value={editedTicket?.affectedUser || ""}
+                    onChange={(e) => updateLocalField("affectedUser", e.target.value)}
+                    className="flex-grow p-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-sn-green h-8"
+                  />
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Search className="w-3 h-3" /></Button>
+                </div>
               </div>
+
+              {/* Business Phone */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Business phone</label>
+                <input
+                  value={editedTicket?.businessPhone || ""}
+                  onChange={(e) => updateLocalField("businessPhone", e.target.value)}
+                  className="col-span-2 p-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-sn-green h-8"
+                />
+              </div>
+
+              {/* Location */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Location</label>
+                <div className="col-span-2 flex gap-1">
+                  <input
+                    value={editedTicket?.location || ""}
+                    onChange={(e) => updateLocalField("location", e.target.value)}
+                    className="flex-grow p-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-sn-green h-8"
+                  />
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Search className="w-3 h-3" /></Button>
+                </div>
+              </div>
+
+              {/* Category */}
               <div className="grid grid-cols-3 items-center gap-4">
                 <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Category</label>
                 <select
@@ -861,75 +939,132 @@ export function TicketDetail() {
                     const category = visibleCategories.find((item) => item.id === e.target.value);
                     setEditedTicket((prev: any) => ({ ...prev, categoryId: e.target.value, category: category?.name || "", subcategoryId: "", subcategory: "", serviceId: "", service: "", serviceProvider: "", assignmentGroup: "" }));
                   }}
-                  className="col-span-2 p-1.5 border border-border rounded text-xs outline-none h-8"
+                  className="col-span-2 p-1.5 border border-border rounded text-xs outline-none h-8 transition-colors focus:ring-1 focus:ring-sn-green"
                 >
                   {visibleCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
               </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Subcategory</label>
-                <select
-                  value={editedTicket?.subcategoryId || ""}
-                  onChange={(e) => {
-                    const subcategory = visibleSubcategories.find((item) => item.id === e.target.value);
-                    setEditedTicket((prev: any) => ({ ...prev, subcategoryId: e.target.value, subcategory: subcategory?.name || "", serviceId: "", service: "", serviceProvider: "", assignmentGroup: "" }));
-                  }}
-                  className="col-span-2 p-1.5 border border-border rounded text-xs outline-none h-8"
-                >
-                  <option value="">-- None --</option>
-                  {visibleSubcategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                </select>
-              </div>
-              <div className="grid grid-cols-3 items-center gap-4">
-                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Service Provider</label>
-                <select
-                  value={editedTicket?.serviceId || ""}
-                  onChange={(e) => {
-                    const service = visibleProviders.find((item) => item.id === e.target.value);
-                    setEditedTicket((prev: any) => ({ ...prev, serviceId: e.target.value, service: service?.name || "", serviceProvider: service?.name || "", assignmentGroup: "" }));
-                  }}
-                  className="col-span-2 p-1.5 border border-border rounded text-xs outline-none h-8"
-                >
-                  <option value="">-- Select Service --</option>
-                  {visibleProviders.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                </select>
-              </div>
-            </div>
 
-            <div className="space-y-4">
+              {/* Configuration Item */}
               <div className="grid grid-cols-3 items-center gap-4">
-                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">State</label>
-                <select value={editedTicket?.status || ""} onChange={(e) => updateLocalField("status", e.target.value)} className="col-span-2 p-1.5 border border-border rounded text-xs outline-none h-8">
-                  {["New", "In Progress", "On Hold", "Awaiting User", "Awaiting Vendor", "Resolved", "Closed", "Canceled"].map(s => <option key={s} value={s}>{s}</option>)}
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Configuration item</label>
+                <div className="col-span-2 flex gap-1">
+                  <input
+                    value={editedTicket?.configurationItem || ""}
+                    onChange={(e) => updateLocalField("configurationItem", e.target.value)}
+                    className="flex-grow p-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-sn-green h-8"
+                  />
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Search className="w-3 h-3" /></Button>
+                </div>
+              </div>
+
+              {/* Computer Name */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Computer Name</label>
+                <div className="col-span-2 flex gap-1">
+                  <input
+                    value={editedTicket?.computerName || ""}
+                    onChange={(e) => updateLocalField("computerName", e.target.value)}
+                    className="flex-grow p-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-sn-green h-8"
+                  />
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Search className="w-3 h-3" /></Button>
+                </div>
+              </div>
+
+              {/* Impact */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Impact</label>
+                <select
+                  value={editedTicket?.impact || ""}
+                  onChange={(e) => updateLocalField("impact", e.target.value)}
+                  className="col-span-2 p-1.5 border border-border rounded text-xs h-8 outline-none focus:ring-1 focus:ring-sn-green transition-colors"
+                >
+                  <option>1 - High</option>
+                  <option>2 - Medium</option>
+                  <option>3 - Low</option>
                 </select>
               </div>
+
+              {/* Urgency */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Urgency</label>
+                <select
+                  value={editedTicket?.urgency || ""}
+                  onChange={(e) => updateLocalField("urgency", e.target.value)}
+                  className="col-span-2 p-1.5 border border-border rounded text-xs h-8 outline-none focus:ring-1 focus:ring-sn-green transition-colors"
+                >
+                  <option>1 - High</option>
+                  <option>2 - Medium</option>
+                  <option>3 - Low</option>
+                </select>
+              </div>
+
+              {/* Priority */}
               <div className="grid grid-cols-3 items-center gap-4">
                 <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Priority</label>
                 <input readOnly className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs font-bold text-blue-600 h-8" value={editedTicket?.priority || ""} />
               </div>
+
+              {/* Knowledge Article Used */}
               <div className="grid grid-cols-3 items-center gap-4">
-                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Assignment group</label>
-                <select className="col-span-2 p-1.5 border border-border rounded text-xs outline-none h-8" value={editedTicket?.assignmentGroup || ""} onChange={(e) => updateLocalField("assignmentGroup", e.target.value)}>
-                  <option value="">-- None --</option>
-                  {/* Show current value if it's not in the filtered list */}
-                  {editedTicket?.assignmentGroup && !visibleGroups.some(g => g.name === editedTicket.assignmentGroup) && (
-                    <option value={editedTicket.assignmentGroup}>{editedTicket.assignmentGroup}</option>
-                  )}
-                  {(visibleGroups.length > 0 ? visibleGroups : groups.filter(g => g.status === 'active')).map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Knowledge Article Used?</label>
+                <input
+                  type="checkbox"
+                  checked={editedTicket?.knowledgeArticleUsed || false}
+                  onChange={(e) => updateLocalField("knowledgeArticleUsed", e.target.checked as any)}
+                  className="w-4 h-4 accent-sn-green"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Opened */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Opened</label>
+                <input readOnly className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs h-8" value={formatDate(ticket.createdAt)} />
+              </div>
+
+              {/* Opened by */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Opened by</label>
+                <input readOnly className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs h-8" value={ticket.createdByEmail || ticket.createdBy || '-'} />
+              </div>
+
+              {/* State */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">State</label>
+                <select value={editedTicket?.status || ""} onChange={(e) => updateLocalField("status", e.target.value)} className="col-span-2 p-1.5 border border-border rounded text-xs outline-none h-8 focus:ring-1 focus:ring-sn-green transition-colors">
+                  {["New", "In Progress", "On Hold", "Awaiting User", "Awaiting Vendor", "Resolved", "Closed", "Canceled"].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
+
+              {/* Assignment group */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Assignment group</label>
+                <div className="col-span-2 flex gap-1">
+                  <select className="flex-grow p-1.5 border border-border rounded text-xs outline-none h-8 focus:ring-1 focus:ring-sn-green" value={editedTicket?.assignmentGroup || ""} onChange={(e) => updateLocalField("assignmentGroup", e.target.value)}>
+                    <option value="">-- None --</option>
+                    {editedTicket?.assignmentGroup && !visibleGroups.some(g => g.name === editedTicket.assignmentGroup) && (
+                      <option value={editedTicket.assignmentGroup}>{editedTicket.assignmentGroup}</option>
+                    )}
+                    {(visibleGroups.length > 0 ? visibleGroups : groups.filter(g => g.status === 'active')).map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
+                  </select>
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Search className="w-3 h-3" /></Button>
+                </div>
+              </div>
+
+              {/* Assigned to */}
               <div className="grid grid-cols-3 items-center gap-4">
                 <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Assigned to</label>
                 <div className="col-span-2 flex gap-1">
-                  <select className="flex-grow p-1.5 border border-border rounded text-xs outline-none h-8" value={editedTicket?.assignedTo || ""} onChange={(e) => updateLocalField("assignedTo", e.target.value)}>
+                  <select className="flex-grow p-1.5 border border-border rounded text-xs outline-none h-8 focus:ring-1 focus:ring-sn-green" value={editedTicket?.assignedTo || ""} onChange={(e) => updateLocalField("assignedTo", e.target.value)}>
                     <option value="">-- None --</option>
-                    {/* Show current assigned user if they are not in the filtered list (Legacy support) */}
                     {editedTicket?.assignedTo && !filteredAgents.some(a => a.id === editedTicket.assignedTo || a.uid === editedTicket.assignedTo) && (
                       <option value={editedTicket.assignedTo}>{editedTicket.assignedToName || editedTicket.assignedTo} (Current)</option>
                     )}
                     {filteredAgents.map(agent => (
                       <option key={agent.id} value={agent.uid || agent.id}>
-                        {agent.name || agent.email} {agent.currentWorkload !== undefined ? `(${agent.currentWorkload} tasks)` : ''}
+                        {agent.name || agent.email}
                       </option>
                     ))}
                   </select>
@@ -937,7 +1072,7 @@ export function TicketDetail() {
                     variant="outline"
                     size="sm"
                     className="h-8 px-2 bg-sn-green/10 text-sn-green border-sn-green/20 hover:bg-sn-green/20"
-                    title="Auto-Assign to least loaded member"
+                    title="Auto-Assign"
                     onClick={() => {
                       if (filteredAgents.length === 0) return;
                       const leastLoaded = [...filteredAgents].sort((a, b) => (a.currentWorkload || 0) - (b.currentWorkload || 0))[0];
@@ -949,39 +1084,81 @@ export function TicketDetail() {
                   </Button>
                 </div>
               </div>
+
+              {/* Original Assignment Group */}
               <div className="grid grid-cols-3 items-center gap-4">
-                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Watch list</label>
-                <div className="col-span-2 relative">
-                  <div className="flex gap-1">
-                    <div className="relative flex-1">
-                      <Users className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                      <input
-                        value={editedTicket.watchList || ""}
-                        onChange={(e) => updateLocalField("watchList", e.target.value)}
-                        placeholder="Add users to watch list..."
-                        className="w-full pl-7 pr-3 py-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-sn-green"
-                      />
-                    </div>
-                    <Button variant="outline" size="sm" className="h-8 px-2"><Search className="w-3.5 h-3.5" /></Button>
-                  </div>
-                </div>
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Original Assignment Group</label>
+                <input readOnly className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs h-8"
+                  value={editedTicket?.originalAssignmentGroup || editedTicket?.assignmentGroup || ""}
+                />
               </div>
+
+              {/* Acknowledged */}
               <div className="grid grid-cols-3 items-center gap-4">
-                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Work notes list</label>
-                <div className="col-span-2 relative">
-                  <div className="flex gap-1">
-                    <div className="relative flex-1">
-                      <Lock className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                      <input
-                        value={editedTicket.workNotesList || ""}
-                        onChange={(e) => updateLocalField("workNotesList", e.target.value)}
-                        placeholder="Add users to work notes list..."
-                        className="w-full pl-7 pr-3 py-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-amber-500"
-                      />
-                    </div>
-                    <Button variant="outline" size="sm" className="h-8 px-2"><Search className="w-3.5 h-3.5" /></Button>
-                  </div>
-                </div>
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Acknowledged</label>
+                <input
+                  type="checkbox"
+                  checked={editedTicket?.acknowledged || false}
+                  onChange={(e) => updateLocalField("acknowledged", e.target.checked as any)}
+                  className="w-4 h-4 accent-sn-green"
+                />
+              </div>
+
+              {/* Channel */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Channel</label>
+                <select
+                  value={editedTicket?.channel || "Self-service"}
+                  onChange={(e) => updateLocalField("channel", e.target.value)}
+                  className="col-span-2 p-1.5 border border-border rounded text-xs h-8 focus:ring-1 focus:ring-sn-green"
+                >
+                  <option>Self-service</option>
+                  <option>Email</option>
+                  <option>Phone</option>
+                  <option>Chat</option>
+                  <option>Portal</option>
+                </select>
+              </div>
+
+              {/* Password Reset? */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Password Reset?</label>
+                <select
+                  value={editedTicket?.passwordReset || "No"}
+                  onChange={(e) => updateLocalField("passwordReset", e.target.value)}
+                  className="col-span-2 p-1.5 border border-border rounded text-xs h-8 focus:ring-1 focus:ring-sn-green"
+                >
+                  <option>No</option>
+                  <option>Yes</option>
+                </select>
+              </div>
+
+              {/* Rackspace Ticket No */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Rackspace Ticket No</label>
+                <input
+                  value={editedTicket?.rackspaceTicketNo || ""}
+                  onChange={(e) => updateLocalField("rackspaceTicketNo", e.target.value)}
+                  className="col-span-2 p-1.5 border border-border rounded text-xs h-8 focus:ring-1 focus:ring-sn-green"
+                />
+              </div>
+
+              {/* Additional Information */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Additional Information</label>
+                <input
+                  value={editedTicket?.additionalInformation || ""}
+                  onChange={(e) => updateLocalField("additionalInformation", e.target.value)}
+                  className="col-span-2 p-1.5 border border-border rounded text-xs h-8 focus:ring-1 focus:ring-sn-green"
+                />
+              </div>
+
+              {/* SLA due */}
+              <div className="grid grid-cols-3 items-center gap-4">
+                <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">SLA due</label>
+                <input readOnly className="col-span-2 p-1.5 bg-muted/30 border border-border rounded text-xs font-mono h-8"
+                  value={formatDate(ticket.resolutionDeadline)}
+                />
               </div>
             </div>
 

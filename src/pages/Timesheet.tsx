@@ -400,7 +400,7 @@ export function Timesheet() {
   }
 
   async function submitTimesheet() {
-    if (!confirm("Submit this timesheet for approval?")) return;
+    if (!confirm("Submit this timesheet, including AI-captured screenshots and activity logs, to the Admin, Super Admin, and Ultra Super Admin for approval?")) return;
     if (timeCards.length === 0) { alert("Cannot submit empty timesheet."); return; }
     try {
       const res = await fetch(`/api/timesheets/${timesheet.id}`, {

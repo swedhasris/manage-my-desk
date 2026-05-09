@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { collection, query, onSnapshot, addDoc, deleteDoc, doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { Plus, Trash2, ShieldAlert, Clock, Save, X } from "lucide-react";
+import { Plus, Trash2, ShieldAlert, Clock, Save, X, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function SLAManagement() {
@@ -10,6 +10,7 @@ export function SLAManagement() {
   const isAdmin = ["admin", "super_admin", "ultra_super_admin"].includes(profile?.role);
   const [policies, setPolicies] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null);
   const [newPolicy, setNewPolicy] = useState({
     name: "",
     priority: "3 - Moderate",
@@ -27,14 +28,22 @@ export function SLAManagement() {
     return unsubscribe;
   }, []);
 
-  const handleCreatePolicy = async (e: React.FormEvent) => {
+  const handleCreateOrUpdatePolicy = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await addDoc(collection(db, "sla_policies"), {
-        ...newPolicy,
-        createdAt: serverTimestamp()
-      });
+      if (selectedPolicyId) {
+        await updateDoc(doc(db, "sla_policies", selectedPolicyId), {
+          ...newPolicy,
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        await addDoc(collection(db, "sla_policies"), {
+          ...newPolicy,
+          createdAt: serverTimestamp()
+        });
+      }
       setIsModalOpen(false);
+      setSelectedPolicyId(null);
       setNewPolicy({
         name: "",
         priority: "3 - Moderate",
@@ -44,7 +53,7 @@ export function SLAManagement() {
         isActive: true
       });
     } catch (error) {
-      console.error("Error creating policy:", error);
+      console.error("Error saving policy:", error);
     }
   };
 
@@ -67,7 +76,7 @@ export function SLAManagement() {
           <p className="text-muted-foreground">Define and manage Service Level Agreements.</p>
         </div>
         {isAdmin && (
-          <Button onClick={() => setIsModalOpen(true)} className="bg-sn-green text-sn-dark font-bold">
+          <Button onClick={() => { setSelectedPolicyId(null); setNewPolicy({ name: "", priority: "3 - Moderate", category: "Inquiry / Help", responseTimeHours: 4, resolutionTimeHours: 24, isActive: true }); setIsModalOpen(true); }} className="bg-sn-green text-sn-dark font-bold">
             <Plus className="w-4 h-4 mr-2" /> Create SLA Policy
           </Button>
         )}
@@ -104,7 +113,21 @@ export function SLAManagement() {
                   </span>
                 </td>
                 {isAdmin && (
-                  <td className="p-4">
+                  <td className="p-4 flex gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => {
+                      setSelectedPolicyId(policy.id);
+                      setNewPolicy({
+                        name: policy.name,
+                        priority: policy.priority,
+                        category: policy.category,
+                        responseTimeHours: policy.responseTimeHours,
+                        resolutionTimeHours: policy.resolutionTimeHours,
+                        isActive: policy.isActive
+                      });
+                      setIsModalOpen(true);
+                    }} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                      <Edit className="w-4 h-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => handleDeletePolicy(policy.id)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -120,12 +143,12 @@ export function SLAManagement() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
             <div className="p-6 border-b border-border flex items-center justify-between bg-muted/30">
-              <h2 className="text-xl font-bold">Create SLA Policy</h2>
-              <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(false)}>
+              <h2 className="text-xl font-bold">{selectedPolicyId ? "Edit SLA Policy" : "Create SLA Policy"}</h2>
+              <Button variant="ghost" size="icon" onClick={() => { setIsModalOpen(false); setSelectedPolicyId(null); }}>
                 <X className="w-5 h-5" />
               </Button>
             </div>
-            <form onSubmit={handleCreatePolicy} className="p-6 space-y-4">
+            <form onSubmit={handleCreateOrUpdatePolicy} className="p-6 space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Policy Name</label>
                 <input
@@ -186,8 +209,8 @@ export function SLAManagement() {
                 </div>
               </div>
               <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                <Button type="submit" className="bg-sn-green text-sn-dark font-bold">Create Policy</Button>
+                <Button type="button" variant="outline" onClick={() => { setIsModalOpen(false); setSelectedPolicyId(null); }}>Cancel</Button>
+                <Button type="submit" className="bg-sn-green text-sn-dark font-bold">{selectedPolicyId ? "Update Policy" : "Create Policy"}</Button>
               </div>
             </form>
           </div>

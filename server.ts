@@ -8,6 +8,9 @@ import { GoogleGenAI } from "@google/genai";
 import { config as loadEnv } from "dotenv";
 import multer from "multer";
 import fs from "fs";
+import { OmniChannelEngine } from "./src/lib/omniChannelEngine";
+import { uIOhook } from "uiohook-napi";
+import { setUseSQLite } from "./src/lib/db";
 
 // SQLite will be imported dynamically when needed
 
@@ -50,6 +53,75 @@ async function getSQLiteDb() {
     });
     // Create tables if not exist
     await sqliteDb.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        uid TEXT UNIQUE NOT NULL,
+        name TEXT,
+        email TEXT UNIQUE,
+        role TEXT DEFAULT 'user',
+        phone TEXT,
+        password_hash TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS tickets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_number TEXT UNIQUE,
+        caller TEXT,
+        category TEXT,
+        subcategory TEXT,
+        service TEXT,
+        service_offering TEXT,
+        cmdb_item TEXT,
+        title TEXT,
+        description TEXT,
+        status TEXT DEFAULT 'New',
+        priority TEXT DEFAULT '4 - Low',
+        impact TEXT,
+        urgency TEXT,
+        channel TEXT,
+        assignment_group TEXT,
+        assigned_to TEXT,
+        assigned_to_name TEXT,
+        points INTEGER DEFAULT 0,
+        response_deadline DATETIME,
+        resolution_deadline DATETIME,
+        first_response_at DATETIME,
+        resolved_at DATETIME,
+        response_sla_status TEXT,
+        resolution_sla_status TEXT,
+        created_by TEXT,
+        created_by_name TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS activity_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        user_name TEXT,
+        start_time DATETIME,
+        stop_time DATETIME,
+        duration INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'active',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS activity_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT,
+        user_id TEXT NOT NULL,
+        screenshot_url TEXT,
+        screenshot_filename TEXT,
+        screenshot_format TEXT,
+        screenshot_size_kb INTEGER,
+        activity_label TEXT,
+        description TEXT,
+        confidence REAL,
+        captured_at DATETIME,
+        keystrokes INTEGER DEFAULT 0,
+        clicks INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
       CREATE TABLE IF NOT EXISTS timesheets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
@@ -57,10 +129,12 @@ async function getSQLiteDb() {
         week_end TEXT NOT NULL,
         status TEXT DEFAULT 'Draft',
         total_hours REAL DEFAULT 0.00,
+        screenshot_url TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         submitted_at DATETIME
       );
+      try { await db.exec("ALTER TABLE timesheets ADD COLUMN screenshot_url TEXT;"); } catch(e) {}
       CREATE INDEX IF NOT EXISTS idx_user_week ON timesheets(user_id, week_start);
       CREATE TABLE IF NOT EXISTS time_cards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -81,8 +155,6 @@ async function getSQLiteDb() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
-      CREATE INDEX IF NOT EXISTS idx_tc_timesheet ON time_cards(timesheet_id);
-      CREATE INDEX IF NOT EXISTS idx_tc_user_date ON time_cards(user_id, entry_date);
       CREATE TABLE IF NOT EXISTS ticket_activities (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         ticket_id TEXT NOT NULL,
@@ -94,10 +166,15 @@ async function getSQLiteDb() {
         message TEXT NOT NULL,
         metadata_json TEXT
       );
-      CREATE INDEX IF NOT EXISTS idx_ta_ticket ON ticket_activities(ticket_id);
-      CREATE INDEX IF NOT EXISTS idx_ta_created ON ticket_activities(created_at);
-      CREATE INDEX IF NOT EXISTS idx_ta_visibility ON ticket_activities(visibility_type);
     `);
+    // Ensure tables have latest columns
+    try {
+      await sqliteDb.exec("ALTER TABLE activity_entries ADD COLUMN keystrokes INTEGER DEFAULT 0");
+    } catch (e) {}
+    try {
+      await sqliteDb.exec("ALTER TABLE activity_entries ADD COLUMN clicks INTEGER DEFAULT 0");
+    } catch (e) {}
+    
     console.log('[SQLite] Timesheet database initialized');
   }
   return sqliteDb;
@@ -124,6 +201,7 @@ async function initDatabase(): Promise<void> {
     console.error('[MySQL] Database init failed:', error.message);
     console.log('[SQLite] Will use SQLite fallback for timesheets');
     useSQLite = true;
+    setUseSQLite(true);
     await getSQLiteDb();
   }
 }
@@ -140,12 +218,13 @@ async function testConnection(): Promise<boolean> {
     console.error('[MySQL] Connection test failed:', error);
     console.log('[SQLite] Falling back to SQLite for timesheets');
     useSQLite = true;
+    setUseSQLite(true);
     await getSQLiteDb();
     return true;
   }
 }
 
-async function query(sql: string, values?: any[]): Promise<any[]> {
+export async function query(sql: string, values?: any[]): Promise<any[]> {
   if (useSQLite) {
     const db = await getSQLiteDb();
     return await db.all(sql, values || []);
@@ -154,7 +233,7 @@ async function query(sql: string, values?: any[]): Promise<any[]> {
   return rows as any[];
 }
 
-async function execute(sql: string, values?: any[]): Promise<any> {
+export async function execute(sql: string, values?: any[]): Promise<any> {
   if (useSQLite) {
     const db = await getSQLiteDb();
     const result = await db.run(sql, values || []);
@@ -200,41 +279,61 @@ async function escalateStaleTickets() {
       // Response SLA Check
       if (ticket.response_deadline && !ticket.first_response_at &&
         ticket.response_sla_status !== 'Breached' && ticket.response_sla_status !== 'Completed') {
-        const deadline = new Date(ticket.response_deadline).getTime();
-        const diff = deadline - now.getTime();
+        try {
+          const deadline = new Date(ticket.response_deadline).getTime();
+          const createdAt = new Date(ticket.created_at).getTime();
+          if (!isNaN(deadline) && !isNaN(createdAt)) {
+            const diff = deadline - now.getTime();
 
-        if (diff <= 0) {
-          updates.response_sla_status = 'Breached';
-          historyEntries.push({
-            action: "Response SLA BREACHED",
-            timestamp: now.toISOString(),
-            user: "SLA Engine"
-          });
-        } else if (diff < (deadline - new Date(ticket.created_at).getTime()) * 0.2) {
-          if (ticket.response_sla_status !== 'At Risk') {
-            updates.response_sla_status = 'At Risk';
+            if (diff <= 0) {
+              updates.response_sla_status = 'Breached';
+              historyEntries.push({
+                action: "Response SLA BREACHED",
+                timestamp: now.toISOString(),
+                user: "SLA Engine"
+              });
+            } else {
+              const totalWindow = deadline - createdAt;
+              if (totalWindow > 0 && diff < totalWindow * 0.2) {
+                if (ticket.response_sla_status !== 'At Risk') {
+                  updates.response_sla_status = 'At Risk';
+                }
+              }
+            }
           }
+        } catch (e) {
+          console.warn(`[SLA Engine] Could not parse response deadline for ticket ${ticket.id}:`, e);
         }
       }
 
       // Resolution SLA Check
       if (ticket.resolution_deadline && !ticket.resolved_at &&
         ticket.resolution_sla_status !== 'Breached' && ticket.resolution_sla_status !== 'Completed') {
-        const deadline = new Date(ticket.resolution_deadline).getTime();
-        const diff = deadline - now.getTime();
+        try {
+          const deadline = new Date(ticket.resolution_deadline).getTime();
+          const createdAt = new Date(ticket.created_at).getTime();
+          if (!isNaN(deadline) && !isNaN(createdAt)) {
+            const diff = deadline - now.getTime();
 
-        if (diff <= 0) {
-          updates.resolution_sla_status = 'Breached';
-          updates.priority = '1 - Critical';
-          historyEntries.push({
-            action: "Resolution SLA BREACHED: Ticket escalated to Critical",
-            timestamp: now.toISOString(),
-            user: "SLA Engine"
-          });
-        } else if (diff < (deadline - new Date(ticket.created_at).getTime()) * 0.2) {
-          if (ticket.resolution_sla_status !== 'At Risk') {
-            updates.resolution_sla_status = 'At Risk';
+            if (diff <= 0) {
+              updates.resolution_sla_status = 'Breached';
+              updates.priority = '1 - Critical';
+              historyEntries.push({
+                action: "Resolution SLA BREACHED: Ticket escalated to Critical",
+                timestamp: now.toISOString(),
+                user: "SLA Engine"
+              });
+            } else {
+              const totalWindow = deadline - createdAt;
+              if (totalWindow > 0 && diff < totalWindow * 0.2) {
+                if (ticket.resolution_sla_status !== 'At Risk') {
+                  updates.resolution_sla_status = 'At Risk';
+                }
+              }
+            }
           }
+        } catch (e) {
+          console.warn(`[SLA Engine] Could not parse resolution deadline for ticket ${ticket.id}:`, e);
         }
       }
 
@@ -282,6 +381,7 @@ async function startServer() {
           week_end DATE NOT NULL,
           status ENUM('Draft', 'Submitted', 'Approved', 'Rejected') DEFAULT 'Draft',
           total_hours DECIMAL(10, 2) DEFAULT 0.00,
+          screenshot_url LONGTEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           submitted_at TIMESTAMP NULL,
@@ -289,6 +389,7 @@ async function startServer() {
           INDEX idx_status (status)
         ) ENGINE=InnoDB
       `);
+      try { await execute("ALTER TABLE timesheets ADD COLUMN screenshot_url LONGTEXT;"); } catch(e) {}
 
       await execute(`
         CREATE TABLE IF NOT EXISTS ticket_activities (
@@ -331,6 +432,127 @@ async function startServer() {
         ) ENGINE=InnoDB
       `);
       console.log('[MySQL] Timesheet tables initialized');
+
+      // ═══ MASTER DATA TABLES ═══
+      
+      // Standalone tables
+      const standaloneTables = [
+        'mst_groups', 'mst_statuses', 'mst_roles', 'mst_departments', 
+        'mst_ticket_types', 'mst_projects', 'mst_priorities', 
+        'mst_sources', 'mst_tags', 'mst_categories'
+      ];
+
+      for (const table of standaloneTables) {
+        await execute(`
+          CREATE TABLE IF NOT EXISTS ${table} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            status ENUM('active', 'inactive') DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            created_by VARCHAR(128),
+            UNIQUE(name)
+          ) ENGINE=InnoDB
+        `);
+      }
+
+      // Specialized standalone tables (extra columns)
+      await execute(`
+        CREATE TABLE IF NOT EXISTS mst_priorities (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          level INT DEFAULT 0,
+          color VARCHAR(50),
+          status ENUM('active', 'inactive') DEFAULT 'active',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          created_by VARCHAR(128),
+          UNIQUE(name)
+        ) ENGINE=InnoDB
+      `).catch(() => {});
+
+      // Hierarchical tables
+      await execute(`
+        CREATE TABLE IF NOT EXISTS mst_subcategories (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          category_id INT NOT NULL,
+          description TEXT,
+          status ENUM('active', 'inactive') DEFAULT 'active',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          created_by VARCHAR(128),
+          UNIQUE(name, category_id)
+        ) ENGINE=InnoDB
+      `);
+
+      await execute(`
+        CREATE TABLE IF NOT EXISTS mst_providences (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          subcategory_id INT NOT NULL,
+          description TEXT,
+          status ENUM('active', 'inactive') DEFAULT 'active',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          created_by VARCHAR(128),
+          UNIQUE(name, subcategory_id)
+        ) ENGINE=InnoDB
+      `);
+
+      // Group Members (User-Group junction)
+      await execute(`
+        CREATE TABLE IF NOT EXISTS mst_members (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id VARCHAR(128) NOT NULL,
+          group_id INT NOT NULL,
+          role VARCHAR(100),
+          status ENUM('active', 'inactive') DEFAULT 'active',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          created_by VARCHAR(128),
+          UNIQUE(user_id, group_id)
+        ) ENGINE=InnoDB
+      `);
+
+      console.log('[MySQL] Master data tables initialized');
+
+      // Activity Tracker Tables
+      await execute(`
+        CREATE TABLE IF NOT EXISTS activity_sessions (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          session_id VARCHAR(128) NOT NULL,
+          user_id VARCHAR(128) NOT NULL,
+          user_name VARCHAR(255),
+          start_time TIMESTAMP NULL,
+          stop_time TIMESTAMP NULL,
+          duration INT DEFAULT 0,
+          status ENUM('active', 'completed', 'canceled') DEFAULT 'active',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_user_session (user_id, session_id),
+          INDEX idx_status (status)
+        ) ENGINE=InnoDB
+      `);
+
+      await execute(`
+        CREATE TABLE IF NOT EXISTS activity_entries (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          session_id VARCHAR(128),
+          user_id VARCHAR(128) NOT NULL,
+          screenshot_url VARCHAR(255),
+          screenshot_filename VARCHAR(255),
+          screenshot_format VARCHAR(10),
+          screenshot_size_kb INT,
+          activity_label VARCHAR(100),
+          description TEXT,
+          confidence DECIMAL(3, 2),
+          captured_at TIMESTAMP NULL,
+          keystrokes INT DEFAULT 0,
+          clicks INT DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_session (session_id),
+          INDEX idx_user (user_id),
+          INDEX idx_captured (captured_at)
+        ) ENGINE=InnoDB
+      `);
+      console.log('[MySQL] Activity tracker tables initialized');
     } catch (e: any) {
       console.error('[MySQL] Failed to initialize timesheet tables:', e.message);
     }
@@ -339,6 +561,22 @@ async function startServer() {
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", database: "mysql" });
+  });
+
+  app.get("/api/test-email", async (req, res) => {
+    try {
+      const email = req.query.email as string || process.env.SMTP_USER;
+      if (!email) return res.status(400).json({ error: "No email provided" });
+      
+      await OmniChannelEngine.sendEmail(
+        email, 
+        "Ticklora Test Email", 
+        "<h1>It works!</h1><p>The email system is now functional.</p>"
+      );
+      res.json({ message: `Test email sent to ${email}` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   app.get("/api/db-test", async (req, res) => {
@@ -517,7 +755,34 @@ async function startServer() {
 
       // Return created ticket
       const tickets = await query("SELECT * FROM tickets WHERE id = ?", [ticketId]);
-      res.json({ id: ticketId.toString(), ...tickets[0] });
+      const createdTicket = tickets[0];
+
+      // Send auto-acknowledgement email if caller is an email address
+      if (createdTicket.caller && createdTicket.caller.includes('@')) {
+        try {
+          await OmniChannelEngine.sendEmail(
+            createdTicket.caller,
+            `Ticket Created: ${createdTicket.ticket_number} - ${createdTicket.title}`,
+            `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+              <h2 style="color: #2563eb;">Incident Created</h2>
+              <p>Hello,</p>
+              <p>A new support ticket has been created for you.</p>
+              <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                <p style="margin: 0;"><strong>Ticket Number:</strong> ${createdTicket.ticket_number}</p>
+                <p style="margin: 5px 0 0 0;"><strong>Subject:</strong> ${createdTicket.title}</p>
+                <p style="margin: 5px 0 0 0;"><strong>Priority:</strong> ${createdTicket.priority}</p>
+              </div>
+              <p>Our team is working on your request. You can track the status by replying to this email.</p>
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+              <p style="font-size: 12px; color: #64748b;">This is an automated notification from Ticklora ITSM.</p>
+            </div>`
+          );
+        } catch (mailErr: any) {
+          console.error("[Mail] Failed to send auto-ack:", mailErr.message);
+        }
+      }
+
+      res.json({ id: ticketId.toString(), ...createdTicket });
 
     } catch (error: any) {
       console.error("Error creating ticket:", error);
@@ -928,6 +1193,34 @@ async function startServer() {
       if (req.body.status === 'Submitted') {
         const now = formatDate(new Date());
         await execute(`UPDATE timesheets SET ${setClause}, submitted_at = ? WHERE id = ?`, [...values.slice(0, -1), now, id]);
+
+        // Notify admins
+        try {
+          const admins = await query("SELECT email, name FROM users WHERE role IN ('admin', 'super_admin', 'ultra_super_admin')");
+          const ts = await query("SELECT * FROM timesheets WHERE id = ?", [id]);
+          const user = await query("SELECT name FROM users WHERE uid = ?", [ts[0].user_id]);
+          
+          for (const admin of admins) {
+            await OmniChannelEngine.sendEmail(
+              admin.email,
+              `Timesheet Submitted: ${user[0]?.name || 'Employee'}`,
+              `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <h2 style="color: #2563eb;">Timesheet Approval Required</h2>
+                <p>Hello ${admin.name},</p>
+                <p><strong>${user[0]?.name || 'An employee'}</strong> has submitted their timesheet for the week of ${ts[0].week_start} for your review.</p>
+                <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; margin: 20px 0; border: 1px solid #e2e8f0;">
+                  <p style="margin: 0;"><strong>Employee:</strong> ${user[0]?.name || 'Unknown'}</p>
+                  <p style="margin: 5px 0 0 0;"><strong>Period:</strong> ${ts[0].week_start} to ${ts[0].week_end}</p>
+                  <p style="margin: 5px 0 0 0;"><strong>Total Minutes:</strong> ${ts[0].total_hours}</p>
+                </div>
+                <p>This timesheet includes <strong>AI-captured screenshots and activity evidence</strong> for verification.</p>
+                <a href="http://localhost:3000/timesheet/approvals" style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 10px;">Review & Approve</a>
+              </div>`
+            );
+          }
+        } catch (err: any) {
+          console.error("[Notify Admins] Failed:", err.message);
+        }
       } else {
         await execute(`UPDATE timesheets SET ${setClause} WHERE id = ?`, values);
       }
@@ -1388,8 +1681,13 @@ Respond ONLY with valid JSON.`;
           screenshot_size_kb INTEGER,
           activity_label TEXT,
           description TEXT,
+          detected_app TEXT,
+          detected_website TEXT,
+          app_icon TEXT,
           confidence REAL DEFAULT 0,
           captured_at DATETIME,
+          approval_status TEXT DEFAULT 'Pending',
+          approved_by TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_ae_session ON activity_entries(session_id);
@@ -1423,14 +1721,34 @@ Respond ONLY with valid JSON.`;
           screenshot_size_kb INT,
           activity_label VARCHAR(100),
           description TEXT,
+          detected_app VARCHAR(100),
+          detected_website VARCHAR(100),
+          app_icon VARCHAR(50),
           confidence DECIMAL(4,3) DEFAULT 0,
           captured_at TIMESTAMP NULL,
+          approval_status VARCHAR(20) DEFAULT 'Pending',
+          approved_by VARCHAR(128),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           INDEX idx_ae_session (session_id),
           INDEX idx_ae_user (user_id)
         ) ENGINE=InnoDB
       `);
     }
+    
+    // Ensure tables have latest columns
+    try {
+      if (useSQLite) {
+        const db = await getSQLiteDb();
+        await db.exec("ALTER TABLE activity_entries ADD COLUMN approval_status TEXT DEFAULT 'Pending'");
+        await db.exec("ALTER TABLE activity_entries ADD COLUMN approved_by TEXT");
+      } else {
+        await execute("ALTER TABLE activity_entries ADD COLUMN approval_status VARCHAR(20) DEFAULT 'Pending'");
+        await execute("ALTER TABLE activity_entries ADD COLUMN approved_by VARCHAR(128)");
+      }
+    } catch (e) {
+      // Ignore if columns already exist
+    }
+
     console.log('[DB] Activity tracker tables initialized');
   } catch (e: any) {
     console.error('[DB] Activity tracker tables init failed:', e.message);
@@ -1712,17 +2030,17 @@ Respond ONLY with JSON: {"summary": "your summary here"}`;
   });
 
   // ═══ ACTIVITY ENTRIES CRUD ═══
-  app.post('/api/activity-entries', async (req: any, res: any) => {
+    app.post('/api/activity-entries', async (req: any, res: any) => {
     try {
       const { session_id, user_id, screenshot_url, screenshot_filename, screenshot_format,
-        screenshot_size_kb, activity_label, description, confidence, captured_at } = req.body;
+        screenshot_size_kb, activity_label, description, confidence, captured_at, keystrokes, clicks } = req.body;
       if (!user_id) return res.status(400).json({ error: 'Missing user_id' });
       const result = await execute(
-        `INSERT INTO activity_entries (session_id, user_id, screenshot_url, screenshot_filename, screenshot_format, screenshot_size_kb, activity_label, description, confidence, captured_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO activity_entries (session_id, user_id, screenshot_url, screenshot_filename, screenshot_format, screenshot_size_kb, activity_label, description, confidence, captured_at, keystrokes, clicks)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [session_id || null, user_id, screenshot_url || null, screenshot_filename || null,
         screenshot_format || null, screenshot_size_kb || null, activity_label || null,
-        description || null, confidence || 0, captured_at || null]
+        description || null, confidence || 0, captured_at || null, keystrokes || 0, clicks || 0]
       );
       const created = await query('SELECT * FROM activity_entries WHERE id = ?', [result.insertId]);
       res.json({ id: result.insertId.toString(), ...created[0] });
@@ -1734,17 +2052,37 @@ Respond ONLY with JSON: {"summary": "your summary here"}`;
 
   app.get('/api/activity-entries', async (req: any, res: any) => {
     try {
-      const { user_id, session_id, limit = '100' } = req.query;
+      const { user_id, session_id, start_date, end_date, limit = '100' } = req.query;
       let sql = 'SELECT * FROM activity_entries WHERE 1=1';
       const values: any[] = [];
       if (user_id) { sql += ' AND user_id = ?'; values.push(user_id); }
       if (session_id) { sql += ' AND session_id = ?'; values.push(session_id); }
+      if (start_date) { sql += ' AND captured_at >= ?'; values.push(start_date); }
+      if (end_date) { sql += ' AND captured_at <= ?'; values.push(end_date); }
       sql += ' ORDER BY captured_at ASC LIMIT ?';
       values.push(parseInt(limit as string) || 100);
       const rows = await query(sql, values);
       res.json(rows.map((r: any) => ({ id: r.id?.toString(), ...r })));
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to fetch activity entries' });
+    }
+  });
+
+  app.put('/api/activity-entries/:id', async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const fields = Object.keys(req.body).filter(k => k !== 'id' && k !== 'created_at');
+      if (fields.length === 0) return res.json({ message: "No fields to update" });
+      
+      const setClause = fields.map(k => `${k} = ?`).join(', ');
+      const values = [...fields.map(k => req.body[k]), id];
+      
+      await execute(`UPDATE activity_entries SET ${setClause} WHERE id = ?`, values);
+      const updated = await query('SELECT * FROM activity_entries WHERE id = ?', [id]);
+      res.json({ id: id.toString(), ...updated[0] });
+    } catch (error: any) {
+      console.error('[Activity Entries] Update failed:', error.message);
+      res.status(500).json({ error: 'Failed to update activity entry' });
     }
   });
 
@@ -1804,43 +2142,267 @@ Respond ONLY with JSON: {"summary": "your summary here"}`;
 
   // Serve uploaded screenshots statically
   app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
+  app.use('/captures', express.static(path.join(__dirname, 'public', 'captures')));
 
-  // ═══ SILENT FULL-SCREEN CAPTURE (no browser permission needed) ═══
-  // Uses screenshot-desktop to capture the entire screen at OS level.
-  // Called by the Activity Tracker every 15 seconds.
-  app.get('/api/capture-screen', async (req: any, res: any) => {
+  // ═══ GLOBAL INPUT TRACKING ═══
+  let globalKeystrokes = 0;
+  let globalClicks = 0;
+  
+  try {
+    uIOhook.on('keydown', () => { globalKeystrokes++; });
+    uIOhook.on('click', () => { globalClicks++; });
+    uIOhook.start();
+    console.log('[Activity Tracker] Global input hooking started');
+  } catch (err) {
+    console.error('[Activity Tracker] Failed to start global input hook:', err);
+  }
+
+  app.get('/api/input-stats', (req, res) => {
+    res.json({
+      keystrokes: globalKeystrokes,
+      clicks: globalClicks
+    });
+  });
+
+  // ═══ SCREEN CAPTURE API (OS-LEVEL) ═══
+  app.get('/api/capture-screen', async (req, res) => {
+    let scriptPath: string | null = null;
     try {
-      const screenshotDesktop = await import('screenshot-desktop');
-      const capture = screenshotDesktop.default || screenshotDesktop;
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+      
+      const ts = Date.now();
+      const filename = `screen_${ts}.jpg`;
+      const publicDir = path.join(process.cwd(), 'public', 'captures');
+      const tempDir = path.join(process.cwd(), '.temp');
+      
+      if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true });
+      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-      // Capture entire screen as JPEG buffer
-      const imgBuffer: Buffer = await capture({ format: 'jpg' });
+      // Cleanup old captures (older than 30 mins)
+      try {
+        const files = fs.readdirSync(publicDir);
+        for (const file of files) {
+          const filePath = path.join(publicDir, file);
+          const stats = fs.statSync(filePath);
+          if (Date.now() - stats.mtimeMs > 1800000) fs.unlinkSync(filePath);
+        }
+      } catch (e) { /* ignore */ }
 
-      // Save to uploads folder
-      const ts = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `activity_${ts}.jpeg`;
-      const savePath = path.join(__dirname, 'public', 'uploads', 'screenshots', filename);
+      const filePath = path.join(publicDir, filename);
+      scriptPath = path.join(tempDir, `capture_${ts}.ps1`);
 
-      // Ensure directory exists
-      if (!fs.existsSync(path.dirname(savePath))) {
-        fs.mkdirSync(path.dirname(savePath), { recursive: true });
+      const psScript = `
+        try {
+          [void][Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
+          [void][Reflection.Assembly]::LoadWithPartialName("System.Drawing")
+          
+          $screens = [System.Windows.Forms.Screen]::AllScreens
+          if ($null -eq $screens -or $screens.Count -eq 0) {
+            $primary = [System.Windows.Forms.Screen]::PrimaryScreen
+            $width = $primary.Bounds.Width
+            $height = $primary.Bounds.Height
+            $left = $primary.Bounds.Left
+            $top = $primary.Bounds.Top
+          } else {
+            $left = ($screens | ForEach-Object { $_.Bounds.Left } | Measure-Object -Minimum).Minimum
+            $top = ($screens | ForEach-Object { $_.Bounds.Top } | Measure-Object -Minimum).Minimum
+            $right = ($screens | ForEach-Object { $_.Bounds.Right } | Measure-Object -Maximum).Maximum
+            $bottom = ($screens | ForEach-Object { $_.Bounds.Bottom } | Measure-Object -Maximum).Maximum
+            $width = $right - $left
+            $height = $bottom - $top
+          }
+          
+          if ($width -le 0 -or $height -le 0) {
+            throw "Invalid screen dimensions calculated: $width x $height. Ensure a monitor is connected and accessible."
+          }
+          
+          # Cap dimensions to avoid GDI+ limits (optional, but good for safety)
+          if ($width -gt 10000) { $width = 10000 }
+          if ($height -gt 10000) { $height = 10000 }
+          
+          $bmp = New-Object System.Drawing.Bitmap ([int]$width), ([int]$height)
+          $graphics = [System.Drawing.Graphics]::FromImage($bmp)
+          $graphics.CopyFromScreen([int]$left, [int]$top, 0, 0, $bmp.Size)
+          $graphics.Dispose()
+          $bmp.Save("${filePath.replace(/\\/g, '/')}", [System.Drawing.Imaging.ImageFormat]::Jpeg)
+          $bmp.Dispose()
+          Write-Output "SUCCESS"
+        } catch {
+          $msg = $_.Exception.Message
+          if ($_.Exception.InnerException) { $msg += " -> " + $_.Exception.InnerException.Message }
+          Write-Output "[PS-ERROR] $msg"
+          exit 1
+        }
+      `;
+
+      fs.writeFileSync(scriptPath, psScript, 'utf8');
+
+      console.log('[Screen Capture] Running PS script...');
+      const { stdout, stderr } = await execAsync(`powershell -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}"`);
+      console.log('[Screen Capture] PS Stdout:', stdout.trim());
+
+      if (fs.existsSync(filePath)) {
+        const bitmap = fs.readFileSync(filePath);
+        const dataUrl = `data:image/jpeg;base64,${bitmap.toString('base64')}`;
+        res.json({
+          success: true,
+          data_url: dataUrl,
+          image_url: `/captures/${filename}`,
+          filename,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        throw new Error("Screenshot file not found after PS execution. Stderr: " + stderr);
       }
-      fs.writeFileSync(savePath, imgBuffer);
-
-      const imageUrl = `/uploads/screenshots/${filename}`;
-      const base64 = imgBuffer.toString('base64');
-      const dataUrl = `data:image/jpeg;base64,${base64}`;
-
-      res.json({
-        success: true,
-        image_url: imageUrl,
-        data_url: dataUrl,
-        filename,
-        size_kb: Math.round(imgBuffer.length / 1024),
-      });
     } catch (error: any) {
       console.error('[Screen Capture] Failed:', error.message);
-      res.status(500).json({ error: error.message || 'Screen capture failed' });
+      res.status(500).json({ error: "Failed to capture screen", detail: error.message });
+    } finally {
+      if (scriptPath && fs.existsSync(scriptPath)) {
+        try { fs.unlinkSync(scriptPath); } catch {}
+      }
+    }
+  });
+
+  // ═══ MASTER DATA APIS ═══
+
+  const VALID_MASTER_TABLES = [
+    'mst_groups', 'mst_statuses', 'mst_roles', 'mst_departments', 
+    'mst_ticket_types', 'mst_projects', 'mst_priorities', 
+    'mst_sources', 'mst_tags', 'mst_categories', 'mst_subcategories', 
+    'mst_providences', 'mst_members'
+  ];
+
+  app.get("/api/master-data/:table", async (req, res) => {
+    try {
+      const { table } = req.params;
+      const { status, search, sort = 'name', order = 'ASC', category_id, subcategory_id, group_id } = req.query;
+
+      if (!VALID_MASTER_TABLES.includes(table)) {
+        return res.status(400).json({ error: "Invalid master table" });
+      }
+
+      let sql = `SELECT * FROM ${table} WHERE 1=1`;
+      const params: any[] = [];
+
+      if (status) {
+        sql += " AND status = ?";
+        params.push(status);
+      }
+
+      if (search) {
+        sql += " AND (name LIKE ? OR description LIKE ?)";
+        params.push(`%${search}%`, `%${search}%`);
+      }
+
+      // Hierarchy filters
+      if (category_id && table === 'mst_subcategories') {
+        sql += " AND category_id = ?";
+        params.push(category_id);
+      }
+      if (subcategory_id && table === 'mst_providences') {
+        sql += " AND subcategory_id = ?";
+        params.push(subcategory_id);
+      }
+      if (group_id && table === 'mst_members') {
+        sql += " AND group_id = ?";
+        params.push(group_id);
+      }
+
+      // Safe sorting
+      const allowedSortCols = ['name', 'created_at', 'id', 'level', 'status'];
+      const finalSort = allowedSortCols.includes(sort as string) ? sort : 'name';
+      const finalOrder = order === 'DESC' ? 'DESC' : 'ASC';
+      
+      sql += ` ORDER BY ${finalSort} ${finalOrder}`;
+
+      const rows = await query(sql, params);
+      res.json(rows.map(r => ({ ...r, id: r.id.toString() })));
+    } catch (error: any) {
+      console.error(`[Master Data] Fetch error (${req.params.table}):`, error.message);
+      res.status(500).json({ error: "Failed to fetch master data" });
+    }
+  });
+
+  app.post("/api/master-data/:table", async (req, res) => {
+    try {
+      const { table } = req.params;
+      const data = req.body;
+
+      if (!VALID_MASTER_TABLES.includes(table)) {
+        return res.status(400).json({ error: "Invalid master table" });
+      }
+
+      const fields = Object.keys(data).filter(k => k !== 'id');
+      const placeholders = fields.map(() => '?').join(', ');
+      const values = fields.map(k => data[k]);
+
+      const result = await execute(
+        `INSERT INTO ${table} (${fields.join(', ')}) VALUES (${placeholders})`,
+        values
+      );
+
+      const rows = await query(`SELECT * FROM ${table} WHERE id = ?`, [result.insertId]);
+      res.json({ ...rows[0], id: result.insertId.toString() });
+    } catch (error: any) {
+      if (error.code === 'ER_DUP_ENTRY') {
+        return res.status(400).json({ error: "An entry with this name already exists" });
+      }
+      console.error(`[Master Data] Create error (${req.params.table}):`, error.message);
+      res.status(500).json({ error: "Failed to create master data" });
+    }
+  });
+
+  app.put("/api/master-data/:table/:id", async (req, res) => {
+    try {
+      const { table, id } = req.params;
+      const data = req.body;
+
+      if (!VALID_MASTER_TABLES.includes(table)) {
+        return res.status(400).json({ error: "Invalid master table" });
+      }
+
+      const fields = Object.keys(data).filter(k => k !== 'id' && k !== 'created_at');
+      const setClause = fields.map(k => `${k} = ?`).join(', ');
+      const values = [...fields.map(k => data[k]), id];
+
+      await execute(`UPDATE ${table} SET ${setClause} WHERE id = ?`, values);
+
+      const rows = await query(`SELECT * FROM ${table} WHERE id = ?`, [id]);
+      res.json({ ...rows[0], id: id.toString() });
+    } catch (error: any) {
+      if (error.code === 'ER_DUP_ENTRY') {
+        return res.status(400).json({ error: "An entry with this name already exists" });
+      }
+      console.error(`[Master Data] Update error (${req.params.table}):`, error.message);
+      res.status(500).json({ error: "Failed to update master data" });
+    }
+  });
+
+  app.delete("/api/master-data/:table/:id", async (req, res) => {
+    try {
+      const { table, id } = req.params;
+      const { permanent } = req.query;
+
+      if (!VALID_MASTER_TABLES.includes(table)) {
+        return res.status(400).json({ error: "Invalid master table" });
+      }
+
+      if (permanent === 'true') {
+        await execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
+        res.json({ message: "Item deleted permanently" });
+      } else {
+        // Soft delete/deactivate
+        const rows = await query(`SELECT status FROM ${table} WHERE id = ?`, [id]);
+        const newStatus = rows[0]?.status === 'active' ? 'inactive' : 'active';
+        await execute(`UPDATE ${table} SET status = ? WHERE id = ?`, [newStatus, id]);
+        res.json({ message: `Item marked as ${newStatus}`, status: newStatus });
+      }
+    } catch (error: any) {
+      console.error(`[Master Data] Delete error (${req.params.table}):`, error.message);
+      res.status(500).json({ error: "Failed to delete master data" });
     }
   });
 
@@ -2173,21 +2735,15 @@ Please respond appropriately as a helpful IT assistant.`,
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`[MySQL] Database: ${dbConfig.database} at ${dbConfig.host}:${dbConfig.port}`);
-  });
-}
-
-startServer().catch(error => {
-  console.error("Failed to start server:", error);
-  process.exit(1);
-});
-console.log('[OmniChannel] Polling emails...');
-OmniChannelEngine.pollIncomingEmails();
+    
+    // OmniChannel polling
+    console.log('[OmniChannel] Polling emails...');
+    OmniChannelEngine.pollIncomingEmails();
+    
+    cron.schedule('*/30 * * * * *', () => {
+      console.log('[OmniChannel] Processing notification queue...');
+      OmniChannelEngine.processNotificationQueue();
     });
-
-cron.schedule('*/30 * * * * *', () => {
-  console.log('[OmniChannel] Processing notification queue...');
-  OmniChannelEngine.processNotificationQueue();
-});
   });
 }
 

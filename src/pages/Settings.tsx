@@ -34,7 +34,7 @@ export function Settings() {
   const role = profile?.role || 'user';
   const { categories, subcategories, serviceProviders, groups, members } = useServiceCatalog();
 
-  const [activeTab, setActiveTab] = useState<"master" | "automation" | "security" | "audit">("master");
+  const [activeTab, setActiveTab] = useState<"master" | "automation" | "security" | "audit" | "system">("master");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
@@ -51,6 +51,7 @@ export function Settings() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [systemSettings, setSystemSettings] = useState<any>({ ccEmails: "" });
 
   const isAdmin = ROLE_HIERARCHY[role] >= ROLE_HIERARCHY["admin"];
 
@@ -67,6 +68,10 @@ export function Settings() {
       // Fetch workflows
       onSnapshot(query(collection(db, "settings_workflows"), orderBy("createdAt", "desc")), snap => {
         setWorkflows(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+      // Fetch system settings
+      onSnapshot(doc(db, "settings_global", "general"), snap => {
+        if (snap.exists()) setSystemSettings(snap.data());
       });
     }
   }, [isAdmin]);
@@ -250,6 +255,7 @@ export function Settings() {
               { id: "master", label: "Hierarchy", icon: Layers },
               { id: "automation", label: "Workflows", icon: Zap },
               { id: "security", label: "Security", icon: Shield },
+              { id: "system", label: "System", icon: Cpu },
               { id: "audit", label: "Audit", icon: History },
             ].map(t => (
               <button
@@ -475,21 +481,65 @@ export function Settings() {
             </div>
           )}
 
-          {activeTab === "security" && (
+          {activeTab === "system" && (
             <div className="bg-white dark:bg-sn-sidebar rounded-[40px] border border-border dark:border-white/5 p-12 shadow-2xl">
               <div className="max-w-xl mx-auto text-center space-y-6">
                 <div className="w-20 h-20 bg-sn-green/10 rounded-[30px] flex items-center justify-center mx-auto text-sn-green">
-                  <Lock size={40} />
+                  <Cpu size={40} />
                 </div>
-                <h2 className="text-4xl font-black">Security Protocol</h2>
-                <p className="text-muted-foreground font-medium">Configure advanced encryption, session policies, and IP whitelisting for the enterprise environment.</p>
-                <div className="pt-8 grid grid-cols-1 gap-4">
-                  <div className="p-6 bg-muted/30 rounded-[32px] border border-border flex items-center justify-between">
-                    <div className="text-left">
-                      <div className="text-sm font-black">Two-Factor Authentication</div>
-                      <div className="text-[10px] font-bold text-muted-foreground uppercase mt-1">Enforce 2FA for all administrative roles</div>
+                <h2 className="text-4xl font-black">Global System Settings</h2>
+                <p className="text-muted-foreground font-medium">Configure platform-wide parameters, notification routing, and integration endpoints.</p>
+                
+                <div className="pt-8 space-y-6 text-left">
+                  <div className="space-y-4 p-8 bg-muted/30 rounded-[40px] border border-border">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Bell className="text-sn-green" size={20} />
+                      <h3 className="text-xl font-black text-sn-dark dark:text-white">Email Notification CC</h3>
                     </div>
-                    <div className="w-12 h-6 bg-sn-green rounded-full relative"><div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm" /></div>
+                    <p className="text-xs text-muted-foreground font-medium mb-4">Add email addresses that should be CC'd on all system-generated notifications (comma separated).</p>
+                    
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">CC Email Recipients</label>
+                      <input 
+                        type="text"
+                        value={systemSettings.ccEmails || ""}
+                        onChange={(e) => setSystemSettings({ ...systemSettings, ccEmails: e.target.value })}
+                        placeholder="admin@company.com, support-archive@company.com"
+                        className="w-full bg-white dark:bg-black/20 border border-border dark:border-white/5 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:ring-2 focus:ring-sn-green/30 transition-all"
+                      />
+                    </div>
+                    
+                    <Button 
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          await setDoc(doc(db, "settings_global", "general"), {
+                            ...systemSettings,
+                            updatedAt: serverTimestamp(),
+                            updatedBy: user?.email
+                          }, { merge: true });
+                          setMessage({ text: "System settings saved successfully!", type: "success" });
+                        } catch (err: any) {
+                          setMessage({ text: err.message, type: "error" });
+                        }
+                        setLoading(false);
+                        setTimeout(() => setMessage(null), 5000);
+                      }}
+                      disabled={loading}
+                      className="w-full bg-sn-green text-sn-dark h-14 rounded-2xl font-black uppercase tracking-widest text-xs mt-4 shadow-lg shadow-sn-green/20 hover:scale-[1.01] active:scale-[0.99] transition-all"
+                    >
+                      {loading ? "Saving..." : "Save System Configuration"}
+                    </Button>
+                  </div>
+
+                  <div className="p-6 bg-red-500/5 rounded-[32px] border border-red-500/10 flex items-center justify-between">
+                    <div className="text-left">
+                      <div className="text-sm font-black text-red-500">Maintenance Mode</div>
+                      <div className="text-[10px] font-bold text-red-400 uppercase mt-1">Restrict platform access to administrators only</div>
+                    </div>
+                    <div className="w-12 h-6 bg-red-500/20 rounded-full relative cursor-pointer group">
+                      <div className="absolute left-1 top-1 w-4 h-4 bg-red-500/40 rounded-full shadow-sm group-hover:bg-red-500 transition-colors" />
+                    </div>
                   </div>
                 </div>
               </div>

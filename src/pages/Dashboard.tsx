@@ -7,21 +7,36 @@ import { RefreshCw, LayoutGrid } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn, formatDate } from "../lib/utils";
 
+function toMs(val: any): number {
+  if (!val) return NaN;
+  if (typeof val === 'object' && val.seconds !== undefined) return val.seconds * 1000 + (val.nanoseconds || 0) / 1_000_000;
+  if (typeof val === 'object' && typeof val.toDate === 'function') return val.toDate().getTime();
+  if (typeof val === 'number') return val;
+  return new Date(val).getTime();
+}
+
 function SLATimer({ deadline, metAt, isPaused, onHoldStart, totalPausedTime = 0, label, waitUntil }: { deadline: string, metAt?: string, isPaused?: boolean, onHoldStart?: string, totalPausedTime?: number, label: string, waitUntil?: string | null }) {
   const [displayTime, setDisplayTime] = useState("");
   const [status, setStatus] = useState<"waiting" | "met" | "breached" | "active" | "paused">("active");
 
   useEffect(() => {
-    if (metAt) { setStatus("met"); setDisplayTime("MET"); return; }
+    if (metAt) {
+      const metMs = toMs(metAt);
+      if (!isNaN(metMs)) { setStatus("met"); setDisplayTime("MET"); return; }
+    }
     if (waitUntil !== undefined && (waitUntil === null || waitUntil === "")) {
       setStatus("waiting"); setDisplayTime("—"); return;
     }
-    const deadlineMs = new Date(deadline).getTime();
+    const deadlineMs = toMs(deadline);
     if (isNaN(deadlineMs)) { setDisplayTime("--:--:--"); return; }
 
     const tick = () => {
       const now = Date.now();
-      const effectiveNow = (isPaused && onHoldStart) ? new Date(onHoldStart).getTime() : now;
+      let effectiveNow = now;
+      if (isPaused && onHoldStart) {
+        const holdMs = toMs(onHoldStart);
+        if (!isNaN(holdMs)) effectiveNow = holdMs;
+      }
       const diff = deadlineMs - effectiveNow + (totalPausedTime || 0);
 
       if (diff <= 0) {

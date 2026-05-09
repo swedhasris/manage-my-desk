@@ -8,7 +8,8 @@ import {
   Activity,
   Search,
   Filter,
-  MoreVertical,
+  Edit,
+  Trash2,
   Link as LinkIcon,
   ChevronRight
 } from "lucide-react";
@@ -121,9 +122,14 @@ export function CMDB() {
                     <td className="p-4 text-sm text-muted-foreground">{asset.owner}</td>
                     <td className="p-4 text-sm text-muted-foreground">{asset.location}</td>
                     <td className="p-4">
-                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => alert("Edit CI coming soon!")} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="Edit Item">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => alert("Delete CI coming soon!")} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors" title="Delete Item">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

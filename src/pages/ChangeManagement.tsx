@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { collection, onSnapshot, addDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { GitPullRequest, Search, Plus, CheckCircle2, Clock, AlertCircle, Calendar, User, ChevronRight, X } from "lucide-react";
+import { GitPullRequest, Search, Plus, CheckCircle2, Clock, AlertCircle, Calendar, User, ChevronRight, X, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -95,7 +95,7 @@ export function ChangeManagement() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/30 border-b border-border">
-                {["Number","Short Description","Type","State","Risk","Planned Date"].map(h => (
+                {["Number","Short Description","Type","State","Risk","Planned Date","Actions"].map(h => (
                   <th key={h} className="p-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">{h}</th>
                 ))}
               </tr>
@@ -106,7 +106,7 @@ export function ChangeManagement() {
                   {changes.length === 0 ? "No change requests yet. Create the first one." : "No results found."}
                 </td></tr>
               ) : filtered.map(c => (
-                <tr key={c.id} className="hover:bg-muted/20 transition-colors">
+                <tr key={c.id} className="hover:bg-muted/20 transition-colors group">
                   <td className="p-4 text-sm font-mono text-blue-600 font-bold">{c.id?.slice(0,8)}</td>
                   <td className="p-4 text-sm font-medium text-sn-dark">{c.title}</td>
                   <td className="p-4 text-sm text-muted-foreground">{c.type}</td>
@@ -121,6 +121,21 @@ export function ChangeManagement() {
                   </td>
                   <td className="p-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5" />{c.plannedDate || "—"}</div>
+                  </td>
+                  <td className="p-4 text-right">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => alert("Edit feature coming soon!")} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="Edit Change">
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button onClick={async () => {
+                        if (confirm(`Are you sure you want to delete change ${c.id.slice(0,8)}?`)) {
+                          const { deleteDoc, doc } = await import("firebase/firestore");
+                          await deleteDoc(doc(db, "changes", c.id));
+                        }
+                      }} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors" title="Delete Change">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

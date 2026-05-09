@@ -23,7 +23,8 @@ import {
   MoreVertical,
   Edit,
   Star,
-  History
+  History,
+  Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -349,6 +350,21 @@ export function Companies() {
               <Button variant="outline" size="sm" className="border-white/20 text-white hover:bg-white/10 bg-transparent text-xs">
                 <Edit className="w-3.5 h-3.5 mr-1.5" /> Edit
               </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="border-red-500/50 text-red-400 hover:bg-red-500/10 bg-transparent text-xs"
+                onClick={async () => {
+                  if (confirm(`Are you sure you want to delete ${selectedCompany.name}?`)) {
+                    await import("firebase/firestore").then(async ({ deleteDoc, doc }) => {
+                      await deleteDoc(doc(db, "companies", selectedCompany.id));
+                      navigate("/companies");
+                    });
+                  }
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
+              </Button>
             </div>
           </div>
 
@@ -664,9 +680,27 @@ export function Companies() {
                   <td className="px-4 py-3">
                     <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold uppercase", getStatusColor(company.status || "Active"))}>{company.status || "Active"}</span>
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="outline" size="icon" className="h-7 w-7 text-blue-600 border-blue-200 hover:bg-blue-50" onClick={(e) => { e.stopPropagation(); navigate(`/companies/${company.id}`); }}>
+                        <Edit className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="outline" size="icon" className="h-7 w-7 text-red-600 border-red-200 hover:bg-red-50" onClick={async (e) => {
+                        e.stopPropagation();
+                        if (confirm(`Are you sure you want to delete ${company.name}?`)) {
+                           const { deleteDoc, doc } = await import("firebase/firestore");
+                           await deleteDoc(doc(db, "companies", company.id));
+                           setCompanies(prev => prev.filter(c => c.id !== company.id));
+                        }
+                      }}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
+
           </table>
           {filteredCompanies.length === 0 && (
             <div className="text-center py-16">

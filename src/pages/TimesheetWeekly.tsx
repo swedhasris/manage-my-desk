@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Clock, ChevronLeft, ChevronRight, Plus, Pencil, Trash2, CheckCircle, AlertCircle, BarChart2, Bot, Zap } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Link } from "react-router-dom";
+import html2canvas from "html2canvas";
 
 const STATUS_COLORS: Record<string, string> = {
   Draft: "bg-gray-100 text-gray-700",
@@ -148,10 +149,21 @@ export function TimesheetWeekly() {
     if (!confirm("Submit this timesheet for approval? You won't be able to edit it after.")) return;
     if (timeCards.length === 0) { alert("Cannot submit an empty timesheet."); return; }
     try {
+      const element = document.getElementById("timesheet-content");
+      let screenshotUrl = "";
+      if (element) {
+        const canvas = await html2canvas(element, { scale: 1 });
+        screenshotUrl = canvas.toDataURL("image/jpeg", 0.7);
+      }
+
       await fetch(`/api/timesheets/${timesheet.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: "Submitted" })
+        body: JSON.stringify({ 
+          status: "Submitted",
+          screenshot_url: screenshotUrl,
+          submitted_at: new Date().toISOString()
+        })
       });
       loadWeek();
     } catch (e) { console.error(e); }
@@ -177,7 +189,7 @@ export function TimesheetWeekly() {
   const weekTotal = timeCards.reduce((s, c) => s + (parseFloat(c.hours_worked) || 0), 0);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div id="timesheet-content" className="space-y-6 max-w-7xl mx-auto p-4 bg-background">
       <div className="flex items-center justify-between pb-4 border-b border-border">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-sn-green/10 rounded-xl">

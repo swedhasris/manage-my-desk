@@ -387,6 +387,7 @@ function PodiumCard({
   styles: any;
   delay: number;
   isLarge?: boolean;
+  key?: React.Key;
 }) {
   const rankLabels = ["🥇 1st", "🥈 2nd", "🥉 3rd"];
 

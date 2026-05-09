@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { collection, onSnapshot, addDoc, serverTimestamp, query, orderBy, updateDoc, doc, increment } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
-import { BookOpen, Search, Plus, ThumbsUp, Eye, Clock, User, Star, ChevronRight, X } from "lucide-react";
+import { BookOpen, Search, Plus, ThumbsUp, Eye, Clock, User, Star, ChevronRight, X, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -16,27 +16,36 @@ export function KnowledgeBase() {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ title: "", content: "", category: "General" });
+  const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, "kb_articles"), orderBy("views", "desc"));
     return onSnapshot(q, snap => setArticles(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
   }, []);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await addDoc(collection(db, "kb_articles"), {
-        ...form,
-        views: 0,
-        rating: 0,
-        votes: 0,
-        author: profile?.name || "Unknown",
-        authorId: profile?.uid || "",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+      if (selectedArticleId) {
+        await updateDoc(doc(db, "kb_articles", selectedArticleId), {
+          ...form,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        await addDoc(collection(db, "kb_articles"), {
+          ...form,
+          views: 0,
+          rating: 0,
+          votes: 0,
+          author: profile?.name || "Unknown",
+          authorId: profile?.uid || "",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
       setShowModal(false);
+      setSelectedArticleId(null);
       setForm({ title: "", content: "", category: "General" });
     } catch (e) { console.error(e); }
     setSaving(false);
@@ -94,7 +103,7 @@ export function KnowledgeBase() {
             </div>
           </div>
           {(profile?.role === "admin" || profile?.role === "agent") && (
-            <Button className="w-full bg-sn-green text-sn-dark font-bold gap-2" onClick={() => setShowModal(true)}>
+            <Button className="w-full bg-sn-green text-sn-dark font-bold gap-2" onClick={() => { setSelectedArticleId(null); setForm({ title: "", content: "", category: "General" }); setShowModal(true); }}>
               <Plus className="w-4 h-4" /> Write Article
             </Button>
           )}
@@ -137,6 +146,29 @@ export function KnowledgeBase() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-3">
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {(profile?.role === "admin" || profile?.role === "super_admin" || profile?.role === "ultra_super_admin" || article.authorId === profile?.uid) && (
+                      <>
+                        <button onClick={e => {
+                          e.stopPropagation();
+                          setSelectedArticleId(article.id);
+                          setForm({ title: article.title, content: article.content, category: article.category });
+                          setShowModal(true);
+                        }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="Edit Article">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={async e => {
+                          e.stopPropagation();
+                          if (confirm(`Delete article: ${article.title}?`)) {
+                            const { deleteDoc, doc } = await import("firebase/firestore");
+                            await deleteDoc(doc(db, "kb_articles", article.id));
+                          }
+                        }} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors" title="Delete Article">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                   <button onClick={e => { e.stopPropagation(); handleVote(article.id); }}
                     className="p-2 hover:bg-sn-green/10 rounded-lg transition-colors" title="Mark as helpful">
                     <ThumbsUp className="w-4 h-4 text-muted-foreground hover:text-sn-green" />
@@ -153,10 +185,10 @@ export function KnowledgeBase() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
             <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
-              <h3 className="font-bold">Write Knowledge Article</h3>
-              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-muted rounded"><X className="w-5 h-5" /></button>
+              <h3 className="font-bold">{selectedArticleId ? "Edit Knowledge Article" : "Write Knowledge Article"}</h3>
+              <button onClick={() => { setShowModal(false); setSelectedArticleId(null); }} className="p-1 hover:bg-muted rounded"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleCreate} className="p-6 space-y-4">
+            <form onSubmit={handleCreateOrUpdate} className="p-6 space-y-4">
               <div>
                 <label className="text-sm font-medium block mb-1">Title <span className="text-red-500">*</span></label>
                 <input required value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))}
@@ -176,9 +208,9 @@ export function KnowledgeBase() {
                   className="w-full p-2 border border-border rounded text-sm focus:ring-1 focus:ring-sn-green outline-none resize-none" />
               </div>
               <div className="flex justify-end gap-3 pt-2 border-t border-border">
-                <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
+                <Button type="button" variant="outline" onClick={() => { setShowModal(false); setSelectedArticleId(null); }}>Cancel</Button>
                 <Button type="submit" className="bg-sn-green text-sn-dark font-bold" disabled={saving}>
-                  {saving ? "Publishing..." : "Publish Article"}
+                  {saving ? "Saving..." : selectedArticleId ? "Update Article" : "Publish Article"}
                 </Button>
               </div>
             </form>

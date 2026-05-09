@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AI Activity Tracker — Full Agentic System
  * App detection + icons + screenshots + continuous monitoring + timesheet integration
  */
@@ -242,30 +242,31 @@ function SummaryCard({ summary, duration, entryCount, onDismiss }: { summary: st
 export function ActivityTracker() {
   const { user, profile } = useAuth();
 
-  const [status, setStatus]             = useState<WatcherStatus>('idle');
-  const [entries, setEntries]           = useState<ActivityEntry[]>([]);
-  const [elapsed, setElapsed]           = useState(0);
-  const [error, setError]               = useState<string | null>(null);
-  const [summary, setSummary]           = useState<string | null>(null);
-  const [sessionId, setSessionId]       = useState<string | null>(null);
-  const [sessionDbId, setSessionDbId]   = useState<string | null>(null);
-  const [intervalSec, setIntervalSec]   = useState(15);
+  const [status, setStatus] = useState<WatcherStatus>('idle');
+  const [entries, setEntries] = useState<ActivityEntry[]>([]);
+  const [elapsed, setElapsed] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionDbId, setSessionDbId] = useState<string | null>(null);
+  const [intervalSec, setIntervalSec] = useState(15);
   const [showSettings, setShowSettings] = useState(false);
   const [previewModal, setPreviewModal] = useState<string | null>(null);
   const [captureScreenshots, setCaptureScreenshots] = useState(true);
 
-  const watcherRef      = useRef<ActivityWatcher | null>(null);
-  const timerRef        = useRef<ReturnType<typeof setInterval> | null>(null);
-  const feedEndRef      = useRef<HTMLDivElement>(null);
-  const elapsedRef      = useRef(0);
+  const watcherRef = useRef<ActivityWatcher | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const feedEndRef = useRef<HTMLDivElement>(null);
+  const elapsedRef = useRef(0);
+  const startTimeRef = useRef<number | null>(null);
   const prevActivityRef = useRef('');
 
   // Use refs for values needed inside processSnapshot to avoid stale closures
-  const sessionIdRef    = useRef<string | null>(null);
-  const sessionDbIdRef  = useRef<string | null>(null);
-  const intervalSecRef  = useRef(15);
-  const userRef         = useRef(user);
-  const profileRef      = useRef(profile);
+  const sessionIdRef = useRef<string | null>(null);
+  const sessionDbIdRef = useRef<string | null>(null);
+  const intervalSecRef = useRef(15);
+  const userRef = useRef(user);
+  const profileRef = useRef(profile);
 
   // Keep refs in sync with state
   useEffect(() => { userRef.current = user; }, [user]);
@@ -277,13 +278,30 @@ export function ActivityTracker() {
   /* ── Timer ── */
   useEffect(() => {
     if (isActive) {
+      if (!startTimeRef.current) {
+        startTimeRef.current = Date.now() - (elapsedRef.current * 1000);
+      }
       timerRef.current = setInterval(() => {
-        setElapsed(s => { elapsedRef.current = s + 1; return s + 1; });
+        if (startTimeRef.current) {
+          const now = Date.now();
+          const totalSec = Math.floor((now - startTimeRef.current) / 1000);
+          setElapsed(totalSec);
+          elapsedRef.current = totalSec;
+        }
       }, 1000);
     } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      startTimeRef.current = null;
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => { 
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [isActive]);
 
   /* ── Auto-scroll ── */
@@ -306,7 +324,7 @@ export function ActivityTracker() {
   // Defined with no deps — reads everything from refs to avoid stale closures
   const processSnapshot = useCallback(async (snap: ActivitySnapshot) => {
     const entryId = `e_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const userId  = userRef.current?.uid || 'anonymous';
+    const userId = userRef.current?.uid || 'anonymous';
     const currentSessionId = sessionIdRef.current;
     const currentIntervalSec = intervalSecRef.current;
 
@@ -400,15 +418,17 @@ export function ActivityTracker() {
       clearTimeout(aiTimeout);
       if (res.ok) {
         const d = await res.json();
-        activity    = d.activity    || activity;
+        activity = d.activity || activity;
         description = d.description || description;
-        confidence  = d.confidence  ?? confidence;
+        confidence = d.confidence ?? confidence;
         prevActivityRef.current = activity;
         // Update entry with vision-detected app/website
         setEntries(prev => prev.map(e =>
           e.id === entryId
-            ? { ...e, activity, description, confidence, screenshotUrl, isProcessing: false,
-                detectedApp: d.detected_app || null, detectedWebsite: d.detected_website || null }
+            ? {
+              ...e, activity, description, confidence, screenshotUrl, isProcessing: false,
+              detectedApp: d.detected_app || null, detectedWebsite: d.detected_website || null
+            }
             : e
         ));
         return; // early return — already updated
@@ -418,8 +438,10 @@ export function ActivityTracker() {
     // Update entry (fallback path — AI failed or timed out)
     setEntries(prev => prev.map(e =>
       e.id === entryId
-        ? { ...e, activity, description, confidence, screenshotUrl, isProcessing: false,
-            detectedApp: null, detectedWebsite: null }
+        ? {
+          ...e, activity, description, confidence, screenshotUrl, isProcessing: false,
+          detectedApp: null, detectedWebsite: null
+        }
         : e
     ));
 
@@ -427,7 +449,8 @@ export function ActivityTracker() {
     (async () => {
       try {
         const today = new Date().toISOString().split('T')[0];
-        const mins = Math.round(currentIntervalSec / 60) || 1;
+        // Use actual elapsed time between snapshots for better accuracy (handles background throttling)
+        const mins = snap.deltaSec / 60;
         const taskMap: Record<string, string> = {
           'Ticket Work': 'Ticket Resolution', 'Timesheet Entry': 'Documentation',
           'Documentation': 'Documentation', 'Dashboard Review': 'General Support',
@@ -469,19 +492,30 @@ export function ActivityTracker() {
     // Persist activity entry (fire-and-forget)
     fetch('/api/activity-entries', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: currentSessionId, user_id: userId, activity_label: activity, description, confidence, captured_at: snap.timestamp, screenshot_url: screenshotUrl }),
-    }).catch(() => {});
+      body: JSON.stringify({ 
+        session_id: currentSessionId, 
+        user_id: userId, 
+        activity_label: activity, 
+        description, 
+        confidence, 
+        captured_at: snap.timestamp, 
+        screenshot_url: screenshotUrl,
+        keystrokes: snap.recentKeys,
+        clicks: snap.recentClicks.length
+      }),
+    }).catch(() => { });
   }, []); // NO deps — reads everything from refs
 
   /* ── START ── */
   const handleStart = useCallback(async () => {
     if (isActive) return;
     setError(null); setSummary(null); setEntries([]);
-    setElapsed(0); elapsedRef.current = 0; prevActivityRef.current = '';
+    setElapsed(0); elapsedRef.current = 0; startTimeRef.current = Date.now();
+    prevActivityRef.current = '';
 
-    const userId   = userRef.current?.uid || 'anonymous';
+    const userId = userRef.current?.uid || 'anonymous';
     const userName = profileRef.current?.name || userRef.current?.email || 'User';
-    const sid      = `act_${Date.now()}`;
+    const sid = `act_${Date.now()}`;
     setSessionId(sid);
     sessionIdRef.current = sid; // sync ref immediately
 
@@ -534,13 +568,48 @@ export function ActivityTracker() {
     }
   }, [isActive, entries]);
 
+  /* ── SUBMIT APPROVAL ── */
+  const handleSubmitApproval = useCallback(async () => {
+    if (!window.confirm("Submit your captured screenshots and activity logs to the Admin, Super Admin, and Ultra Super Admin for approval?")) return;
+    
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const userId = userRef.current?.uid;
+      if (!userId) return;
+
+      // 1. Get current timesheet
+      const tsRes = await fetch('/api/timesheets/get-or-create', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, week_start: getWeekMonday(today), week_end: getWeekSunday(today) }),
+      });
+      
+      if (tsRes.ok) {
+        const ts = await tsRes.json();
+        // 2. Submit timesheet to trigger the admin notifications
+        const submitRes = await fetch(`/api/timesheets/${ts.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: "Submitted" })
+        });
+        
+        if (submitRes.ok) {
+          window.alert("Success! Your screenshots and activity logs have been submitted to the Admin, Super Admin, and Ultra Super Admin for approval.");
+        } else {
+          throw new Error("Failed to submit.");
+        }
+      }
+    } catch (e: any) {
+      window.alert("Error submitting for approval: " + e.message);
+    }
+  }, []);
+
   useEffect(() => () => { watcherRef.current?.stop(); }, []);
   useEffect(() => { watcherRef.current?.updateInterval(intervalSec * 1000); }, [intervalSec]);
 
   const breakdown = entries.filter(e => !e.isProcessing && !e.isIdle)
     .reduce<Record<string, number>>((acc, e) => { acc[e.activity] = (acc[e.activity] || 0) + 1; return acc; }, {});
   const topActivity = Object.entries(breakdown).sort((a, b) => b[1] - a[1])[0];
-  const totalKeys   = entries.reduce((s, e) => s + e.keystrokes, 0);
+  const totalKeys = entries.reduce((s, e) => s + e.keystrokes, 0);
   const totalClicks = entries.reduce((s, e) => s + e.clicks.length, 0);
 
   /* ── Render ── */
@@ -583,7 +652,7 @@ export function ActivityTracker() {
             <div className="flex items-center gap-3">
               <input type="checkbox" id="capScreenshots" checked={captureScreenshots} onChange={e => setCaptureScreenshots(e.target.checked)} disabled={isActive} className="w-4 h-4 accent-blue-600" />
               <label htmlFor="capScreenshots" className="text-sm font-medium cursor-pointer">
-                Capture tab screenshots (canvas-based, no permission needed)
+                Silent Monitoring (OS-level capture, no permission dialogs)
               </label>
             </div>
           </div>
@@ -622,13 +691,21 @@ export function ActivityTracker() {
                   <Square className="w-4 h-4 fill-white" /> Stop Monitoring
                 </button>
               )}
+              
+              <button 
+                onClick={handleSubmitApproval} 
+                disabled={isActive && entries.length === 0}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Submit Screenshots
+              </button>
             </div>
           </div>
           {!isActive && entries.length === 0 && (
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
               <Bot className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-blue-700">
-                <strong>One-time permission.</strong> Click Start — a screen picker appears once. Select <strong>Entire Screen</strong> and click Share. After that, your entire screen is captured silently every {intervalSec} seconds with no more dialogs. Stop anytime.
+                <strong>Silent OS-level Monitoring.</strong> Click Start to begin. The system captures your full desktop silently at the OS level every {intervalSec} seconds. <strong>No browser permission dialogs or screen-share prompts are required.</strong> Your activity is analyzed by Gemini Vision to generate professional work logs.
               </p>
             </div>
           )}
@@ -698,9 +775,9 @@ export function ActivityTracker() {
           <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
             <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><BarChart2 className="w-4 h-4 text-blue-500" /> Activity Breakdown</h3>
             <div className="space-y-2">
-              {Object.entries(breakdown).sort((a, b) => b[1] - a[1]).map(([label, count]) => {
+              {Object.entries(breakdown).sort((a, b) => (b[1] as number) - (a[1] as number)).map(([label, count]) => {
                 const total = entries.filter(e => !e.isProcessing && !e.isIdle).length;
-                const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                const pct = total > 0 ? Math.round(((count as number) / total) * 100) : 0;
                 return (
                   <div key={label} className="flex items-center gap-3">
                     <span className="text-sm w-40 truncate font-medium">{label}</span>
