@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc, getDocs, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc, getDocs, where, setDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { ROLE_HIERARCHY, Role } from "../lib/roles";
@@ -656,6 +656,49 @@ export function Settings() {
                     <option value="On Customer Update">On Customer Update</option>
                   </Select>
                   <Textarea label="Logic Description" name="description" defaultValue={editingItem.data.description} />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Workflow Icon / Graphic</label>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                const base64 = reader.result as string;
+                                // We'll put this into a hidden input so FormData picks it up
+                                const hiddenInput = document.getElementById('workflow-image-data') as HTMLInputElement;
+                                if (hiddenInput) hiddenInput.value = base64;
+                                // Also update preview
+                                const preview = document.getElementById('workflow-preview') as HTMLImageElement;
+                                if (preview) {
+                                  preview.src = base64;
+                                  preview.classList.remove('hidden');
+                                }
+                                const placeholder = document.getElementById('workflow-placeholder');
+                                if (placeholder) placeholder.classList.add('hidden');
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="w-full text-[10px] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-sn-green file:text-sn-dark hover:file:bg-sn-green/80 cursor-pointer"
+                        />
+                      </div>
+                      <div className="w-16 h-16 rounded-2xl border border-border flex items-center justify-center bg-muted/20 overflow-hidden shrink-0">
+                        <img 
+                          id="workflow-preview" 
+                          src={editingItem.data.image || ""} 
+                          className={cn("w-full h-full object-contain", !editingItem.data.image && "hidden")} 
+                          alt="Workflow Icon"
+                        />
+                        <Zap id="workflow-placeholder" className={cn("text-muted-foreground/30", editingItem.data.image && "hidden")} size={24} />
+                      </div>
+                    </div>
+                    <input type="hidden" id="workflow-image-data" name="image" defaultValue={editingItem.data.image || ""} />
+                  </div>
                 </>
               )}
 
@@ -712,23 +755,30 @@ function MasterColumn({ title, icon: Icon, items, selectedId, onSelect, onAdd, o
           <motion.div
             layout
             key={item.id}
+            onClick={() => onSelect(item.id)}
             className={cn(
-              "w-full flex items-center justify-between p-4 rounded-2xl group transition-all duration-500 border relative overflow-hidden",
+              "w-full flex items-center justify-between p-4 rounded-2xl group transition-all duration-500 border relative overflow-hidden cursor-pointer",
               selectedId === item.id
                 ? "bg-sn-green/10 border-sn-green/30 shadow-inner"
                 : "hover:bg-muted/50 border-transparent"
             )}
           >
-            <button
-              onClick={() => onSelect(item.id)}
-              className="flex-1 text-left"
-            >
-              <div className={cn("text-sm font-black transition-colors", selectedId === item.id ? "text-sn-green" : "text-sn-dark dark:text-gray-200")}>
-                {item.name}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl border border-border/50 bg-white flex items-center justify-center overflow-hidden shrink-0">
+                  {item.image ? (
+                    <img src={item.image} className="w-full h-full object-contain" alt="" />
+                  ) : (
+                    <Icon size={18} className="text-muted-foreground/30" />
+                  )}
+                </div>
+                <div className="text-left">
+                  <div className={cn("text-sm font-black transition-colors", selectedId === item.id ? "text-sn-green" : "text-sn-dark dark:text-gray-200")}>
+                    {item.name}
+                  </div>
+                  {item.providerName && <div className="text-[9px] font-bold text-muted-foreground uppercase">{item.providerName}</div>}
+                  {item.sla && <div className="text-[9px] font-black text-sn-green uppercase">{item.sla} SLA</div>}
+                </div>
               </div>
-              {item.providerName && <div className="text-[9px] font-bold text-muted-foreground uppercase">{item.providerName}</div>}
-              {item.sla && <div className="text-[9px] font-black text-sn-green uppercase">{item.sla} SLA</div>}
-            </button>
 
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               {isAdmin && (

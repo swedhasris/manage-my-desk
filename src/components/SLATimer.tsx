@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
+import { Clock, AlertCircle } from "lucide-react";
 
 interface SLATimerProps {
   label: string;
@@ -72,7 +73,7 @@ export function SLATimer({
     // Resolution SLA: waiting for first response before starting
     if (waitUntil !== undefined && (waitUntil === null || waitUntil === "")) {
       setStatus("waiting");
-      setDisplayTime("—");
+      setDisplayTime("PENDING");
       setBreachDuration("");
       return;
     }
@@ -149,72 +150,97 @@ export function SLATimer({
     };
   }, [deadline, startTime, metAt, isPaused, onHoldStart, totalPausedTime, waitUntil]);
 
-  // Color Escalation Logic
+  // Advanced SLA Logic (Based on Percentage Used)
+  const getEscalationStatus = () => {
+    if (status === "met") return "COMPLETED";
+    if (status === "breached") return "SLA BREACHED";
+    if (status === "paused") return "PAUSED";
+    if (percentage >= 90) return "CRITICAL NEAR BREACH";
+    if (percentage >= 81) return "NEAR BREACH";
+    if (percentage >= 51) return "WARNING";
+    return "HEALTHY";
+  };
+
   const getEscalationColor = () => {
     if (status === "met") return "bg-emerald-500";
-    if (status === "breached") return "bg-red-600";
+    if (status === "breached") return "bg-red-600 shadow-[0_0_15px_rgba(220,38,38,0.5)]";
     if (status === "paused") return "bg-amber-400";
-    
-    if (percentage >= 75) return "bg-red-500";
-    if (percentage >= 50) return "bg-yellow-500";
-    return "bg-sn-green"; // Healthy (< 50%)
+    if (percentage >= 90) return "bg-orange-600";
+    if (percentage >= 81) return "bg-orange-500";
+    if (percentage >= 51) return "bg-yellow-500";
+    return "bg-emerald-500";
   };
 
   const getEscalationTextColor = () => {
     if (status === "met") return "text-emerald-600";
-    if (status === "breached") return "text-red-600";
+    if (status === "breached") return "text-red-600 animate-pulse font-black";
     if (status === "paused") return "text-amber-600";
     if (status === "waiting") return "text-gray-400";
     
-    if (percentage >= 75) return "text-red-600";
-    if (percentage >= 50) return "text-yellow-600";
-    return "text-blue-600"; // Default
+    if (percentage >= 90) return "text-orange-700 font-bold";
+    if (percentage >= 81) return "text-orange-600";
+    if (percentage >= 51) return "text-yellow-600";
+    return "text-blue-600";
   };
 
+  if (status === "waiting") {
+    return (
+      <div className="flex items-center gap-2 px-3 py-1 bg-muted/30 rounded-md border border-border/50">
+        <Clock className="w-3 h-3 text-muted-foreground" />
+        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest italic">Pending Handover</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-0.5 min-w-[110px] group">
-      <div className="flex items-center justify-between gap-1">
-        <span className="text-[9px] uppercase text-muted-foreground font-black leading-none tracking-wider">
-          {label}
+    <div className="flex flex-col gap-1.5 p-2 bg-white border border-border rounded-xl shadow-sm hover:shadow-md transition-all group min-w-[160px]">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <div className={cn("w-1.5 h-1.5 rounded-full", getEscalationColor())} />
+          <span className="text-[8px] uppercase text-muted-foreground font-black tracking-widest">{label}</span>
+        </div>
+        <span className={cn(
+          "text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter transition-all",
+          status === "met" ? "bg-emerald-50 text-emerald-700" :
+            status === "breached" ? "bg-red-100 text-red-700 animate-bounce" :
+              percentage >= 81 ? "bg-orange-100 text-orange-700" :
+                percentage >= 51 ? "bg-yellow-100 text-yellow-700" : "bg-blue-50 text-blue-700"
+        )}>
+          {getEscalationStatus()}
         </span>
-        {status === "paused" ? (
-          <span className="text-[8px] font-black text-amber-600 uppercase animate-pulse">
-            PAUSED
-          </span>
-        ) : status === "breached" ? (
-          <span className="text-[8px] font-black text-red-600 uppercase animate-pulse">
-            BREACHED
-          </span>
-        ) : null}
       </div>
       
-      <div className="flex items-baseline gap-1.5">
-        <span
-          className={cn(
-            "text-[13px] font-mono font-black leading-tight tracking-tight",
-            getEscalationTextColor()
-          )}
-        >
+      <div className="flex items-baseline justify-between gap-1.5">
+        <span className={cn(
+          "text-base font-mono font-black leading-none tracking-tight",
+          getEscalationTextColor()
+        )}>
           {displayTime}
         </span>
-        {status === "breached" && breachDuration ? (
-          <span className="text-[8px] font-bold text-red-500/70 italic">
-            {breachDuration}
-          </span>
-        ) : status !== "met" && status !== "waiting" ? (
-          <span className="text-[9px] font-bold text-muted-foreground/60">
-            {Math.round(percentage)}%
-          </span>
-        ) : null}
+        <div className="flex flex-col items-end leading-none">
+          <span className="text-[9px] font-black text-muted-foreground">{Math.round(percentage)}%</span>
+          {status === "breached" && breachDuration && (
+            <span className="text-[7px] font-bold text-red-500 italic uppercase">{breachDuration}</span>
+          )}
+        </div>
       </div>
 
-      {/* Progress bar with Escalation Colors */}
-      <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-0.5 shadow-inner">
+      {/* Progress bar with Dynamic Colors */}
+      <div className="relative w-full h-1.5 bg-muted rounded-full overflow-hidden shadow-inner">
         <motion.div
           layout
           className={cn("h-full transition-all duration-1000", getEscalationColor())}
-          style={{ width: `${percentage}%` }}
+          initial={{ width: 0 }}
+          animate={{ width: `${percentage}%` }}
         />
+      </div>
+
+      {/* Escalation Notification Preview */}
+      <div className="flex items-center justify-between mt-0.5 pt-0.5 border-t border-border/30">
+        <span className="text-[7px] text-muted-foreground/80 font-bold uppercase tracking-tight">
+          {percentage >= 100 ? "Escalated: Manager" : percentage >= 90 ? "Escalated: Lead" : percentage >= 80 ? "Escalated: Engineer" : "Status: Optimal"}
+        </span>
+        <AlertCircle className={cn("w-2.5 h-2.5", percentage >= 80 ? "text-orange-500" : "text-muted-foreground/20")} />
       </div>
     </div>
   );

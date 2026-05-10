@@ -41,6 +41,7 @@ interface Company {
   postalCode?: string;
   country?: string;
   website?: string;
+  logoUrl?: string;
   type?: string;
   status?: string;
   createdAt?: string;
@@ -65,6 +66,7 @@ export function Companies() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("details");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newCompany, setNewCompany] = useState<Partial<Company>>({
     name: "",
@@ -77,6 +79,7 @@ export function Companies() {
     province: "",
     postalCode: "",
     country: "",
+    logoUrl: "",
     type: "Customer",
     status: "Active"
   });
@@ -100,54 +103,87 @@ export function Companies() {
 
     setSaving(true);
     try {
-      const companyData = {
-        ...newCompany,
-        name: newCompany.name.trim(),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
+      if (isEditing && selectedCompany) {
+        const { updateDoc, doc } = await import("firebase/firestore");
+        const companyData = {
+          ...newCompany,
+          name: newCompany.name.trim(),
+          updatedAt: serverTimestamp()
+        };
+        await updateDoc(doc(db, "companies", selectedCompany.id), companyData);
+        
+        // Update local state
+        setCompanies(prev => prev.map(c => c.id === selectedCompany.id ? { ...c, ...companyData } as Company : c));
+        setSelectedCompany({ ...selectedCompany, ...companyData } as Company);
+      } else {
+        const companyData = {
+          ...newCompany,
+          name: newCompany.name.trim(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
 
-      // Save to Firestore
-      const docRef = await addDoc(collection(db, "companies"), companyData);
+        // Save to Firestore
+        const docRef = await addDoc(collection(db, "companies"), companyData);
 
-      // Update local state
-      const createdCompany: Company = {
-        id: docRef.id,
-        ...companyData,
-        createdAt: new Date().toISOString()
-      };
+        // Update local state
+        const createdCompany: Company = {
+          id: docRef.id,
+          ...companyData,
+          createdAt: new Date().toISOString()
+        } as Company;
 
-      setCompanies(prev => [...prev, createdCompany].sort((a, b) => a.name.localeCompare(b.name)));
+        setCompanies(prev => [...prev, createdCompany].sort((a, b) => a.name.localeCompare(b.name)));
+      }
 
       // Reset form and close dialog
-      setNewCompany({
-        name: "",
-        contactName: "",
-        phone: "",
-        email: "",
-        address1: "",
-        address2: "",
-        city: "",
-        province: "",
-        postalCode: "",
-        country: "",
-        type: "Customer",
-        status: "Active"
-      });
+      resetForm();
       setIsDialogOpen(false);
     } catch (error) {
-      console.error("Error creating company:", error);
-      // Add to local state anyway as fallback
-      const fallbackCompany: Company = {
-        id: Date.now().toString(),
-        ...newCompany as Company,
-        createdAt: new Date().toISOString()
-      };
-      setCompanies(prev => [...prev, fallbackCompany].sort((a, b) => a.name.localeCompare(b.name)));
-      setIsDialogOpen(false);
+      console.error("Error saving company:", error);
+      alert("Failed to save company. Please try again.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const resetForm = () => {
+    setNewCompany({
+      name: "",
+      contactName: "",
+      phone: "",
+      email: "",
+      address1: "",
+      address2: "",
+      city: "",
+      province: "",
+      postalCode: "",
+      country: "",
+      type: "Customer",
+      status: "Active"
+    });
+    setIsEditing(false);
+  };
+
+  const openEditDialog = (company: Company) => {
+    setNewCompany({
+      name: company.name,
+      contactName: company.contactName || "",
+      phone: company.phone || "",
+      email: company.email || "",
+      address1: company.address1 || "",
+      address2: company.address2 || "",
+      city: company.city || "",
+      province: company.province || "",
+      postalCode: company.postalCode || "",
+      country: company.country || "",
+      logoUrl: company.logoUrl || "",
+      type: company.type || "Customer",
+      status: company.status || "Active",
+      website: company.website || ""
+    });
+    setIsEditing(true);
+    setIsDialogOpen(true);
   };
 
   const fetchCompanies = async () => {
@@ -173,6 +209,7 @@ export function Companies() {
             province: "ON",
             postalCode: "M9W8B1",
             country: "Canada",
+            logoUrl: "https://cdn-icons-png.flaticon.com/512/2611/2611152.png",
             type: "Customer",
             status: "Active"
           },
@@ -188,6 +225,7 @@ export function Companies() {
             province: "NY",
             postalCode: "10001",
             country: "USA",
+            logoUrl: "https://cdn-icons-png.flaticon.com/512/5968/5968204.png",
             type: "Customer",
             status: "Active"
           },
@@ -202,6 +240,7 @@ export function Companies() {
             province: "CA",
             postalCode: "94102",
             country: "USA",
+            logoUrl: "https://cdn-icons-png.flaticon.com/512/2092/2092218.png",
             type: "Partner",
             status: "Active"
           }
@@ -225,6 +264,7 @@ export function Companies() {
           province: "ON",
           postalCode: "M9W8B1",
           country: "Canada",
+          logoUrl: "https://cdn-icons-png.flaticon.com/512/2611/2611152.png",
           type: "Customer",
           status: "Active"
         }
@@ -332,9 +372,15 @@ export function Companies() {
               <button onClick={() => navigate("/companies")} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sn-green/80 to-emerald-600 flex items-center justify-center text-sn-dark text-lg font-black shadow-lg">
-                {selectedCompany.name.charAt(0).toUpperCase()}
-              </div>
+              {selectedCompany.logoUrl ? (
+                <div className="w-12 h-12 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg overflow-hidden">
+                  <img src={selectedCompany.logoUrl} alt={selectedCompany.name} className="w-full h-full object-contain" />
+                </div>
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sn-green/80 to-emerald-600 flex items-center justify-center text-sn-dark text-lg font-black shadow-lg">
+                  {selectedCompany.name.charAt(0).toUpperCase()}
+                </div>
+              )}
               <div>
                 <h1 className="text-xl font-bold">{selectedCompany.name}</h1>
                 <div className="flex items-center gap-2 mt-0.5">
@@ -347,7 +393,12 @@ export function Companies() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="border-white/20 text-white hover:bg-white/10 bg-transparent text-xs">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="border-white/20 text-white hover:bg-white/10 bg-transparent text-xs"
+                onClick={() => openEditDialog(selectedCompany)}
+              >
                 <Edit className="w-3.5 h-3.5 mr-1.5" /> Edit
               </Button>
               <Button 
@@ -483,13 +534,40 @@ export function Companies() {
                 <div className="bg-white border border-border rounded-xl shadow-sm p-5">
                   <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground mb-4">Quick Actions</h3>
                   <div className="space-y-2">
-                    <Button className="w-full justify-start bg-sn-green/10 text-sn-dark hover:bg-sn-green/20 border-0 shadow-none" variant="outline" size="sm">
+                    <Button 
+                      className="w-full justify-start bg-sn-green/10 text-sn-dark hover:bg-sn-green/20 border-0 shadow-none" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate(`/tickets?action=new&companyId=${selectedCompany.id}`)}
+                    >
                       <Plus className="w-4 h-4 mr-2" /> Create Ticket
                     </Button>
-                    <Button className="w-full justify-start" variant="outline" size="sm">
+                    <Button 
+                      className="w-full justify-start" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        if (selectedCompany.email) {
+                          window.location.href = `mailto:${selectedCompany.email}`;
+                        } else {
+                          alert("No email address provided for this company.");
+                        }
+                      }}
+                    >
                       <Mail className="w-4 h-4 mr-2" /> Send Email
                     </Button>
-                    <Button className="w-full justify-start" variant="outline" size="sm">
+                    <Button 
+                      className="w-full justify-start" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        if (selectedCompany.phone) {
+                          window.location.href = `tel:${selectedCompany.phone}`;
+                        } else {
+                          alert("No phone number provided for this company.");
+                        }
+                      }}
+                    >
                       <Phone className="w-4 h-4 mr-2" /> Call Contact
                     </Button>
                   </div>
@@ -582,8 +660,10 @@ export function Companies() {
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto !bg-white !text-gray-900 border-gray-200">
             <DialogHeader>
-              <DialogTitle className="text-gray-900">Create New Company</DialogTitle>
-              <DialogDescription className="text-gray-500">Fill in the details to add a new company.</DialogDescription>
+              <DialogTitle className="text-gray-900">{isEditing ? "Edit Company" : "Create New Company"}</DialogTitle>
+              <DialogDescription className="text-gray-500">
+                {isEditing ? "Update company information." : "Fill in the details to add a new company."}
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateCompany} className="space-y-4 mt-4">
               <div className="grid grid-cols-2 gap-4">
@@ -593,6 +673,35 @@ export function Companies() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label htmlFor="phone" className="text-gray-700">Phone</Label><Input id="phone" value={newCompany.phone} onChange={(e) => setNewCompany(prev => ({ ...prev, phone: e.target.value }))} placeholder="(555) 123-4567" className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400" /></div>
                 <div className="space-y-2"><Label htmlFor="email" className="text-gray-700">Email</Label><Input id="email" type="email" value={newCompany.email} onChange={(e) => setNewCompany(prev => ({ ...prev, email: e.target.value }))} placeholder="contact@company.com" className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label htmlFor="website" className="text-gray-700">Website</Label><Input id="website" value={newCompany.website} onChange={(e) => setNewCompany(prev => ({ ...prev, website: e.target.value }))} placeholder="https://example.com" className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400" /></div>
+                <div className="space-y-2">
+                  <Label htmlFor="logo" className="text-gray-700">Company Logo (PNG/JPEG)</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      id="logo" 
+                      type="file" 
+                      accept="image/png, image/jpeg" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setNewCompany(prev => ({ ...prev, logoUrl: reader.result as string }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="bg-white border-gray-300 text-gray-900 text-xs h-9 px-2 pt-1.5"
+                    />
+                    {newCompany.logoUrl && (
+                      <div className="w-9 h-9 rounded border border-gray-200 flex items-center justify-center shrink-0 bg-gray-50 overflow-hidden">
+                        <img src={newCompany.logoUrl} className="w-full h-full object-contain" alt="Preview" />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="space-y-2"><Label htmlFor="address1" className="text-gray-700">Address</Label><Input id="address1" value={newCompany.address1} onChange={(e) => setNewCompany(prev => ({ ...prev, address1: e.target.value }))} placeholder="Street address" className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400" /></div>
               <div className="grid grid-cols-2 gap-4">
@@ -609,7 +718,11 @@ export function Companies() {
               </div>
               <DialogFooter className="mt-6">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={saving || !newCompany.name?.trim()}>{saving ? (<><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />Saving...</>) : "Create Company"}</Button>
+                <Button type="submit" disabled={saving || !newCompany.name?.trim()}>
+                  {saving ? (
+                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />Saving...</>
+                  ) : isEditing ? "Save Changes" : "Create Company"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -660,7 +773,15 @@ export function Companies() {
                 <tr key={company.id} onClick={() => navigate(`/companies/${company.id}`)} className="border-b border-border/50 hover:bg-blue-50/40 cursor-pointer transition-colors group">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-sn-dark to-slate-700 flex items-center justify-center text-white text-xs font-black shrink-0">{company.name.charAt(0).toUpperCase()}</div>
+                      {company.logoUrl ? (
+                        <div className="w-9 h-9 rounded-lg bg-white border border-border flex items-center justify-center p-1 shrink-0 overflow-hidden">
+                          <img src={company.logoUrl} alt={company.name} className="w-full h-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-sn-dark to-slate-700 flex items-center justify-center text-white text-xs font-black shrink-0">
+                          {company.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div>
                         <p className="font-semibold text-sm group-hover:text-blue-600 transition-colors">{company.name}</p>
                         {company.email && <p className="text-xs text-muted-foreground">{company.email}</p>}
@@ -682,7 +803,7 @@ export function Companies() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="outline" size="icon" className="h-7 w-7 text-blue-600 border-blue-200 hover:bg-blue-50" onClick={(e) => { e.stopPropagation(); navigate(`/companies/${company.id}`); }}>
+                      <Button variant="outline" size="icon" className="h-7 w-7 text-blue-600 border-blue-200 hover:bg-blue-50" onClick={(e) => { e.stopPropagation(); openEditDialog(company); }}>
                         <Edit className="w-3.5 h-3.5" />
                       </Button>
                       <Button variant="outline" size="icon" className="h-7 w-7 text-red-600 border-red-200 hover:bg-red-50" onClick={async (e) => {

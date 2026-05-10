@@ -69,6 +69,34 @@ function nowTimeStr(): string {
   return `${hr}:${m.toString().padStart(2, "0")} ${ampm}`;
 }
 
+/** Robustly parse "7:00 AM", "12:40 PM", "13:40", "7.00am", etc. */
+function parseTimeStr(timeStr: string): Date | null {
+  if (!timeStr) return null;
+  // Normalize: remove extra spaces, uppercase
+  const cleanStr = timeStr.trim().toUpperCase().replace(/\s+/g, ' ');
+  
+  // Handle both 12:40 and 12.40
+  const parts = cleanStr.match(/(\d{1,2})[:.](\d{2})/);
+  if (!parts) return null;
+  
+  let h = parseInt(parts[1]);
+  const m = parseInt(parts[2]);
+  
+  // Look for PM/AM anywhere in the string
+  const isPM = cleanStr.includes("PM");
+  const isAM = cleanStr.includes("AM");
+  
+  if (isPM && h < 12) h += 12;
+  if (isAM && h === 12) h = 0;
+  
+  // Bounds check
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
 /* ─── Collapsible Section ─── */
 function Section({ title, icon, defaultOpen = true, headerRight, accentColor, children }: {
   title: string; icon?: React.ReactNode; defaultOpen?: boolean;
@@ -175,6 +203,7 @@ export function Timesheet() {
   const [emailContactName, setEmailContactName] = useState("");
   const [emailResources, setEmailResources] = useState(false);
   const [emailCc, setEmailCc] = useState(false);
+  const [emailCcEmails, setEmailCcEmails] = useState("");
   const [emailBundled, setEmailBundled] = useState(false);
 
   // WhatsApp section
@@ -197,6 +226,22 @@ export function Timesheet() {
 
   const { weekStart: urlWeekStart } = useParams();
   const navigate = useNavigate();
+
+  const calculateDuration = (s: string, e: string) => {
+    const start = parseTimeStr(s);
+    const end = parseTimeStr(e);
+    if (start && end) {
+      let diffMs = end.getTime() - start.getTime();
+      if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      setActualHrs(diffMins.toString());
+    }
+  };
+
+  /* ── Auto-Calculate Duration ── */
+  useEffect(() => {
+    calculateDuration(startTime, endTime);
+  }, [startTime, endTime]);
 
   /* ── Firestore load ── */
   const monday = getMonday(new Date());
@@ -678,7 +723,11 @@ export function Timesheet() {
                 <div>
                   <label className="text-xs text-muted-foreground font-medium block mb-1">Start Time: <span className="text-red-500">*</span></label>
                   <div className="relative">
-                    <input type="text" value={startTime} onChange={e => setStartTime(e.target.value)}
+                    <input type="text" value={startTime} 
+                      onChange={e => {
+                        setStartTime(e.target.value);
+                        calculateDuration(e.target.value, endTime);
+                      }}
                       placeholder="7:00 AM"
                       className="w-full p-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-sn-green h-8 pr-8" />
                     <Clock className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -687,8 +736,12 @@ export function Timesheet() {
                 <div>
                   <label className="text-xs text-muted-foreground font-medium block mb-1">End Time:</label>
                   <div className="relative">
-                    <input type="text" value={endTime} onChange={e => setEndTime(e.target.value)}
-                      placeholder=""
+                    <input type="text" value={endTime} 
+                      onChange={e => {
+                        setEndTime(e.target.value);
+                        calculateDuration(startTime, e.target.value);
+                      }}
+                      placeholder="5:00 PM"
                       className="w-full p-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-sn-green h-8 pr-8" />
                     <Clock className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                   </div>
@@ -874,11 +927,13 @@ export function Timesheet() {
             <label className="text-xs text-muted-foreground font-medium col-span-1">Cc:</label>
             <div className="col-span-5 flex items-center gap-2">
               <input type="checkbox" checked={emailCc} onChange={e => setEmailCc(e.target.checked)} className="w-4 h-4 accent-blue-600 rounded" />
-              {emailCc && (
-                <select className="flex-grow p-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-sn-green h-8">
-                  <option value="">Select recipients...</option>
-                </select>
-              )}
+              <input 
+                type="text"
+                value={emailCcEmails}
+                onChange={e => setEmailCcEmails(e.target.value)}
+                placeholder="Separate emails with commas"
+                className="flex-1 p-1 border border-border rounded text-sm outline-none focus:ring-1 focus:ring-blue-600 h-8"
+              />
             </div>
           </div>
           <div className="grid grid-cols-6 items-center gap-3">

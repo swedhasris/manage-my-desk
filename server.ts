@@ -9,6 +9,7 @@ import { config as loadEnv } from "dotenv";
 import multer from "multer";
 import fs from "fs";
 import { OmniChannelEngine } from "./src/lib/omniChannelEngine";
+import { SLAEngine } from "./src/lib/slaEngine";
 import { uIOhook } from "uiohook-napi";
 import { setUseSQLite } from "./src/lib/db";
 
@@ -106,6 +107,14 @@ async function getSQLiteDb() {
         status TEXT DEFAULT 'active',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS sla_audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_id TEXT NOT NULL,
+        sla_type TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        reason TEXT
+      );
       CREATE TABLE IF NOT EXISTS activity_entries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id TEXT,
@@ -134,8 +143,19 @@ async function getSQLiteDb() {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         submitted_at DATETIME
       );
-      try { await db.exec("ALTER TABLE timesheets ADD COLUMN screenshot_url TEXT;"); } catch(e) {}
       CREATE INDEX IF NOT EXISTS idx_user_week ON timesheets(user_id, week_start);
+      CREATE TABLE IF NOT EXISTS sla_configurations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        priority TEXT NOT NULL,
+        department TEXT,
+        response_time_hours INTEGER,
+        resolution_time_hours INTEGER,
+        business_hours_only INTEGER DEFAULT 0,
+        exclude_weekends INTEGER DEFAULT 0,
+        exclude_holidays INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
       CREATE TABLE IF NOT EXISTS time_cards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timesheet_id INTEGER NOT NULL,
@@ -167,6 +187,8 @@ async function getSQLiteDb() {
         metadata_json TEXT
       );
     `);
+    // Migrate: add screenshot_url column if missing (safe to re-run)
+    try { await sqliteDb.exec("ALTER TABLE timesheets ADD COLUMN screenshot_url TEXT;"); } catch (e) {}
     // Ensure tables have latest columns
     try {
       await sqliteDb.exec("ALTER TABLE activity_entries ADD COLUMN keystrokes INTEGER DEFAULT 0");
@@ -2743,6 +2765,11 @@ Please respond appropriately as a helpful IT assistant.`,
     cron.schedule('*/30 * * * * *', () => {
       console.log('[OmniChannel] Processing notification queue...');
       OmniChannelEngine.processNotificationQueue();
+    });
+    
+    cron.schedule('0 * * * *', () => {
+      console.log('[SLAEngine] Monitoring SLA breaches...');
+      SLAEngine.monitorBreaches();
     });
   });
 }

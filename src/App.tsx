@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { TicketsProvider } from "./contexts/TicketsContext";
 import { BrandingProvider } from "./contexts/BrandingContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { ActivityTrackerProvider } from "./contexts/ActivityTrackerContext";
 import { Sidebar } from "./components/Sidebar";
 import { AppNavbar } from "./components/AppNavbar";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -110,9 +111,10 @@ function AppBody() {
   return (
     <ThemeProvider>
       <BrandingProvider>
-        <Router>
-          <Suspense fallback={<LoadingScreen />}>
-            <Routes>
+        <ActivityTrackerProvider>
+          <Router>
+            <Suspense fallback={<LoadingScreen />}>
+              <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route
@@ -366,8 +368,9 @@ function AppBody() {
           <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Suspense>
-      </Router>
-    </BrandingProvider>
+          </Router>
+        </ActivityTrackerProvider>
+      </BrandingProvider>
     </ThemeProvider>
   );
 }

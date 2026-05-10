@@ -57,6 +57,7 @@ export type GroupItem = {
   queueCapacity?: number;
   region?: string;
   slaPolicyId?: string;
+  serviceProviderId?: string;
   memberCount: number;
   openTickets?: number;
   slaCompliance?: number;

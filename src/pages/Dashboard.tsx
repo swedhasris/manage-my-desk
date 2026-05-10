@@ -3,7 +3,7 @@ import { collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { RefreshCw, LayoutGrid } from "lucide-react";
+import { RefreshCw, LayoutGrid, Clock, AlertCircle, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn, formatDate } from "../lib/utils";
 
@@ -15,62 +15,7 @@ function toMs(val: any): number {
   return new Date(val).getTime();
 }
 
-function SLATimer({ deadline, metAt, isPaused, onHoldStart, totalPausedTime = 0, label, waitUntil }: { deadline: string, metAt?: string, isPaused?: boolean, onHoldStart?: string, totalPausedTime?: number, label: string, waitUntil?: string | null }) {
-  const [displayTime, setDisplayTime] = useState("");
-  const [status, setStatus] = useState<"waiting" | "met" | "breached" | "active" | "paused">("active");
-
-  useEffect(() => {
-    if (metAt) {
-      const metMs = toMs(metAt);
-      if (!isNaN(metMs)) { setStatus("met"); setDisplayTime("MET"); return; }
-    }
-    if (waitUntil !== undefined && (waitUntil === null || waitUntil === "")) {
-      setStatus("waiting"); setDisplayTime("—"); return;
-    }
-    const deadlineMs = toMs(deadline);
-    if (isNaN(deadlineMs)) { setDisplayTime("--:--:--"); return; }
-
-    const tick = () => {
-      const now = Date.now();
-      let effectiveNow = now;
-      if (isPaused && onHoldStart) {
-        const holdMs = toMs(onHoldStart);
-        if (!isNaN(holdMs)) effectiveNow = holdMs;
-      }
-      const diff = deadlineMs - effectiveNow + (totalPausedTime || 0);
-
-      if (diff <= 0) {
-        setStatus("breached");
-        const over = Math.abs(diff);
-        const h = Math.floor(over / 3600000), m = Math.floor((over % 3600000) / 60000), s = Math.floor((over % 60000) / 1000);
-        setDisplayTime(`-${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
-      } else {
-        setStatus(isPaused ? "paused" : "active");
-        const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000), s = Math.floor((diff % 60000) / 1000);
-        setDisplayTime(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
-      }
-    };
-
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, [deadline, metAt, isPaused, onHoldStart, totalPausedTime, waitUntil]);
-
-  return (
-    <div className="flex flex-col gap-0.5 min-w-[80px]">
-      <span className="text-[9px] uppercase text-muted-foreground font-bold leading-none">{label}</span>
-      <span className={cn(
-        "text-[10px] font-mono font-bold leading-none",
-        status === "met" ? "text-green-600" :
-          status === "breached" ? "text-red-600" :
-            status === "waiting" ? "text-gray-400" :
-              status === "paused" ? "text-orange-500" : "text-blue-600"
-      )}>
-        {displayTime}
-      </span>
-    </div>
-  );
-}
+import { SLATimer } from "../components/SLATimer";
 
 const PRIORITY_COLORS: Record<string, string> = {
   "1 - Critical": "#e74c3c",
@@ -84,8 +29,8 @@ export function Dashboard() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
-
   const [users, setUsers] = useState<any[]>([]);
+  const [layout, setLayout] = useState<'standard' | 'compact'>('standard');
 
   useEffect(() => {
     const unsubTickets = onSnapshot(query(collection(db, "tickets")), snap => {
@@ -112,9 +57,7 @@ export function Dashboard() {
   };
 
   const open = tickets.filter(t => !["Resolved", "Closed", "Canceled"].includes(t.status ?? ""));
-  const closed = tickets.filter(t => ["Resolved", "Closed"].includes(t.status ?? ""));
-
-  // Stats
+  
   const criticalOpen = open.filter(t => (t.priority ?? "").includes("Critical")).length;
   const unassigned = open.filter(t => !t.assignedTo).length;
   const overdue = open.filter(t => t.resolutionDeadline && new Date(t.resolutionDeadline).getTime() < now).length;
@@ -122,24 +65,54 @@ export function Dashboard() {
   const stale7 = open.filter(t => getTs(t) < sevenDaysAgo).length;
   const older30 = open.filter(t => getTs(t) < thirtyDaysAgo).length;
 
-  // Group open by priority for bar chart
   const priorityGroups = ["1 - Critical", "2 - High", "3 - Moderate", "4 - Low"].map(p => ({
     name: p.replace(" - ", "\n"),
     label: p,
     count: open.filter(t => t.priority === p).length,
   }));
 
-  // Group older-30 by priority
   const older30Groups = ["1 - Critical", "2 - High", "3 - Moderate", "4 - Low"].map(p => ({
     name: p.replace(" - ", "\n"),
     label: p,
     count: open.filter(t => t.priority === p && getTs(t) < thirtyDaysAgo).length,
   }));
 
-  // Recent tickets table
   const recent = [...tickets]
     .sort((a, b) => getTs(b) - getTs(a))
     .slice(0, 8);
+
+  const resolvedTickets = tickets.filter(t => t.status === 'Resolved' || t.status === 'Closed');
+  const avgResTime = resolvedTickets.length > 0 
+    ? resolvedTickets.reduce((acc, t) => {
+        const start = getTs(t);
+        const end = t.resolvedAt ? toMs(t.resolvedAt) : (t.updatedAt ? toMs(t.updatedAt) : start);
+        return acc + (end - start);
+      }, 0) / resolvedTickets.length / 3600000 
+    : 0;
+
+  const activeSLAs = open.filter(t => (t.responseSlaStatus === 'In Progress' || t.resolutionSlaStatus === 'In Progress')).length;
+  const nearBreachSLAs = open.filter(t => {
+    const respDeadline = t.responseDeadline ? new Date(t.responseDeadline).getTime() : Infinity;
+    const resDeadline = t.resolutionDeadline ? new Date(t.resolutionDeadline).getTime() : Infinity;
+    const now = Date.now();
+    const isNear = (d: number) => d !== Infinity && (d - now) < (0.2 * (24 * 3600 * 1000));
+    return isNear(respDeadline) || isNear(resDeadline);
+  }).length;
+
+  const completedCount = tickets.filter(t => t.responseSlaStatus === 'Completed').length + tickets.filter(t => t.resolutionSlaStatus === 'Completed').length;
+  const breachedCount = tickets.filter(t => t.responseSlaStatus === 'Breached').length + tickets.filter(t => t.resolutionSlaStatus === 'Breached').length;
+  const totalSLAs = tickets.length * 2;
+
+  const slaStats = {
+    active: activeSLAs,
+    nearBreach: nearBreachSLAs,
+    breached: breachedCount,
+    completed: completedCount,
+    total: totalSLAs,
+    completedPct: totalSLAs > 0 ? Math.round((completedCount / totalSLAs) * 100) : 0,
+    breachedPct: totalSLAs > 0 ? Math.round((breachedCount / totalSLAs) * 100) : 0,
+    avgResTime: avgResTime.toFixed(1)
+  };
 
   const statCards = [
     { label: "Critical Open Incidents", value: criticalOpen, color: "text-red-500 font-bold", link: "/tickets?filter=critical_open" },
@@ -152,8 +125,6 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-
-      {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-border">
         <h1 className="text-lg font-bold text-foreground">Incident Overview</h1>
         <div className="flex items-center gap-2">
@@ -164,9 +135,15 @@ export function Dashboard() {
             <RefreshCw className="w-3.5 h-3.5" />
             Refresh
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-xs font-medium hover:bg-muted transition-colors">
+          <button 
+            onClick={() => setLayout(prev => prev === 'standard' ? 'compact' : 'standard')}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 border rounded text-xs font-medium transition-all",
+              layout === 'compact' ? "bg-sn-green/10 border-sn-green text-sn-dark" : "border-border hover:bg-muted"
+            )}
+          >
             <LayoutGrid className="w-3.5 h-3.5" />
-            Change Layout
+            {layout === 'standard' ? 'Compact Layout' : 'Standard Layout'}
           </button>
           <span className="text-[10px] text-muted-foreground">
             Last updated: {lastRefresh.toLocaleTimeString()}
@@ -174,99 +151,93 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* 6 Stat Cards — 3 columns × 2 rows */}
-      <div className="bg-white border border-border rounded-lg shadow-sm overflow-hidden">
-        <div className="grid grid-cols-3 divide-x divide-border">
-          {statCards.slice(0, 3).map((s, i) => (
-            <Link key={i} to={s.link} className="p-6 text-center hover:bg-muted/10 transition-colors group">
-              <div className="text-sm font-semibold text-foreground mb-2">{s.label}</div>
-              <div className={`text-5xl font-light ${s.color} group-hover:scale-105 transition-transform inline-block`}>
-                {loading ? "—" : s.value}
-              </div>
-            </Link>
-          ))}
+      <div className={cn("grid gap-6", layout === 'compact' ? "grid-cols-1 md:grid-cols-3" : "grid-cols-1")}>
+        <div className={cn(
+          "bg-white border border-border rounded-lg shadow-sm overflow-hidden h-fit",
+          layout === 'compact' ? "md:col-span-1" : "grid grid-cols-1"
+        )}>
+          <div className={cn("grid divide-border", layout === 'compact' ? "grid-cols-1 divide-y" : "grid-cols-3 divide-x")}>
+            {statCards.slice(0, 3).map((s, i) => (
+              <Link key={i} to={s.link} className={cn("p-6 text-center hover:bg-muted/10 transition-colors group", layout === 'compact' && "p-4")}>
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{s.label}</div>
+                <div className={cn("font-light transition-transform inline-block", s.color, layout === 'compact' ? "text-3xl" : "text-5xl")}>
+                  {loading ? "—" : s.value}
+                </div>
+              </Link>
+            ))}
+          </div>
+          <div className={cn("grid divide-border border-t border-border", layout === 'compact' ? "grid-cols-1 divide-y" : "grid-cols-3 divide-x")}>
+            {statCards.slice(3, 6).map((s, i) => (
+              <Link key={i} to={s.link} className={cn("p-6 text-center hover:bg-muted/10 transition-colors group", layout === 'compact' && "p-4")}>
+                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">{s.label}</div>
+                <div className={cn("font-light transition-transform inline-block", s.color, layout === 'compact' ? "text-3xl" : "text-5xl")}>
+                  {loading ? "—" : s.value}
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-3 divide-x divide-border border-t border-border">
-          {statCards.slice(3, 6).map((s, i) => (
-            <Link key={i} to={s.link} className="p-6 text-center hover:bg-muted/10 transition-colors group">
-              <div className="text-sm font-semibold text-foreground mb-2">{s.label}</div>
-              <div className={`text-5xl font-light ${s.color} group-hover:scale-105 transition-transform inline-block`}>
-                {loading ? "—" : s.value}
-              </div>
-            </Link>
-          ))}
+
+        <div className={cn("grid gap-6", layout === 'compact' ? "md:col-span-2 grid-cols-1" : "grid-cols-1 md:grid-cols-2")}>
+          <div className="bg-white border border-border rounded-lg shadow-sm p-5 h-full">
+            <h3 className="text-[11px] font-black uppercase tracking-widest text-foreground mb-4">Open Incidents — Grouped by Priority</h3>
+            <div className={cn("transition-all duration-500", layout === 'compact' ? "h-40" : "h-56")}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={priorityGroups} layout="vertical" margin={{ left: 0, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" fontSize={10} allowDecimals={false} />
+                  <YAxis type="category" dataKey="label" fontSize={9} width={90} />
+                  <Tooltip formatter={(v: any) => [v, "Tickets"]} contentStyle={{ fontSize: 10, borderRadius: 8, border: 'none' }} />
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                    {priorityGroups.map((entry, i) => (
+                      <Cell key={i} fill={PRIORITY_COLORS[entry.label] || "#64748b"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-white border border-border rounded-lg shadow-sm p-5 h-full">
+            <h3 className="text-[11px] font-black uppercase tracking-widest text-foreground mb-4">Open Incidents older than 30 Days</h3>
+            <div className={cn("transition-all duration-500", layout === 'compact' ? "h-40" : "h-56")}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={older30Groups} layout="vertical" margin={{ left: 0, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" fontSize={10} allowDecimals={false} />
+                  <YAxis type="category" dataKey="label" fontSize={9} width={90} />
+                  <Tooltip formatter={(v: any) => [v, "Tickets"]} contentStyle={{ fontSize: 10, borderRadius: 8, border: 'none' }} />
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                    {older30Groups.map((entry, i) => (
+                      <Cell key={i} fill={PRIORITY_COLORS[entry.label] || "#64748b"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Two Bar Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-        {/* Open Incidents Grouped by Priority */}
-        <div className="bg-white border border-border rounded-lg shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-foreground">Open Incidents — Grouped by Priority</h3>
+      {/* Advanced SLA Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {[
+          { label: "Total SLAs", value: slaStats.total, color: "text-slate-600", icon: Clock },
+          { label: "SLA Completed %", value: `${slaStats.completedPct}%`, color: "text-emerald-600", icon: CheckCircle2 },
+          { label: "Breached SLA %", value: `${slaStats.breachedPct}%`, color: "text-red-600", icon: ShieldAlert },
+          { label: "Avg Resolution", value: `${slaStats.avgResTime}h`, color: "text-blue-600", icon: Clock },
+          { label: "Near Breach", value: slaStats.nearBreach, color: "text-orange-500", icon: AlertCircle }
+        ].map((s, i) => (
+          <div key={i} className="bg-white border border-border rounded-xl p-4 shadow-sm flex items-center gap-4 group hover:border-sn-green/30 transition-all hover:shadow-md">
+            <div className={cn("p-2.5 rounded-lg bg-muted/30 group-hover:bg-muted transition-colors")}>
+              <s.icon className={cn("w-4 h-4", s.color)} />
+            </div>
+            <div>
+              <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{s.label}</div>
+              <div className={cn("text-xl font-bold tracking-tight", s.color)}>{loading ? "—" : s.value}</div>
+            </div>
           </div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={priorityGroups} layout="vertical" margin={{ left: 10, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" fontSize={11} allowDecimals={false} />
-                <YAxis type="category" dataKey="label" fontSize={10} width={90} />
-                <Tooltip
-                  formatter={(v: any) => [v, "Tickets"]}
-                  contentStyle={{ fontSize: 11, borderRadius: 6 }}
-                />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                  {priorityGroups.map((entry, i) => (
-                    <Cell key={i} fill={PRIORITY_COLORS[entry.label] || "#64748b"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          {/* Legend */}
-          <div className="flex flex-wrap gap-3 mt-3">
-            {Object.entries(PRIORITY_COLORS).map(([label, color]) => (
-              <div key={label} className="flex items-center gap-1.5 text-[10px]">
-                <div className="w-3 h-3 rounded-sm" style={{ background: color }} />
-                <span>{label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Open Incidents Older than 30 Days */}
-        <div className="bg-white border border-border rounded-lg shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-foreground">Open Incidents older than 30 Days — Grouped</h3>
-          </div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={older30Groups} layout="vertical" margin={{ left: 10, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" fontSize={11} allowDecimals={false} />
-                <YAxis type="category" dataKey="label" fontSize={10} width={90} />
-                <Tooltip
-                  formatter={(v: any) => [v, "Tickets"]}
-                  contentStyle={{ fontSize: 11, borderRadius: 6 }}
-                />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                  {older30Groups.map((entry, i) => (
-                    <Cell key={i} fill={PRIORITY_COLORS[entry.label] || "#64748b"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-wrap gap-3 mt-3">
-            {Object.entries(PRIORITY_COLORS).map(([label, color]) => (
-              <div key={label} className="flex items-center gap-1.5 text-[10px]">
-                <div className="w-3 h-3 rounded-sm" style={{ background: color }} />
-                <span>{label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        ))}
       </div>
 
       <div className="bg-white border border-border rounded-lg shadow-sm overflow-hidden">
@@ -299,7 +270,6 @@ export function Dashboard() {
                   : p.includes("High") ? "bg-red-100 text-red-700"
                     : p.includes("Moderate") ? "bg-orange-100 text-orange-700"
                       : "bg-blue-100 text-blue-700";
-
                 const isPaused = t.status === "On Hold" || t.status === "Waiting for Customer";
 
                 return (
@@ -351,7 +321,6 @@ export function Dashboard() {
           </table>
         </div>
       </div>
-
     </div>
   );
 }

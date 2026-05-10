@@ -9,6 +9,7 @@ import { ChevronLeft, Send, History, MessageSquare, Save, Trash2, CheckCircle2, 
 import { cn } from "@/lib/utils";
 import { SLATimer } from "../components/SLATimer";
 import { useServiceCatalog } from "../lib/serviceCatalog";
+import { calculateSLADeadline } from "../lib/slaUtils";
 import confetti from "canvas-confetti";
 import { captureScreenshot, analyzeWorkContext, saveWorkSession, type WorkAnalysis } from "../lib/workSessionAI";
 import { ActivityTimeline } from "../components/ActivityTimeline";
@@ -205,17 +206,15 @@ export function TicketDetail() {
           updates.firstResponseAt = responseNow.toISOString();
           updates.responseSlaStatus = "Completed";
 
-          // START Resolution SLA from this moment
-          // Calculate the original resolution window and shift it to start now
-          if (ticket.resolutionDeadline && ticket.responseDeadline) {
-            const origResDeadline = new Date(ticket.resolutionDeadline).getTime();
-            const origRespDeadline = new Date(ticket.responseDeadline).getTime();
-            if (!isNaN(origResDeadline) && !isNaN(origRespDeadline)) {
-              const resolutionWindow = origResDeadline - origRespDeadline; // pure resolution time in ms
-              updates.resolutionDeadline = new Date(responseNow.getTime() + resolutionWindow).toISOString();
-              updates.resolutionSlaStartTime = responseNow.toISOString();
-            }
-          }
+          // START Resolution SLA from this moment using stored SLA metadata
+          updates.resolutionSlaStatus = "In Progress";
+          const resHours = ticket.slaResolutionHours || 24;
+          updates.resolutionDeadline = calculateSLADeadline(responseNow, resHours, {
+            businessHours: ticket.businessHours,
+            excludeWeekends: ticket.excludeWeekends,
+            excludeHolidays: ticket.excludeHolidays
+          }).toISOString();
+          updates.resolutionSlaStartTime = responseNow.toISOString();
         }
 
         if (isResolved && !ticket.resolvedAt) {
@@ -411,15 +410,11 @@ export function TicketDetail() {
           updates.firstResponseAt = now;
           updates.responseSlaStatus = "Completed";
           // START Resolution SLA from this moment
-          if (ticket.resolutionDeadline && ticket.responseDeadline) {
-            const origResDeadline = new Date(ticket.resolutionDeadline).getTime();
-            const origRespDeadline = new Date(ticket.responseDeadline).getTime();
-            if (!isNaN(origResDeadline) && !isNaN(origRespDeadline)) {
-              const resolutionWindow = origResDeadline - origRespDeadline;
-              updates.resolutionDeadline = new Date(new Date(now).getTime() + resolutionWindow).toISOString();
-              updates.resolutionSlaStartTime = now;
-            }
-          }
+          updates.resolutionSlaStatus = "In Progress";
+          const resHours = ticket.slaResolutionHours || 24;
+          const resolutionWindowMs = resHours * 60 * 60 * 1000;
+          updates.resolutionDeadline = new Date(new Date(now).getTime() + resolutionWindowMs).toISOString();
+          updates.resolutionSlaStartTime = now;
         }
         await updateDoc(doc(db, "tickets", id), updates);
       } catch (e) { /* Firestore update non-critical */ }
@@ -464,15 +459,14 @@ export function TicketDetail() {
           updates.firstResponseAt = now;
           updates.responseSlaStatus = "Completed";
           // START Resolution SLA from this moment
-          if (ticket.resolutionDeadline && ticket.responseDeadline) {
-            const origResDeadline = new Date(ticket.resolutionDeadline).getTime();
-            const origRespDeadline = new Date(ticket.responseDeadline).getTime();
-            if (!isNaN(origResDeadline) && !isNaN(origRespDeadline)) {
-              const resolutionWindow = origResDeadline - origRespDeadline;
-              updates.resolutionDeadline = new Date(new Date(now).getTime() + resolutionWindow).toISOString();
-              updates.resolutionSlaStartTime = now;
-            }
-          }
+          updates.resolutionSlaStatus = "In Progress";
+          const resHours = ticket.slaResolutionHours || 24;
+          updates.resolutionDeadline = calculateSLADeadline(new Date(now), resHours, {
+            businessHours: ticket.businessHours,
+            excludeWeekends: ticket.excludeWeekends,
+            excludeHolidays: ticket.excludeHolidays
+          }).toISOString();
+          updates.resolutionSlaStartTime = now;
         }
         await updateDoc(doc(db, "tickets", id), updates);
       } catch (e) { /* Firestore update non-critical */ }
@@ -879,6 +873,7 @@ export function TicketDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         <div className="bg-white border border-border rounded-lg shadow-sm p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+            <div className="space-y-4">
               {/* Number */}
               <div className="grid grid-cols-3 items-center gap-4">
                 <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Number</label>
@@ -1176,7 +1171,7 @@ export function TicketDetail() {
       <div className="bg-white border border-border rounded-lg shadow-sm overflow-hidden mt-6">
         {/* Tab Headers */}
         <div className="flex bg-muted/30 border-b border-border">
-          {["Notes", "Related Records", "Resolution Information"].map((tab) => (
+          {["Notes", "Related Records", "Resolution Information", "SLA Monitoring"].map((tab) => (
             <button
               key={tab}
               type="button"
@@ -1295,73 +1290,29 @@ export function TicketDetail() {
                 <div className="flex items-center justify-between border-b border-border pb-2">
                   <div className="flex items-center gap-2">
                     <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Task SLAs</h3>
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Service Level Agreements</h3>
                   </div>
-                  <button className="text-[10px] font-bold text-sn-green uppercase hover:underline">New</button>
                 </div>
-                <div className="overflow-x-auto rounded-md border border-border">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-muted/20 border-b border-border text-[10px] uppercase text-muted-foreground font-bold">
-                        <th className="px-4 py-2.5">SLA</th>
-                        <th className="px-4 py-2.5">Stage</th>
-                        <th className="px-4 py-2.5">Breach time</th>
-                        <th className="px-4 py-2.5">Business elapsed time</th>
-                        <th className="px-4 py-2.5">Actual elapsed time</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      <tr className="hover:bg-muted/10 transition-colors">
-                        <td className="px-4 py-3 font-medium text-sn-dark">Response SLA</td>
-                        <td className="px-4 py-3">
-                          <span className={cn(
-                            "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter",
-                            ticket.responseSlaStatus === "Completed" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
-                          )}>
-                            {ticket.responseSlaStatus || "In Progress"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground font-mono">{formatDate(ticket.responseDeadline)}</td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          <SLATimer
-                            label="Resp"
-                            deadline={ticket.responseDeadline}
-                            startTime={ticket.responseSlaStartTime || ticket.createdAt}
-                            metAt={ticket.firstResponseAt}
-                            isPaused={ticket.status === "On Hold" || ticket.status === "Waiting for Customer" || ticket.status === "Awaiting User" || ticket.status === "Awaiting Vendor"}
-                            onHoldStart={ticket.onHoldStart}
-                            totalPausedTime={ticket.totalPausedTime}
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground font-mono">{ticket.firstResponseAt ? formatDate(ticket.firstResponseAt) : "—"}</td>
-                      </tr>
-                      <tr className="hover:bg-muted/10 transition-colors">
-                        <td className="px-4 py-3 font-medium text-sn-dark">Resolution SLA</td>
-                        <td className="px-4 py-3">
-                          <span className={cn(
-                            "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter",
-                            ticket.resolutionSlaStatus === "Completed" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
-                          )}>
-                            {ticket.resolutionSlaStatus || "In Progress"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground font-mono">{formatDate(ticket.resolutionDeadline)}</td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          <SLATimer
-                            label="Res"
-                            deadline={ticket.resolutionDeadline}
-                            startTime={ticket.resolutionSlaStartTime || ticket.createdAt}
-                            metAt={ticket.resolvedAt}
-                            isPaused={ticket.status === "On Hold" || ticket.status === "Waiting for Customer" || ticket.status === "Awaiting User" || ticket.status === "Awaiting Vendor"}
-                            onHoldStart={ticket.onHoldStart}
-                            totalPausedTime={ticket.totalPausedTime}
-                            waitUntil={ticket.firstResponseAt ?? null}
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground font-mono">{ticket.resolvedAt ? formatDate(ticket.resolvedAt) : "—"}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <SLATimer 
+                    label="Response" 
+                    deadline={ticket.responseDeadline} 
+                    metAt={ticket.firstResponseAt}
+                    startTime={ticket.responseSlaStartTime}
+                    isPaused={ticket.status === 'On Hold' || ticket.status === 'Awaiting User'}
+                    onHoldStart={ticket.onHoldStart}
+                    totalPausedTime={ticket.totalPausedTime}
+                  />
+                  <SLATimer 
+                    label="Resolution" 
+                    deadline={ticket.resolutionDeadline} 
+                    metAt={ticket.resolvedAt}
+                    startTime={ticket.resolutionSlaStartTime}
+                    waitUntil={!ticket.firstResponseAt ? 'handover' : null}
+                    isPaused={ticket.status === 'On Hold' || ticket.status === 'Awaiting User'}
+                    onHoldStart={ticket.onHoldStart}
+                    totalPausedTime={ticket.totalPausedTime}
+                  />
                 </div>
               </div>
 
@@ -1385,7 +1336,94 @@ export function TicketDetail() {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : activeTab === "SLA Monitoring" ? (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700">Detailed SLA Analytics</h3>
+                <div className="flex gap-2">
+                  <div className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded text-[9px] font-black border border-emerald-100 uppercase tracking-tighter">L1 Escalation: 80%</div>
+                  <div className="px-3 py-1 bg-orange-50 text-orange-700 rounded text-[9px] font-black border border-orange-100 uppercase tracking-tighter">L2 Escalation: 90%</div>
+                  <div className="px-3 py-1 bg-red-50 text-red-700 rounded text-[9px] font-black border border-red-100 uppercase tracking-tighter">Breach: 100%</div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase text-slate-500">Response Performance</span>
+                        <span className="text-xs font-mono font-bold text-slate-700">Target: {ticket.responseDeadline ? new Date(ticket.responseDeadline).toLocaleTimeString() : '--'}</span>
+                      </div>
+                      <SLATimer 
+                        label="Live Response" 
+                        deadline={ticket.responseDeadline} 
+                        metAt={ticket.firstResponseAt}
+                        startTime={ticket.responseSlaStartTime}
+                        isPaused={ticket.status === 'On Hold'}
+                        onHoldStart={ticket.onHoldStart}
+                        totalPausedTime={ticket.totalPausedTime}
+                      />
+                      <div className="p-3 bg-white rounded-lg border border-slate-200 text-[10px] text-slate-500 italic">
+                        The Response SLA tracks the time from ticket creation until the first meaningful update by an agent.
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase text-slate-500">Resolution Performance</span>
+                        <span className="text-xs font-mono font-bold text-slate-700">Target: {ticket.resolutionDeadline ? new Date(ticket.resolutionDeadline).toLocaleTimeString() : '--'}</span>
+                      </div>
+                      <SLATimer 
+                        label="Live Resolution" 
+                        deadline={ticket.resolutionDeadline} 
+                        metAt={ticket.resolvedAt}
+                        startTime={ticket.resolutionSlaStartTime}
+                        waitUntil={!ticket.firstResponseAt ? 'handover' : null}
+                        isPaused={ticket.status === 'On Hold'}
+                        onHoldStart={ticket.onHoldStart}
+                        totalPausedTime={ticket.totalPausedTime}
+                      />
+                      <div className="p-3 bg-white rounded-lg border border-slate-200 text-[10px] text-slate-500 italic">
+                        The Resolution SLA starts after the first response and tracks the total time until the incident is marked as Resolved.
+                      </div>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">SLA Transition History</h4>
+                <div className="border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-xs bg-white">
+                    <thead className="bg-slate-50 font-bold text-slate-600 border-b border-slate-200">
+                      <tr>
+                        <th className="p-3 uppercase tracking-tighter">Event Description</th>
+                        <th className="p-3 uppercase tracking-tighter">Timestamp</th>
+                        <th className="p-3 uppercase tracking-tighter">Actor</th>
+                        <th className="p-3 uppercase tracking-tighter">Audit Link</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {ticket.history?.filter((h: any) => h.action.includes('SLA') || h.action.includes('Breach')).map((h: any, i: number) => (
+                        <tr key={i} className="hover:bg-slate-50/50">
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              <div className={cn("w-1.5 h-1.5 rounded-full", h.action.includes('Breach') ? "bg-red-500" : "bg-blue-500")} />
+                              <span className="font-semibold text-slate-700">{h.action}</span>
+                            </div>
+                          </td>
+                          <td className="p-3 text-slate-500 font-mono">{new Date(h.timestamp).toLocaleString()}</td>
+                          <td className="p-3 text-slate-600 font-medium">{h.user}</td>
+                          <td className="p-3">
+                            <span className="text-[10px] text-blue-600 font-bold cursor-pointer hover:underline uppercase tracking-tighter">Verify Log</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : activeTab === "Resolution Information" ? (
             <div className="animate-in fade-in duration-300">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6">
                 <div className="space-y-4">
@@ -1519,7 +1557,7 @@ export function TicketDetail() {
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 

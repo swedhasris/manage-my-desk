@@ -1,11 +1,20 @@
 import React from "react";
-import { Bell, Search, User, Sun, Moon, Monitor } from "lucide-react";
+import { Bell, Search, User, Sun, Moon, Monitor, Play, Square } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { useActivityTracker } from "../contexts/ActivityTrackerContext";
+
+function fmtHMS(s: number) {
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return [h, m, sec].map(v => String(v).padStart(2, '0')).join(':');
+}
 
 export function AppNavbar() {
   const { profile } = useAuth();
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { status, elapsed, startWatcher, stopWatcher } = useActivityTracker();
+
+  const isActive = status === 'active';
 
   return (
     <header className="h-16 bg-background border-b border-border flex items-center justify-between px-8 sticky top-0 z-10">
@@ -18,7 +27,45 @@ export function AppNavbar() {
         />
       </div>
 
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-4">
+
+        {/* ── Global AI Activity Tracker Toggle ── */}
+        <div className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 transition-all duration-300 ${
+          isActive
+            ? 'bg-green-50 border-green-300 shadow-sm shadow-green-100'
+            : 'bg-muted/40 border-border'
+        }`}>
+          {isActive && (
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse inline-block flex-shrink-0" />
+          )}
+          {isActive && (
+            <span className="font-mono text-xs font-bold text-green-700 tabular-nums min-w-[3.5rem]">
+              {fmtHMS(elapsed)}
+            </span>
+          )}
+          {!isActive ? (
+            <button
+              id="global-ai-tracker-start"
+              onClick={() => startWatcher()}
+              title="Start AI Activity Tracker"
+              className="flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:text-green-800 transition-colors"
+            >
+              <Play className="w-3.5 h-3.5 fill-green-600 text-green-600" />
+              <span className="hidden sm:inline">Start Tracker</span>
+            </button>
+          ) : (
+            <button
+              id="global-ai-tracker-stop"
+              onClick={() => stopWatcher()}
+              title="Stop AI Activity Tracker"
+              className="flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 transition-colors"
+            >
+              <Square className="w-3.5 h-3.5 fill-red-500 text-red-500" />
+              <span className="hidden sm:inline">Stop</span>
+            </button>
+          )}
+        </div>
+
         {/* Theme Toggle */}
         <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
           <button

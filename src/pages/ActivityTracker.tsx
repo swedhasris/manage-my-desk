@@ -9,6 +9,7 @@ import {
   Keyboard, Activity, Maximize2, Download, Camera,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useActivityTracker } from '../contexts/ActivityTrackerContext';
 import { ActivityWatcher, type ActivitySnapshot, type WatcherStatus } from '../lib/activityCapture';
 
 /* ── Types ── */
@@ -241,332 +242,20 @@ function SummaryCard({ summary, duration, entryCount, onDismiss }: { summary: st
 ═══════════════════════════════════════════════════════════ */
 export function ActivityTracker() {
   const { user, profile } = useAuth();
+  const {
+    status, entries, elapsed, summary, error,
+    startWatcher, stopWatcher, setEntries, setSummary, setError,
+    intervalSec, setIntervalSec, captureScreenshots, setCaptureScreenshots
+  } = useActivityTracker();
 
-  const [status, setStatus] = useState<WatcherStatus>('idle');
-  const [entries, setEntries] = useState<ActivityEntry[]>([]);
-  const [elapsed, setElapsed] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [sessionDbId, setSessionDbId] = useState<string | null>(null);
-  const [intervalSec, setIntervalSec] = useState(15);
   const [showSettings, setShowSettings] = useState(false);
   const [previewModal, setPreviewModal] = useState<string | null>(null);
-  const [captureScreenshots, setCaptureScreenshots] = useState(true);
-
-  const watcherRef = useRef<ActivityWatcher | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const feedEndRef = useRef<HTMLDivElement>(null);
-  const elapsedRef = useRef(0);
-  const startTimeRef = useRef<number | null>(null);
-  const prevActivityRef = useRef('');
-
-  // Use refs for values needed inside processSnapshot to avoid stale closures
-  const sessionIdRef = useRef<string | null>(null);
-  const sessionDbIdRef = useRef<string | null>(null);
-  const intervalSecRef = useRef(15);
-  const userRef = useRef(user);
-  const profileRef = useRef(profile);
-
-  // Keep refs in sync with state
-  useEffect(() => { userRef.current = user; }, [user]);
-  useEffect(() => { profileRef.current = profile; }, [profile]);
-  useEffect(() => { intervalSecRef.current = intervalSec; }, [intervalSec]);
 
   const isActive = status === 'active';
 
-  /* ── Timer ── */
-  useEffect(() => {
-    if (isActive) {
-      if (!startTimeRef.current) {
-        startTimeRef.current = Date.now() - (elapsedRef.current * 1000);
-      }
-      timerRef.current = setInterval(() => {
-        if (startTimeRef.current) {
-          const now = Date.now();
-          const totalSec = Math.floor((now - startTimeRef.current) / 1000);
-          setElapsed(totalSec);
-          elapsedRef.current = totalSec;
-        }
-      }, 1000);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      startTimeRef.current = null;
-    }
-    return () => { 
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [isActive]);
-
   /* ── Auto-scroll ── */
   useEffect(() => { feedEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [entries]);
-
-  /* ── Upload screenshot blob to server ── */
-  const uploadScreenshot = useCallback(async (blob: Blob, filename: string): Promise<string | null> => {
-    try {
-      const fd = new FormData();
-      fd.append('screenshot', blob, filename);
-      fd.append('userId', (userRef.current?.uid || 'anon').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 32));
-      fd.append('format', 'jpeg');
-      const res = await fetch('/api/upload-screenshot', { method: 'POST', body: fd });
-      if (res.ok) { const d = await res.json(); return d.image_url; }
-    } catch { /* silent */ }
-    return null;
-  }, []); // no deps — uses refs
-
-  /* ── Process snapshot → AI → timesheet → feed ── */
-  // Defined with no deps — reads everything from refs to avoid stale closures
-  const processSnapshot = useCallback(async (snap: ActivitySnapshot) => {
-    const entryId = `e_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const userId = userRef.current?.uid || 'anonymous';
-    const currentSessionId = sessionIdRef.current;
-    const currentIntervalSec = intervalSecRef.current;
-
-    // Idle detection — only trigger after 10 minutes of no interaction
-    // and only add ONE idle entry (don't spam)
-    if (snap.idleSeconds > 600) {
-      // Check if last entry is already an idle entry — don't spam
-      setEntries(prev => {
-        const lastEntry = prev[prev.length - 1];
-        if (lastEntry?.isIdle) {
-          // Just update the last idle entry's time instead of adding a new one
-          return prev.map((e, i) =>
-            i === prev.length - 1
-              ? { ...e, timestamp: snap.timestamp, description: `User has been idle for ${Math.floor(snap.idleSeconds / 60)} minutes.`, idleSeconds: snap.idleSeconds }
-              : e
-          );
-        }
-        const idleEntry: ActivityEntry = {
-          id: entryId, timestamp: snap.timestamp,
-          appName: snap.appName, appIcon: snap.appIcon, appCategory: snap.appCategory, appColor: snap.appColor,
-          pageType: snap.pageType, pageUrl: snap.url, ticketNumber: snap.ticketNumber,
-          activity: 'Idle', description: `User has been idle for ${Math.floor(snap.idleSeconds / 60)} minutes.`,
-          confidence: 0.95, clicks: [], keystrokes: 0, idleSeconds: snap.idleSeconds, scrollDepth: 0,
-          screenshotDataUrl: null, screenshotUrl: null, screenshotFilename: null,
-          isProcessing: false, isIdle: true,
-        };
-        return [...prev.slice(-99), idleEntry];
-      });
-      return;
-    }
-
-    // Add processing placeholder immediately
-    const placeholder: ActivityEntry = {
-      id: entryId, timestamp: snap.timestamp,
-      appName: snap.appName, appIcon: snap.appIcon, appCategory: snap.appCategory, appColor: snap.appColor,
-      pageType: snap.pageType, pageUrl: snap.url, ticketNumber: snap.ticketNumber,
-      activity: 'Analyzing...', description: '', confidence: 0,
-      detectedApp: null, detectedWebsite: null,
-      clicks: snap.recentClicks, keystrokes: snap.recentKeys,
-      idleSeconds: snap.idleSeconds, scrollDepth: snap.scrollDepth,
-      screenshotDataUrl: snap.screenshotDataUrl, screenshotUrl: null,
-      screenshotFilename: snap.screenshotFilename,
-      isProcessing: true, isIdle: false,
-    };
-    // Cap entries at 100
-    setEntries(prev => [...prev.slice(-99), placeholder]);
-
-    // Upload screenshot with timeout to prevent blocking
-    let screenshotUrl: string | null = null;
-    if (snap.screenshotBlob && snap.screenshotFilename) {
-      try {
-        const uploadPromise = uploadScreenshot(snap.screenshotBlob, snap.screenshotFilename);
-        const timeoutPromise = new Promise<null>(r => setTimeout(() => r(null), 8000));
-        screenshotUrl = await Promise.race([uploadPromise, timeoutPromise]);
-      } catch { /* silent */ }
-    }
-
-    // AI analysis with timeout
-    let activity = snap.pageType;
-    let description = `Working on ${snap.pageType} in ${snap.appName}.`;
-    let confidence = 0.7;
-
-    try {
-      const controller = new AbortController();
-      const aiTimeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
-      const res = await fetch('/api/ai/analyze-activity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          timestamp: snap.timestamp,
-          previous_activity: prevActivityRef.current,
-          userId,
-          appName: snap.appName,
-          appCategory: snap.appCategory,
-          pageUrl: snap.url,
-          pageTitle: snap.pageTitle,
-          pageType: snap.pageType,
-          ticketNumber: snap.ticketNumber,
-          headings: snap.headings,
-          formData: snap.formData,
-          recentClicks: snap.recentClicks,
-          recentKeys: snap.recentKeys,
-          idleSeconds: snap.idleSeconds,
-          scrollDepth: snap.scrollDepth,
-          badges: snap.badges,
-          visibleText: snap.visibleText.slice(0, 300),
-          screenshot_url: screenshotUrl,
-        }),
-      });
-      clearTimeout(aiTimeout);
-      if (res.ok) {
-        const d = await res.json();
-        activity = d.activity || activity;
-        description = d.description || description;
-        confidence = d.confidence ?? confidence;
-        prevActivityRef.current = activity;
-        // Update entry with vision-detected app/website
-        setEntries(prev => prev.map(e =>
-          e.id === entryId
-            ? {
-              ...e, activity, description, confidence, screenshotUrl, isProcessing: false,
-              detectedApp: d.detected_app || null, detectedWebsite: d.detected_website || null
-            }
-            : e
-        ));
-        return; // early return — already updated
-      }
-    } catch { /* use fallback — AI timed out or failed */ }
-
-    // Update entry (fallback path — AI failed or timed out)
-    setEntries(prev => prev.map(e =>
-      e.id === entryId
-        ? {
-          ...e, activity, description, confidence, screenshotUrl, isProcessing: false,
-          detectedApp: null, detectedWebsite: null
-        }
-        : e
-    ));
-
-    // Auto-update timesheet (fire-and-forget, don't await)
-    (async () => {
-      try {
-        const today = new Date().toISOString().split('T')[0];
-        // Use actual elapsed time between snapshots for better accuracy (handles background throttling)
-        const mins = snap.deltaSec / 60;
-        const taskMap: Record<string, string> = {
-          'Ticket Work': 'Ticket Resolution', 'Timesheet Entry': 'Documentation',
-          'Documentation': 'Documentation', 'Dashboard Review': 'General Support',
-          'Reports Analysis': 'Documentation', 'Settings Configuration': 'System Maintenance',
-          'Knowledge Base': 'Documentation', 'Calendar Review': 'Meeting',
-          'Idle': 'General Support', 'General Work': 'General Support',
-        };
-        const task = taskMap[activity] || 'General Support';
-        const shortDesc = `[AI Tracked] ${snap.appName} — ${snap.pageType}`;
-
-        const tsRes = await fetch('/api/timesheets/get-or-create', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId, week_start: getWeekMonday(today), week_end: getWeekSunday(today) }),
-        });
-        if (tsRes.ok) {
-          const ts = await tsRes.json();
-          const cardsRes = await fetch(`/api/time-cards?timesheet_id=${ts.id}`);
-          if (cardsRes.ok) {
-            const cards = await cardsRes.json();
-            const existing = Array.isArray(cards) && cards.find(
-              (c: any) => c.entry_date === today && c.task === task && (c.short_description || '').startsWith('[AI Tracked]')
-            );
-            if (existing) {
-              await fetch(`/api/time-cards/${existing.id}`, {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hours_worked: (parseFloat(existing.hours_worked) || 0) + mins, description, short_description: shortDesc }),
-              });
-            } else {
-              await fetch('/api/time-cards', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ timesheet_id: ts.id, user_id: userId, entry_date: today, task, hours_worked: mins, description, short_description: shortDesc, work_type: 'Remote', billable: 'Billable', status: 'Draft' }),
-              });
-            }
-          }
-        }
-      } catch { /* silent */ }
-    })();
-
-    // Persist activity entry (fire-and-forget)
-    fetch('/api/activity-entries', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        session_id: currentSessionId, 
-        user_id: userId, 
-        activity_label: activity, 
-        description, 
-        confidence, 
-        captured_at: snap.timestamp, 
-        screenshot_url: screenshotUrl,
-        keystrokes: snap.recentKeys,
-        clicks: snap.recentClicks.length
-      }),
-    }).catch(() => { });
-  }, []); // NO deps — reads everything from refs
-
-  /* ── START ── */
-  const handleStart = useCallback(async () => {
-    if (isActive) return;
-    setError(null); setSummary(null); setEntries([]);
-    setElapsed(0); elapsedRef.current = 0; startTimeRef.current = Date.now();
-    prevActivityRef.current = '';
-
-    const userId = userRef.current?.uid || 'anonymous';
-    const userName = profileRef.current?.name || userRef.current?.email || 'User';
-    const sid = `act_${Date.now()}`;
-    setSessionId(sid);
-    sessionIdRef.current = sid; // sync ref immediately
-
-    try {
-      const res = await fetch('/api/activity-sessions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sid, user_id: userId, user_name: userName, start_time: new Date().toISOString(), status: 'active' }),
-      });
-      if (res.ok) { const d = await res.json(); setSessionDbId(String(d.id)); sessionDbIdRef.current = String(d.id); }
-    } catch { /* silent */ }
-
-    const watcher = new ActivityWatcher({
-      intervalMs: intervalSec * 1000,
-      captureScreenshots,
-      onSnapshot: processSnapshot,
-      onStatusChange: setStatus,
-    });
-    watcherRef.current = watcher;
-    await watcher.start();
-  }, [isActive, user, profile, intervalSec, captureScreenshots, processSnapshot]);
-
-  /* ── STOP ── */
-  const handleStop = useCallback(async () => {
-    if (!isActive) return;
-    watcherRef.current?.stop();
-    watcherRef.current = null;
-
-    const finalDuration = elapsedRef.current;
-    const userId = userRef.current?.uid || 'anonymous';
-    const currentSessionDbId = sessionDbIdRef.current;
-
-    const done = entries.filter(e => !e.isProcessing && !e.isIdle);
-    if (done.length > 0) {
-      try {
-        const res = await fetch('/api/ai/generate-summary', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_data: done.map(e => ({ timestamp: e.timestamp, activity: e.activity, description: e.description })), duration_seconds: finalDuration, userId }),
-        });
-        if (res.ok) { const d = await res.json(); setSummary(d.summary || 'Session completed.'); }
-      } catch { setSummary('Session completed. User was actively working during this period.'); }
-    }
-
-    if (currentSessionDbId) {
-      try {
-        await fetch(`/api/activity-sessions/${currentSessionDbId}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stop_time: new Date().toISOString(), duration: finalDuration, status: 'completed' }),
-        });
-      } catch { /* silent */ }
-    }
-  }, [isActive, entries]);
 
   /* ── SUBMIT APPROVAL ── */
   const handleSubmitApproval = useCallback(async () => {
@@ -574,7 +263,7 @@ export function ActivityTracker() {
     
     try {
       const today = new Date().toISOString().split('T')[0];
-      const userId = userRef.current?.uid;
+      const userId = user?.uid;
       if (!userId) return;
 
       // 1. Get current timesheet
@@ -601,10 +290,14 @@ export function ActivityTracker() {
     } catch (e: any) {
       window.alert("Error submitting for approval: " + e.message);
     }
-  }, []);
+  }, [user]);
 
-  useEffect(() => () => { watcherRef.current?.stop(); }, []);
-  useEffect(() => { watcherRef.current?.updateInterval(intervalSec * 1000); }, [intervalSec]);
+  const handleStart = startWatcher;
+  const handleStop = stopWatcher;
+
+  useEffect(() => {
+    // Sync local state if needed (mostly just for the interval display)
+  }, [intervalSec]);
 
   const breakdown = entries.filter(e => !e.isProcessing && !e.isIdle)
     .reduce<Record<string, number>>((acc, e) => { acc[e.activity] = (acc[e.activity] || 0) + 1; return acc; }, {});

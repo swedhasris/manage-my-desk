@@ -17,7 +17,11 @@ export function SLAManagement() {
     category: "Inquiry / Help",
     responseTimeHours: 4,
     resolutionTimeHours: 24,
-    isActive: true
+    isActive: true,
+    department: "",
+    businessHours: false,
+    excludeHolidays: false,
+    excludeWeekends: false
   });
 
   useEffect(() => {
@@ -50,7 +54,11 @@ export function SLAManagement() {
         category: "Inquiry / Help",
         responseTimeHours: 4,
         resolutionTimeHours: 24,
-        isActive: true
+        isActive: true,
+        department: "",
+        businessHours: false,
+        excludeHolidays: false,
+        excludeWeekends: false
       });
     } catch (error) {
       console.error("Error saving policy:", error);
@@ -122,7 +130,11 @@ export function SLAManagement() {
                         category: policy.category,
                         responseTimeHours: policy.responseTimeHours,
                         resolutionTimeHours: policy.resolutionTimeHours,
-                        isActive: policy.isActive
+                        isActive: policy.isActive,
+                        department: policy.department || "",
+                        businessHours: policy.businessHours || false,
+                        excludeHolidays: policy.excludeHolidays || false,
+                        excludeWeekends: policy.excludeWeekends || false
                       });
                       setIsModalOpen(true);
                     }} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
@@ -205,6 +217,52 @@ export function SLAManagement() {
                     className="w-full p-2 border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-sn-green"
                     value={newPolicy.resolutionTimeHours}
                     onChange={(e) => setNewPolicy({ ...newPolicy, resolutionTimeHours: parseInt(e.target.value) })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Department</label>
+                  <select
+                    className="w-full p-2 border border-border rounded-md text-sm outline-none focus:ring-2 focus:ring-sn-green"
+                    value={newPolicy.department || ""}
+                    onChange={(e) => setNewPolicy({ ...newPolicy, department: e.target.value })}
+                  >
+                    <option value="">Global (All Departments)</option>
+                    <option value="IT">IT</option>
+                    <option value="HR">HR</option>
+                    <option value="Facilities">Facilities</option>
+                    <option value="Finance">Finance</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-3 mt-4 p-3 bg-muted/30 rounded-md border border-border">
+                <h4 className="text-sm font-bold">Business Rules</h4>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium">Business Hours Support (8 AM - 6 PM)</label>
+                  <input
+                    type="checkbox"
+                    checked={newPolicy.businessHours || false}
+                    onChange={(e) => setNewPolicy({ ...newPolicy, businessHours: e.target.checked })}
+                    className="w-4 h-4 accent-sn-green"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium">Exclude Holidays</label>
+                  <input
+                    type="checkbox"
+                    checked={newPolicy.excludeHolidays || false}
+                    onChange={(e) => setNewPolicy({ ...newPolicy, excludeHolidays: e.target.checked })}
+                    className="w-4 h-4 accent-sn-green"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium">Exclude Weekends</label>
+                  <input
+                    type="checkbox"
+                    checked={newPolicy.excludeWeekends || false}
+                    onChange={(e) => setNewPolicy({ ...newPolicy, excludeWeekends: e.target.checked })}
+                    className="w-4 h-4 accent-sn-green"
                   />
                 </div>
               </div>

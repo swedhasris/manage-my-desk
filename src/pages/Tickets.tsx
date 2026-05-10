@@ -3,12 +3,14 @@ import { collection, addDoc, query, onSnapshot, updateDoc, doc, serverTimestamp,
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { ROLE_HIERARCHY, Role } from "../lib/roles";
-import { Plus, Filter, MoreVertical, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, Filter, MoreVertical, Search, Edit, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
 import { useServiceCatalog } from "../lib/serviceCatalog";
+import { calculateSLADeadline } from "../lib/slaUtils";
 
 import { Link, useSearchParams } from "react-router-dom";
+import { IT_SERVICE_CATALOG } from "../lib/itServiceCatalogDefaults";
 
 function toMs(val: any): number {
   if (!val) return NaN;
@@ -18,72 +20,7 @@ function toMs(val: any): number {
   return new Date(val).getTime();
 }
 
-function SLATimer({ deadline, metAt, isPaused, onHoldStart, totalPausedTime = 0, label, waitUntil, startTime }: { deadline: string, metAt?: string, isPaused?: boolean, onHoldStart?: string, totalPausedTime?: number, label: string, waitUntil?: string | null, startTime?: any }) {
-  const [displayTime, setDisplayTime] = useState("");
-  const [status, setStatus] = useState<"waiting" | "met" | "breached" | "active" | "paused">("active");
-
-  useEffect(() => {
-    if (metAt) {
-      const metMs = toMs(metAt);
-      if (!isNaN(metMs)) { setStatus("met"); setDisplayTime("MET ✓"); return; }
-    }
-
-    // Resolution waiting for response — only when waitUntil is explicitly passed as null/empty
-    if (waitUntil !== undefined && (waitUntil === null || waitUntil === "")) {
-      setStatus("waiting"); setDisplayTime("—"); return;
-    }
-
-    const deadlineMs = toMs(deadline);
-    if (isNaN(deadlineMs)) { setDisplayTime("--:--:--"); return; }
-
-    let timer: ReturnType<typeof setInterval> | null = null;
-
-    const tick = () => {
-      const now = Date.now();
-      let effectiveNow = now;
-      if (isPaused && onHoldStart) {
-        const holdMs = toMs(onHoldStart);
-        if (!isNaN(holdMs)) effectiveNow = holdMs;
-      }
-      const diff = deadlineMs - effectiveNow + (totalPausedTime || 0);
-
-      if (diff <= 0) {
-        setStatus("breached");
-        setDisplayTime("00:00:00");
-        // Stop ticking once breached
-        if (timer) { clearInterval(timer); timer = null; }
-      } else {
-        setStatus(isPaused ? "paused" : "active");
-        const h = Math.floor(diff / 3600000), m = Math.floor((diff % 3600000) / 60000), s = Math.floor((diff % 60000) / 1000);
-        setDisplayTime(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
-      }
-    };
-
-    tick();
-    timer = setInterval(tick, 1000);
-    return () => { if (timer) clearInterval(timer); };
-  }, [deadline, metAt, isPaused, onHoldStart, totalPausedTime, waitUntil]);
-
-  return (
-    <div className="flex flex-col gap-0.5 min-w-[80px]">
-      <div className="flex items-center justify-between">
-        <span className="text-[9px] uppercase text-muted-foreground font-bold leading-none">{label}</span>
-        {status === "breached" && (
-          <span className="text-[7px] font-black text-red-600 uppercase animate-pulse">SLA</span>
-        )}
-      </div>
-      <span className={cn(
-        "text-[11px] font-mono font-bold leading-none",
-        status === "met" ? "text-green-600" :
-          status === "breached" ? "text-red-600" :
-            status === "waiting" ? "text-gray-400" :
-              status === "paused" ? "text-orange-500" : "text-blue-600"
-      )}>
-        {displayTime}
-      </span>
-    </div>
-  );
-}
+import { SLATimer } from "../components/SLATimer";
 
 export function Tickets() {
   const { user, profile } = useAuth();
@@ -104,9 +41,11 @@ export function Tickets() {
 
   const openModal = () => {
     setPreviewNumber(`INC${Math.floor(1000000 + Math.random() * 9000000)}`);
+    const companyId = searchParams.get("companyId");
     setNewTicket(prev => ({
       ...prev,
-      caller: profile?.name || user?.email || ""
+      caller: profile?.name || user?.email || "",
+      company: companyId || ""
     }));
     setCallerSearch(profile?.name || user?.email || "");
     setIsModalOpen(true);
@@ -148,16 +87,21 @@ export function Tickets() {
     passwordReset: "No",
     rackspaceTicketNo: "",
     additionalInformation: "",
-    affectedUser: ""
+    affectedUser: "",
+    watchList: "",
+    company: ""
   });
 
   const [assignedTo, setAssignedTo] = useState("");
   const [slaPolicies, setSlaPolicies] = useState<any[]>([]);
-  // INDEPENDENT DROPDOWNS
-  const visibleCategories = categories.filter((item) => item.status === 'active');
-  const visibleSubcategories = subcategories.filter(s => s.status === 'active');
-  const visibleProviders = serviceProviders.filter(p => p.status === 'active');
+  // INDEPENDENT DROPDOWNS (Realistic Catalog)
+  const selectedCategoryData = IT_SERVICE_CATALOG.find(c => c.category === newTicket.category);
+  const realisticSubcategories = selectedCategoryData?.subcategories || [];
+  const selectedSubcategoryData = realisticSubcategories.find(s => s.name === newTicket.subcategory);
+  const realisticServices = selectedSubcategoryData?.services || [];
+
   const visibleGroups = groups.filter(g => g.status === 'active');
+  const displayGroups = visibleGroups;
 
   // DYNAMIC GROUP FILTERING (Requirement: Only users belonging to the selected group)
   const selectedGroupObj = groups.find(g => g.name === newTicket.assignmentGroup);
@@ -165,15 +109,7 @@ export function Tickets() {
     selectedGroupObj?.memberIds?.includes(u.id)
   );
 
-  useEffect(() => {
-    if (!newTicket.categoryId && visibleCategories[0]) {
-      setNewTicket((prev) => ({
-        ...prev,
-        categoryId: visibleCategories[0].id,
-        category: visibleCategories[0].name
-      }));
-    }
-  }, [newTicket.categoryId, visibleCategories]);
+  // Realistic Catalog initialization handled via state defaults
 
   // Removed auto-reset logic for subcategories/providers/groups to maintain independence
 
@@ -183,6 +119,15 @@ export function Tickets() {
       setSlaPolicies(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, "sla_policies");
+    });
+    return unsubscribe;
+  }, []);
+
+  const [companies, setCompanies] = useState<any[]>([]);
+  useEffect(() => {
+    const q = query(collection(db, "companies"), orderBy("name"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setCompanies(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
     return unsubscribe;
   }, []);
@@ -351,8 +296,8 @@ export function Tickets() {
     }
 
     // Required fields check
-    if (!newTicket.caller || !newTicket.title) {
-      alert("Please fill in all required fields (Reporting User and Short description).");
+    if (!newTicket.caller || !newTicket.title || !newTicket.category || !newTicket.subcategory || !newTicket.service) {
+      alert("Please fill in all required fields (Reporting User, Short description, Category, Subcategory, and Service).");
       return;
     }
 
@@ -362,14 +307,20 @@ export function Tickets() {
     try {
       let priority = calculatePriority(newTicket.impact, newTicket.urgency);
 
-      // Find matching SLA policy
-      const matchingPolicy = slaPolicies.find(p => p.priority === priority && (p.category === newTicket.category || !p.category))
+      // Find matching SLA policy (Prioritize Department + Priority + Category, then Department + Priority, then Priority)
+      const matchingPolicy = slaPolicies.find(p => p.priority === priority && p.department === newTicket.assignmentGroup && p.category === newTicket.category)
+        || slaPolicies.find(p => p.priority === priority && p.department === newTicket.assignmentGroup)
+        || slaPolicies.find(p => p.priority === priority && (p.category === newTicket.category || !p.category))
         || slaPolicies.find(p => p.priority === priority)
         || { responseTimeHours: 4, resolutionTimeHours: 24 }; // Fallback
 
       const now = new Date();
-      const responseDeadline = new Date(now.getTime() + (matchingPolicy.responseTimeHours || 4) * 60 * 60 * 1000);
-      // Resolution deadline is from now (full window), but the timer won't start until response is given
+      const responseDeadline = calculateSLADeadline(now, (matchingPolicy.responseTimeHours || 4), {
+        businessHours: matchingPolicy.businessHours,
+        excludeWeekends: matchingPolicy.excludeWeekends,
+        excludeHolidays: matchingPolicy.excludeHolidays
+      });
+      // Resolution deadline is null initially as it doesn't start until first response
       const resolutionDeadline = new Date(now.getTime() + ((matchingPolicy.responseTimeHours || 4) + (matchingPolicy.resolutionTimeHours || 24)) * 60 * 60 * 1000);
 
       const ticketNumber = `INC${Math.floor(1000000 + Math.random() * 9000000)}`;
@@ -378,10 +329,9 @@ export function Tickets() {
       let responseSlaStatus = "In Progress";
       let resolutionSlaStatus = "In Progress";
 
-      if (responseDeadline.getTime() <= now.getTime() || resolutionDeadline.getTime() <= now.getTime()) {
+      if (responseDeadline.getTime() <= now.getTime()) {
         priority = "1 - Critical";
-        responseSlaStatus = responseDeadline.getTime() <= now.getTime() ? "Breached" : "In Progress";
-        resolutionSlaStatus = resolutionDeadline.getTime() <= now.getTime() ? "Breached" : "In Progress";
+        responseSlaStatus = "Breached";
       }
 
       // Workflow Automation: Auto-assignment based on category
@@ -408,13 +358,14 @@ export function Tickets() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         responseDeadline: responseDeadline.toISOString(),
-        resolutionDeadline: resolutionDeadline.toISOString(),
+        resolutionDeadline: null,
         responseSlaStartTime: now.toISOString(),
-        resolutionSlaStartTime: now.toISOString(),
+        resolutionSlaStartTime: null,
         responseSlaStatus,
-        resolutionSlaStatus,
+        resolutionSlaStatus: "Pending",
+        slaResolutionHours: matchingPolicy.resolutionTimeHours || 24,
         totalPausedTime: 0,
-        history: [{ action: "Ticket Created", timestamp: new Date().toISOString(), user: profile?.name || user.email }]
+        history: [{ action: "Ticket Created (Response SLA Started)", timestamp: now.toISOString(), user: profile?.name || user.email }]
       };
 
       console.log("Final ticket data payload:", ticketData);
@@ -476,7 +427,9 @@ export function Tickets() {
         passwordReset: "No",
         rackspaceTicketNo: "",
         additionalInformation: "",
-        affectedUser: ""
+        affectedUser: "",
+        watchList: "",
+        company: ""
       });
     } catch (error: any) {
       console.error("CRITICAL: Error creating ticket:", error);
@@ -761,6 +714,20 @@ export function Tickets() {
                     </div>
                   </div>
 
+                  {/* Watch list (CC) */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Watch list</label>
+                    <div className="col-span-2 flex gap-1">
+                      <input
+                        value={newTicket.watchList}
+                        onChange={e => setNewTicket({ ...newTicket, watchList: e.target.value })}
+                        placeholder="Separate emails with commas"
+                        className="flex-grow p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green outline-none h-8"
+                      />
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Users className="w-3 h-3" /></Button>
+                    </div>
+                  </div>
+
                   {/* Business Phone */}
                   <div className="grid grid-cols-3 items-center gap-4">
                     <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Business phone</label>
@@ -784,25 +751,100 @@ export function Tickets() {
                     </div>
                   </div>
 
-                  {/* Category */}
+                  {/* Company */}
                   <div className="grid grid-cols-3 items-center gap-4">
-                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">
-                      <span className="text-red-500">*</span> Category
-                    </label>
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Company</label>
                     <select
-                      required
-                      value={newTicket.categoryId}
-                      onChange={e => {
-                        const category = visibleCategories.find((item) => item.id === e.target.value);
-                        setNewTicket({ ...newTicket, categoryId: e.target.value, category: category?.name || "" });
-                      }}
+                      value={newTicket.company}
+                      onChange={e => setNewTicket({ ...newTicket, company: e.target.value })}
                       className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green outline-none h-8"
                     >
                       <option value="">-- None --</option>
-                      {visibleCategories.map((item) => (
-                        <option key={item.id} value={item.id}>{item.name}</option>
+                      {companies.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
+                  </div>
+
+                  {/* Category */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">
+                      <span className="text-red-500 font-bold">*</span> Category
+                    </label>
+                    <select
+                      required
+                      value={newTicket.category}
+                      onChange={e => {
+                        setNewTicket({ 
+                          ...newTicket, 
+                          category: e.target.value, 
+                          subcategory: "", 
+                          service: "" 
+                        });
+                      }}
+                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green outline-none h-8 bg-white"
+                    >
+                      <option value="">-- Select Category --</option>
+                      {IT_SERVICE_CATALOG.map((item) => (
+                        <option key={item.category} value={item.category}>{item.category}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Subcategory */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">
+                      <span className="text-red-500 font-bold">*</span> Subcategory
+                    </label>
+                    <select
+                      required
+                      value={newTicket.subcategory}
+                      onChange={e => {
+                        setNewTicket({ 
+                          ...newTicket, 
+                          subcategory: e.target.value, 
+                          service: "" 
+                        });
+                      }}
+                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green outline-none h-8 bg-white disabled:opacity-50 disabled:bg-muted"
+                      disabled={!newTicket.category}
+                    >
+                      <option value="">-- Select Subcategory --</option>
+                      {realisticSubcategories.map(s => (
+                        <option key={s.name} value={s.name}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Service */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">
+                      <span className="text-red-500 font-bold">*</span> Service
+                    </label>
+                    <select
+                      required
+                      value={newTicket.service}
+                      onChange={e => {
+                        setNewTicket({ ...newTicket, service: e.target.value });
+                      }}
+                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green outline-none h-8 bg-white disabled:opacity-50 disabled:bg-muted"
+                      disabled={!newTicket.subcategory}
+                    >
+                      <option value="">-- Select Service --</option>
+                      {realisticServices.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Service Offering */}
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <label className="text-[11px] text-right font-medium text-muted-foreground uppercase leading-tight">Service Offering</label>
+                    <input
+                      value={newTicket.serviceOffering}
+                      onChange={e => setNewTicket({ ...newTicket, serviceOffering: e.target.value })}
+                      className="col-span-2 p-1.5 border border-border rounded text-xs focus:ring-1 focus:ring-sn-green h-8"
+                    />
                   </div>
 
                   {/* Configuration Item */}
@@ -923,7 +965,7 @@ export function Tickets() {
                         className="flex-grow p-1.5 border border-border rounded text-xs outline-none focus:ring-1 focus:ring-sn-green h-8"
                       >
                         <option value="">-- Auto Assign --</option>
-                        {visibleGroups.map((item) => (
+                        {displayGroups.map((item) => (
                           <option key={item.id} value={item.name}>
                             {item.name}
                           </option>
