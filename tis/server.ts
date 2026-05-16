@@ -325,6 +325,7 @@ async function getSQLiteDb() {
     try { await sqliteDb.exec("ALTER TABLE activity_entries ADD COLUMN keystrokes INTEGER DEFAULT 0"); } catch (e) {}
     try { await sqliteDb.exec("ALTER TABLE activity_entries ADD COLUMN clicks INTEGER DEFAULT 0"); } catch (e) {}
     try { await sqliteDb.exec("ALTER TABLE users ADD COLUMN last_login DATETIME"); } catch (e) {}
+    try { await sqliteDb.exec("ALTER TABLE tickets ADD COLUMN company_id INTEGER"); } catch (e) {}
     
     console.log('[SQLite] Database initialized with enterprise email tables');
   }
@@ -3304,6 +3305,72 @@ Respond with ONLY a JSON object: {"note": "your note here"}`;
     } catch (error: any) {
       console.error("[AI Classify] Error:", error.message);
       res.status(500).json({ error: "AI classification failed", detail: error.message });
+    }
+  });
+
+  // AI Translate Endpoint (Tamil/Tanglish to English)
+  app.post("/api/ai/translate", async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text || typeof text !== "string") {
+        return res.status(400).json({ error: "Missing text for translation" });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
+        return res.status(500).json({ error: "Gemini API key not configured" });
+      }
+
+      const prompt = `
+        You are a Professional Tamil/Tanglish to English Translator for an IT Ticketing System.
+        
+        Input may contain:
+        - Pure Tamil
+        - Tanglish (Tamil words written in English script)
+        - Tamil + English mixed speech
+        - Incomplete spoken sentences
+        - Informal speech
+        - Small grammar mistakes
+        
+        Your job:
+        1. Understand the meaning first.
+        2. Convert Tanglish to Tamil meaning internally.
+        3. Translate meaning into natural English.
+        4. Correct grammar.
+        5. Improve sentence structure.
+        6. Preserve the original intent.
+        7. Output professional ticket-style English.
+        
+        RULES:
+        - DO NOT translate word by word.
+        - DO NOT return broken English.
+        - DO NOT keep Tamil words in output.
+        - DO NOT change meaning.
+        - DO NOT remove important details.
+        - OUTPUT ONLY the final corrected English sentence. No explanations, no raw text.
+        
+        EXAMPLES:
+        "Enaku login panna mudiyala" -> "I am unable to log in."
+        "Ticket create pannumbothu error varuthu" -> "I am getting an error while creating the ticket."
+        "Mail notification varala" -> "I am not receiving email notifications."
+        "Server romba slow ah iruku" -> "The server is very slow."
+        "User account lock aagiduchu" -> "The user account has been locked."
+        "Dashboard load aaga romba time edukuthu" -> "The dashboard is taking too long to load."
+        
+        Input Text: "${text}"
+      `;
+
+      const ai = new GoogleGenAI({ apiKey });
+      const result = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt.trim(),
+      });
+
+      const translated = result.text?.trim() || text;
+      res.json({ translated });
+    } catch (error: any) {
+      console.error("[AI Translate] Error:", error.message);
+      res.status(500).json({ error: "AI translation failed", detail: error.message });
     }
   });
 

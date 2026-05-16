@@ -30,24 +30,25 @@ const DICTIONARY: Record<string, string> = {
   "நீங்கள்": "you", "உங்களுக்கு": "you", "unaku": "you", "ungaluku": "you", "ni": "you", "nee": "you",
   "உங்க": "your", "உங்கள்": "your", "unga": "your", "ungal": "your",
   "அவன்": "he", "அவள்": "she", "அவர்கள்": "they", "அது": "it",
-  "avan": "he", "aval": "she", "avanga": "they", "adhu": "it", "idhu": "this",
-  "என்ன": "what", "enna": "what", "எது": "which", "edhu": "which",
-
+  "avan": "he", "aval": "she", "avanga": "they", "adhu": "it", "idhu": "this", "ithu": "this",
+  "என்ன": "what", "enna": "what", "எது": "which", "edhu": "which", "ethu": "which",
 
   // Common IT Nouns (Tamil Unicode)
   "லாகின்": "login", "டிக்கெட்": "ticket", "பாஸ்வேர்ட்": "password", "கடவுச்சொல்": "password",
   "சிஸ்டம்": "system", "கணினி": "computer", "சர்வர்": "server", "நெட்வொர்க்": "network",
   "இணையம்": "internet", "மெயில்": "email", "மின்னஞ்சல்": "email", "நோட்டிபிகேஷன்": "notification",
   "பிரிண்டர்": "printer", "ஸ்கிரீன்": "screen", "திரை": "screen", "மவுஸ்": "mouse",
-  "கீபோர்ட்": "keyboard", "சாப்ட்வேர்": "software", "மென்பொருள்": "software",
+  "கீபோர்்ட்": "keyboard", "சாப்ட்வேர்": "software", "மென்பொருள்": "software",
   "அப்ளிகேஷன்": "application", "பயன்பாடு": "application", "வைஃபை": "wifi",
-  "ப்ராஜெக்ட்": "project", "வேலை": "work", "டாஸ்க்": "task",
-
+  "ப்ராஜெக்ட்": "project", "வேலை": "work", "டாஸ்க்": "task", "டேஷ்போர்டு": "dashboard",
 
   // Common IT Nouns (Tanglish)
   "passward": "password", "passcode": "password", "error": "error", "issue": "issue",
   "problem": "problem", "prachana": "problem", "prachanai": "problem", "sikkal": "issue",
   "slow": "slow", "fast": "fast", "work": "work", "open": "open", "close": "close",
+  "reset": "reset", "lock": "lock", "locked": "locked", "upload": "upload", "download": "download",
+  "generate": "generate", "loading": "loading", "load": "load", "dashboard": "dashboard",
+  "report": "report", "file": "file", "files": "files",
 
   // Verbs & States (Tamil Unicode)
   "முடியல": "unable to", "முடியவில்லை": "unable to", "முடியாது": "cannot",
@@ -57,31 +58,33 @@ const DICTIONARY: Record<string, string> = {
   "ஆகுது": "happening", "ஆகல": "not working", "ஆகவில்லை": "not working",
   "வேலை": "work", "தெரியல": "don't know", "மறந்துட்டேன்": "forgot",
   "முடிஞ்சிடும்": "will be finished", "முடிந்தது": "finished", "முடிஞ்சது": "finished",
-
+  "எடுக்கல": "not taking", "எடுக்குது": "taking",
 
   // Verbs & States (Tanglish)
   "iruku": "is", "irukku": "is", "irukken": "am", "iruka": "is there", "irukkum": "will be there",
   "illa": "is not", "illai": "is not", "illea": "is not", "illaya": "is not", "illama": "without",
   "aachi": "done", "aachu": "completed", "aagidum": "will be done",
   "aaguthu": "is happening", "aguthu": "is happening",
-  "aagala": "is not working", "agala": "is not working",
+  "aagala": "is not working", "agala": "is not working", "agalai": "is not working",
+  "aagiduchu": "has happened", "agiduchu": "has happened", "aayiduchu": "has happened",
   "pochu": "occurred", "poichu": "occurred", "poyiduchu": "occurred",
-  "varuthu": "getting", "varudhu": "getting", "varala": "not receiving",
+  "varuthu": "getting", "varudhu": "getting", "varala": "not receiving", "varalai": "not receiving",
   "kaanom": "missing", "kanom": "missing", "tholaiyala": "lost",
   "parkala": "cannot see", "theriyala": "unknown", "theriyathu": "don't know",
   "kedaikala": "not available", "kedaiyathu": "not found",
-  "sollunga": "please inform", "paarunga": "please check",
+  "sollunga": "please inform", "paarunga": "please check", "check": "check",
   "kodunga": "please provide", "venum": "need", "vendum": "required",
-  "pannunga": "please do", "panren": "I am doing", "panna": "to do",
+  "pannunga": "please do", "panren": "I am doing", "panna": "to do", "pannumbothu": "while doing",
   "prachana": "problem", "prachanai": "issue", "errar": "error",
   "romba": "very", "konjam": "a little", "seri": "okay", "sari": "fine",
   "thappu": "wrong", "ippo": "now", "enna": "what", "yenna": "what",
   "yaaru": "who", "enga": "where", "eppo": "when", "eppadi": "how",
   "yen": "why", "innum": "still", "ellam": "all", "onnum": "nothing",
   "adhu": "that", "idhu": "this", "oru": "a",
-  "slow-ah": "slowly", "fast-ah": "quickly", "maari": "like",
+  "slow-ah": "slow", "fast-ah": "fast", "maari": "like",
   "solran": "I am saying", "kekala": "not audible", "puriyala": "I don't understand",
   "valla": "not working", "vaala": "not working",
+  "edukuthu": "taking", "edukkuthu": "taking", "time": "time", "neram": "time",
 };
 
 /**
@@ -89,11 +92,24 @@ const DICTIONARY: Record<string, string> = {
  * These handle specific sentence structures for better natural English.
  */
 const PHRASE_PATTERNS: [RegExp, string][] = [
-  // Specific requested examples
+  // Specific requested examples (Training Examples)
   [/enaku\s+login\s+panna\s+mudiyala|எனக்கு\s+லாகின்\s+பண்ண\s+முடியல/gi, "I am unable to log in"],
   [/ticket\s+create\s+pannumbothu\s+error\s+varuthu|டிக்கெட்\s+உருவாக்கும்போது\s+பிழை\s+வருது/gi, "I am getting an error while creating the ticket"],
   [/mail\s+notification\s+varala|மின்னஞ்சல்\s+நோட்டிபிகேஷன்\s+வரல/gi, "I am not receiving email notifications"],
   [/server\s+romba\s+slow\s+ah\s+iruku|சர்வர்\s+ரொம்ப\s+மெதுவா\s+இருக்கு/gi, "The server is very slow"],
+  [/password\s+reset\s+panna\s+mail\s+varala/gi, "I am not receiving the password reset email"],
+  [/user\s+account\s+lock\s+aagiduchu|user\s+account\s+lock\s+aayiduchu/gi, "The user account has been locked"],
+  [/dashboard\s+load\s+aaga\s+romba\s+time\s+edukuthu/gi, "The dashboard is taking too long to load"],
+  [/file\s+upload\s+panna\s+mudiyala/gi, "I am unable to upload the file"],
+  [/report\s+generate\s+pannumbothu\s+issue\s+varuthu/gi, "I am facing an issue while generating the report"],
+  
+  // Advanced Patterns
+  [/(\w+)\s+lock\s+aagiduchu|(\w+)\s+lock\s+aayiduchu/gi, "$1 has been locked"],
+  [/(\w+)\s+reset\s+panna/gi, "to reset the $1"],
+  [/(\w+)\s+upload\s+panna/gi, "to upload the $1"],
+  [/(\w+)\s+load\s+aaga/gi, "to load the $1"],
+  [/romba\s+time\s+edukuthu/gi, "is taking too long"],
+  [/(\w+)\s+pannumbothu/gi, "while $1"],
   
   // General patterns
   [/(\w+)\s+panna\s+mudiyala|(\w+)\s+பண்ண\s+முடியல/gi, "I am unable to $1$2"],
@@ -102,21 +118,18 @@ const PHRASE_PATTERNS: [RegExp, string][] = [
   [/(\w+)\s+work\s+agala/gi, "$1 is not working"],
   [/(\w+)\s+open\s+aagala|(\w+)\s+திறக்கல/gi, "$1$2 is not opening"],
   [/(\w+)\s+open\s+agala/gi, "$1 is not opening"],
-  [/(\w+)\s+varala|(\w+)\s+வரல/gi, "not receiving $1$2"],
-  [/(\w+)\s+iruku|(\w+)\s+இருக்கு/gi, "$1$2 is present"],
+  [/(\w+)\s+varala|(\w+)\s+varalai/gi, "not receiving $1"],
+  [/(\w+)\s+varuthu|(\w+)\s+varudhu/gi, "getting $1"],
+  [/(\w+)\s+iruku|(\w+)\s+irukku/gi, "$1 is present"],
   [/romba\s+slow/gi, "very slow"],
   [/romba\s+fast/gi, "very fast"],
-  [/enna\s+prachana|என்ன\s+பிரச்சனை/gi, "What is the problem?"],
-  [/sari\s+panna\s+mudiyala|சரி\s+பண்ண\s+முடியல/gi, "I am unable to fix it"],
+  [/enna\s+prachana/gi, "What is the problem?"],
+  [/sari\s+panna\s+mudiyala/gi, "I am unable to fix it"],
   [/marupadiyum\s+marupadiyum/gi, "repeatedly"],
   [/konjam\s+wait\s+pannunga/gi, "please wait a moment"],
   [/odane\s+venum/gi, "required immediately"],
   [/seekiram\s+mudinga/gi, "please complete it soon"],
   [/(\w+)\s+mudinga/gi, "please finish the $1"],
-  [/unga\s+(\w+)\s+mudinjidum/gi, "your $1 will be finished"],
-  [/உங்க\s+(\w+)\s+முடிஞ்சிடும்/gi, "your $1 will be finished"],
-  [/nee\s+unga\s+(\w+)\s+mudinjidum/gi, "your $1 will be finished"],
-  [/நீ\s+உங்க\s+(\w+)\s+முடிஞ்சிடும்/gi, "your $1 will be finished"],
 ];
 
 /**
@@ -234,11 +247,30 @@ export function createSpeechController(
   let rawAccumulated = "";
   let stopped = false;
 
-  function deliverFinal() {
+  async function deliverFinal() {
     const raw = rawAccumulated.trim();
-    if (raw) {
-      const final = transformSpeechToProfessionalEnglish(raw);
-      onFinal?.(final);
+    if (!raw) return;
+
+    try {
+      // REQUIREMENT: Use AI for high-quality final translation
+      const res = await fetch("/api/ai/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: raw })
+      });
+      
+      if (!res.ok) throw new Error("Translation service error");
+      const data = await res.json();
+      
+      if (data.translated) {
+        onFinal?.(data.translated);
+      } else {
+        onFinal?.(transformSpeechToProfessionalEnglish(raw));
+      }
+    } catch (err) {
+      console.error("[SpeechToEnglish] AI Translation Failed, using local fallback:", err);
+      const fallback = transformSpeechToProfessionalEnglish(raw);
+      onFinal?.(fallback);
     }
   }
 

@@ -56,7 +56,7 @@ export class OmniChannelEngine {
             password: config.imap_pass,
             host: config.imap_host,
             port: config.imap_port,
-            tls: config.encryption !== 'None',
+            tls: true, // Force TLS for Gmail
             tlsOptions: { rejectUnauthorized: false },
             authTimeout: 10000,
           }
@@ -66,26 +66,49 @@ export class OmniChannelEngine {
           const connection = await imaps.connect(imapConfig);
           await connection.openBox('INBOX');
 
-          const searchCriteria = ['UNSEEN'];
+          // Search for UNSEEN OR all emails since yesterday to be safe
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          
+          const searchCriteria = [['OR', 'UNSEEN', ['SINCE', yesterday]]];
           const fetchOptions = {
             bodies: ['HEADER', 'TEXT', ''],
             markSeen: true
           };
 
           const messages = await connection.search(searchCriteria, fetchOptions);
-          console.log(`[OmniChannel] Found ${messages.length} new emails for ${config.company_name}.`);
+          
+          if (messages.length > 0) {
+            console.log(`[OmniChannel] Found ${messages.length} potential emails for ${config.company_name}. Checking for duplicates...`);
+          }
 
           for (const item of messages) {
             const all = item.parts.find(part => part.which === '');
             if (all) {
               const parsed = await simpleParser(all.body);
+              
+              // Prevent duplicate processing of the same messageId
+              const existing = await query("SELECT id FROM email_logs WHERE message_id = ?", [parsed.messageId]);
+              if (existing.length > 0) continue;
+
               await this.processIncomingEmail(parsed, config);
+              
+              // Log Success
+              await execute(
+                "INSERT INTO email_logs (direction, config_id, sender, subject, status, message_id) VALUES (?, ?, ?, ?, ?, ?)",
+                ['inbound', config.id, parsed.from?.text, parsed.subject, 'success', parsed.messageId]
+              );
             }
           }
 
           connection.end();
         } catch (err: any) {
           console.error(`[OmniChannel] Error polling ${config.company_name}:`, err.message);
+          // Log Failure
+          await execute(
+            "INSERT INTO email_logs (direction, config_id, recipient, subject, status, error_message) VALUES (?, ?, ?, ?, ?, ?)",
+            ['inbound', config.id, config.email_address, 'Polling Attempt', 'failed', err.message]
+          );
         }
       }
     } catch (error: any) {
