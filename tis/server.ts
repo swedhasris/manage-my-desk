@@ -3163,14 +3163,16 @@ Respond ONLY with JSON: {"summary": "your summary here"}`;
     } catch (error: any) {
       console.warn("[Email Test] Inputted credentials failed. Trying environment fallback...");
       try {
-        const envUser = process.env.SMTP_USER || "swedhasris@gmail.com";
-        const envPass = process.env.SMTP_PASS || "cqrt ncza ybrs mtdc";
+        const envUser = process.env.SMTP_USER || "Support@technosprint.net";
+        const envPass = process.env.SMTP_PASS || "";
+        const envHost = process.env.SMTP_HOST || "mail.technosprint.net";
+        const envPort = parseInt(process.env.SMTP_PORT || "465");
         
         // Test SMTP with Env Fallback
         const transporter = nodemailer.createTransport({
-          host: "smtp.gmail.com",
-          port: 587,
-          secure: false,
+          host: envHost,
+          port: envPort,
+          secure: envPort === 465,
           auth: { user: envUser, pass: envPass },
           tls: { rejectUnauthorized: false }
         });

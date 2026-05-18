@@ -216,12 +216,12 @@ export async function processEmailQueue() {
           port: parseInt(process.env.SMTP_PORT || '587'),
           secure: process.env.SMTP_PORT === '465',
           auth: {
-            user: process.env.SMTP_USER || 'swedhasris@gmail.com',
-            pass: process.env.SMTP_PASS || 'cqrt ncza ybrs mtdc',
+            user: process.env.SMTP_USER || 'Support@technosprint.net',
+            pass: process.env.SMTP_PASS || '',
           },
           tls: { rejectUnauthorized: false }
         });
-        fromAddress = `"Technosprint Support" <${process.env.SMTP_USER || 'swedhasris@gmail.com'}>`;
+        fromAddress = `"Technosprint Support" <${process.env.SMTP_USER || 'Support@technosprint.net'}>`;
       }
 
       let info;
@@ -239,13 +239,13 @@ export async function processEmailQueue() {
             port: parseInt(process.env.SMTP_PORT || '587'),
             secure: process.env.SMTP_PORT === '465',
             auth: {
-              user: process.env.SMTP_USER || 'swedhasris@gmail.com',
-              pass: process.env.SMTP_PASS || 'cqrt ncza ybrs mtdc',
+              user: process.env.SMTP_USER || 'Support@technosprint.net',
+              pass: process.env.SMTP_PASS || '',
             },
             tls: { rejectUnauthorized: false }
           });
           info = await fallbackTransporter.sendMail({
-            from: `"Technosprint Support" <${process.env.SMTP_USER || 'swedhasris@gmail.com'}>`,
+            from: `"Technosprint Support" <${process.env.SMTP_USER || 'Support@technosprint.net'}>`,
             to: job.recipient, subject: job.subject, html: job.body_html,
             headers: job.ticket_number ? { 'X-Ticket-Number': job.ticket_number } : {}
           });

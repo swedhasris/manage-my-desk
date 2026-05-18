@@ -40,7 +40,7 @@ export class OmniChannelEngine {
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: process.env.SMTP_PORT === '465',
       auth: {
-        user: process.env.SMTP_USER || 'swedhasris@gmail.com',
+        user: process.env.SMTP_USER || 'Support@technosprint.net',
         pass: process.env.SMTP_PASS || '',
       },
       tls: {
