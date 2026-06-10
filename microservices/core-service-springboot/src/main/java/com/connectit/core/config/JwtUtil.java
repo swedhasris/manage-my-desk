@@ -1,18 +1,14 @@
 package com.connectit.core.config;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.Key;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 
 @Component
 public class JwtUtil {
@@ -20,58 +16,49 @@ public class JwtUtil {
     @Value("${jwt.secret}")
     private String secret;
 
-    @Value("${jwt.expiration}")
-    private Long expiration;
+    @Value("${jwt.expiration:86400000}")
+    private long expiration;
 
-    private SecretKey getSigningKey() {
-        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
-        return Keys.hmacShaKeyFor(keyBytes);
+    private Key key() {
+        byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length < 32) {
+            // Pad to minimum 256 bits
+            byte[] padded = new byte[32];
+            System.arraycopy(bytes, 0, padded, 0, bytes.length);
+            return Keys.hmacShaKeyFor(padded);
+        }
+        return Keys.hmacShaKeyFor(bytes);
     }
 
-    public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
-    }
-
-    public Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
-        return claimsResolver.apply(claims);
-    }
-
-    private Claims extractAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-    }
-
-    private Boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
-    }
-
-    public String generateToken(String username, String role, String uid) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("role", role);
-        claims.put("uid", uid);
-        return createToken(claims, username);
-    }
-
-    private String createToken(Map<String, Object> claims, String subject) {
+    public String generate(String uid, String email, String role) {
         return Jwts.builder()
-                .claims(claims)
-                .subject(subject)
-                .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + expiration * 1000))
-                .signWith(getSigningKey())
-                .compact();
+            .subject(uid)
+            .claims(Map.of("email", email, "role", role))
+            .issuedAt(new Date())
+            .expiration(new Date(System.currentTimeMillis() + expiration))
+            .signWith(key())
+            .compact();
     }
 
-    public Boolean validateToken(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+    public Claims parse(String token) {
+        return Jwts.parser().verifyWith(Keys.hmacShaKeyFor(
+            secret.getBytes(StandardCharsets.UTF_8).length >= 32
+                ? secret.getBytes(StandardCharsets.UTF_8)
+                : padSecret(secret.getBytes(StandardCharsets.UTF_8))
+        )).build().parseSignedClaims(token).getPayload();
+    }
+
+    public boolean isValid(String token) {
+        try { parse(token); return true; } catch (Exception e) { return false; }
+    }
+
+    public String getUid(String token)   { return parse(token).getSubject(); }
+    public String getRole(String token)  { return (String) parse(token).get("role"); }
+    public String getEmail(String token) { return (String) parse(token).get("email"); }
+
+    private byte[] padSecret(byte[] in) {
+        byte[] out = new byte[32];
+        System.arraycopy(in, 0, out, 0, in.length);
+        return out;
     }
 }

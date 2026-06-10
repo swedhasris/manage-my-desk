@@ -1,197 +1,268 @@
 package com.connectit.core.controller;
 
-import com.connectit.core.model.Comment;
-import com.connectit.core.model.Ticket;
-import com.connectit.core.model.TicketActivity;
-import com.connectit.core.repository.CommentRepository;
-import com.connectit.core.repository.TicketActivityRepository;
-import com.connectit.core.repository.TicketRepository;
-import com.connectit.core.service.TicketService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import com.connectit.core.model.*;
+import com.connectit.core.repository.*;
+import com.connectit.core.service.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
-@RequestMapping("/api/tickets")
+@RequestMapping("/api")
+@RequiredArgsConstructor
 public class TicketController {
 
-    @Autowired
-    private TicketRepository ticketRepository;
+    private final TicketService   ticketService;
+    private final TicketRepository ticketRepo;
+    private final TicketActivityRepository activityRepo;
+    private final UserRepository  userRepo;
+    private final TicketCustomFieldRepository customFieldRepo;
+    private final JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private TicketService ticketService;
-
-    @Autowired
-    private CommentRepository commentRepository;
-
-    @Autowired
-    private TicketActivityRepository ticketActivityRepository;
-
-    @GetMapping("/all")
-    public ResponseEntity<List<Ticket>> getAllTickets() {
-        return ResponseEntity.ok(ticketRepository.findAll());
+    // ── Health ────────────────────────────────────────────────────────────────
+    @GetMapping("/health")
+    public ResponseEntity<?> health() {
+        return ResponseEntity.ok(Map.of("status","ok","service","ticklora-core","version","1.0.0"));
     }
 
-    @GetMapping("/open")
-    public ResponseEntity<List<Ticket>> getOpenTickets() {
-        return ResponseEntity.ok(ticketRepository.findAllOpenTickets());
+    // ── Tickets ───────────────────────────────────────────────────────────────
+    @GetMapping("/tickets/all")
+    public ResponseEntity<?> all() {
+        return ok(ticketRepo.findAllByOrderByCreatedAtDesc());
     }
 
-    @GetMapping("/assigned/{userId}")
-    public ResponseEntity<List<Ticket>> getAssignedTickets(@PathVariable String userId) {
-        return ResponseEntity.ok(ticketRepository.findByAssignedTo(userId));
+    @GetMapping("/tickets/open")
+    public ResponseEntity<?> open() {
+        return ok(ticketRepo.findAllOpen());
     }
 
-    @GetMapping("/unassigned")
-    public ResponseEntity<List<Ticket>> getUnassignedTickets() {
-        return ResponseEntity.ok(ticketRepository.findUnassignedTickets());
+    @GetMapping("/tickets/resolved")
+    public ResponseEntity<?> resolved() {
+        return ok(ticketRepo.findResolved());
     }
 
-    @GetMapping("/resolved")
-    public ResponseEntity<List<Ticket>> getResolvedTickets() {
-        return ResponseEntity.ok(ticketRepository.findByStatus("Resolved"));
+    @GetMapping("/tickets/unassigned")
+    public ResponseEntity<?> unassigned() {
+        return ok(ticketRepo.findUnassigned());
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<?> getTicketById(@PathVariable Long id) {
-        Optional<Ticket> ticketOpt = ticketRepository.findById(id);
-        if (ticketOpt.isEmpty()) {
-            Map<String, String> err = new HashMap<>();
-            err.put("error", "Ticket not found");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(err);
-        }
-        
-        Ticket ticket = ticketOpt.get();
-        List<Comment> comments = commentRepository.findByTicketIdOrderByCreatedAtAsc(id);
-        List<TicketActivity> history = ticketActivityRepository.findByTicketIdOrderByCreatedAtDesc(id);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", ticket.getId().toString());
-        response.put("ticket_number", ticket.getTicketNumber());
-        response.put("caller", ticket.getCaller());
-        response.put("caller_user_id", ticket.getCallerUserId());
-        response.put("affected_user", ticket.getAffectedUser());
-        response.put("affected_user_id", ticket.getAffectedUserId());
-        response.put("category", ticket.getCategory());
-        response.put("subcategory", ticket.getSubcategory());
-        response.put("service", ticket.getService());
-        response.put("service_offering", ticket.getServiceOffering());
-        response.put("cmdb_item", ticket.getCmdbItem());
-        response.put("title", ticket.getTitle());
-        response.put("description", ticket.getDescription());
-        response.put("channel", ticket.getChannel());
-        response.put("status", ticket.getStatus());
-        response.put("impact", ticket.getImpact());
-        response.put("urgency", ticket.getUrgency());
-        response.put("priority", ticket.getPriority());
-        response.put("assignment_group", ticket.getAssignmentGroup());
-        response.put("assigned_to", ticket.getAssignedTo());
-        response.put("assigned_to_name", ticket.getAssignedToName());
-        response.put("created_by", ticket.getCreatedBy());
-        response.put("created_by_name", ticket.getCreatedByName());
-        response.put("created_at", ticket.getCreatedAt());
-        response.put("updated_at", ticket.getUpdatedAt());
-        response.put("first_response_at", ticket.getFirstResponseAt());
-        response.put("resolved_at", ticket.getResolvedAt());
-        response.put("closed_at", ticket.getClosedAt());
-        response.put("response_deadline", ticket.getResponseDeadline());
-        response.put("resolution_deadline", ticket.getResolutionDeadline());
-        response.put("points", ticket.getPoints());
-        response.put("approval_status", ticket.getApprovalStatus());
-        response.put("comments", comments);
-        response.put("history", history);
-
-        return ResponseEntity.ok(response);
+    @GetMapping("/tickets/assigned/{userId}")
+    public ResponseEntity<?> assigned(@PathVariable String userId) {
+        return ok(ticketRepo.findByAssignedTo(userId));
     }
 
-    @PostMapping(value = {"/create", ""})
-    public ResponseEntity<?> createTicket(@RequestBody Map<String, Object> body) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+    @GetMapping("/tickets/{id}")
+    public ResponseEntity<?> get(@PathVariable Long id) {
+        return ticketRepo.findById(id)
+            .map(t -> ResponseEntity.ok((Object) serialize(t)))
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/tickets/create")
+    public ResponseEntity<?> create(@RequestBody Map<String,Object> body) {
         try {
-            Ticket ticket = ticketService.createTicket(body, username, username, true);
-            return ResponseEntity.status(HttpStatus.CREATED).body(ticket);
+            String uid = SecurityContextHolder.getContext().getAuthentication().getName();
+            String name = userRepo.findByUid(uid).map(User::getName).orElse(uid);
+            boolean adminAccess = checkAdminAccess();
+            Ticket t = ticketService.createTicket(body, uid, name, adminAccess);
+            return ResponseEntity.status(201).body(serialize(t));
         } catch (Exception e) {
-            Map<String, String> err = new HashMap<>();
-            err.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(err);
+            return ResponseEntity.status(500).body(Map.of("error","Failed to create ticket: " + e.getMessage()));
         }
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<?> updateTicket(@PathVariable Long id, @RequestBody Map<String, Object> body) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+    @PutMapping("/tickets/{id}")
+    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody Map<String,Object> body) {
         try {
-            Map<String, Object> result = ticketService.updateTicket(id, body, username, username, true);
-            return ResponseEntity.ok(result);
-        } catch (IllegalArgumentException e) {
-            Map<String, String> err = new HashMap<>();
-            err.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
+            String uid = SecurityContextHolder.getContext().getAuthentication().getName();
+            String name = userRepo.findByUid(uid).map(User::getName).orElse(uid);
+            boolean adminAccess = checkAdminAccess();
+            Ticket updated = ticketService.updateTicket(id, body, uid, name, adminAccess);
+            return ResponseEntity.ok(serialize(updated));
+        } catch (RuntimeException e) {
+            if (e.getMessage().contains("RCA")) return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            if (e.getMessage().contains("not found")) return ResponseEntity.notFound().build();
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/tickets/{id}")
+    public ResponseEntity<?> delete(@PathVariable Long id) {
+        ticketRepo.deleteById(id);
+        return ResponseEntity.ok(Map.of("message","Ticket deleted"));
+    }
+
+    @DeleteMapping("/tickets/all")
+    public ResponseEntity<?> deleteAll() {
+        ticketRepo.deleteAll();
+        return ResponseEntity.ok(Map.of("message","All tickets deleted"));
+    }
+
+    @PostMapping("/tickets/trigger-escalation")
+    public ResponseEntity<?> triggerEscalation() {
+        return ResponseEntity.ok(Map.of("message","Escalation check triggered"));
+    }
+
+    // ── Ticket Custom Fields ──────────────────────────────────────────────────
+    @GetMapping("/tickets/{id}/custom-fields")
+    public ResponseEntity<?> getCustomFields(@PathVariable String id) {
+        List<TicketCustomField> list = customFieldRepo.findByTicketId(id);
+        Map<String, String> result = new HashMap<>();
+        for (TicketCustomField f : list) {
+            result.put(String.valueOf(f.getCategoryId()), f.getValueText());
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/tickets/{id}/custom-fields")
+    @Transactional
+    public ResponseEntity<?> saveCustomFields(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        Map<String, String> customFields = (Map<String, String>) body.get("customFields");
+        customFieldRepo.deleteByTicketId(id);
+        if (customFields != null) {
+            for (Map.Entry<String, String> entry : customFields.entrySet()) {
+                String catIdStr = entry.getKey();
+                String valText = entry.getValue();
+                if (valText != null && !valText.isBlank()) {
+                    int catId = Integer.parseInt(catIdStr);
+                    String catName = "Field_" + catId;
+                    try {
+                        String name = jdbcTemplate.queryForObject(
+                            "SELECT name FROM incident_categories WHERE id = ?",
+                            String.class,
+                            catId
+                        );
+                        if (name != null) catName = name;
+                    } catch (Exception ignored) {}
+
+                    TicketCustomField f = new TicketCustomField();
+                    f.setTicketId(id);
+                    f.setCategoryId(catId);
+                    f.setCategoryName(catName);
+                    f.setValueText(valText);
+                    customFieldRepo.save(f);
+                }
+            }
+        }
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    // ── Activities ────────────────────────────────────────────────────────────
+    @GetMapping("/tickets/{id}/activities")
+    public ResponseEntity<?> activities(@PathVariable Long id,
+                                        @RequestParam(required=false) String visibility,
+                                        @RequestParam(name="activity_type",required=false) String actTypes) {
+        List<String> types = actTypes != null ? Arrays.asList(actTypes.split(",")) : null;
+        List<TicketActivity> list = ticketService.getActivities(id, visibility, types);
+        return ResponseEntity.ok(list.stream().map(this::serializeActivity).toList());
+    }
+
+    @PostMapping("/tickets/{id}/activities")
+    public ResponseEntity<?> addActivity(@PathVariable Long id, @RequestBody Map<String,Object> body) {
+        if (body.get("message") == null || body.get("message").toString().isBlank())
+            return ResponseEntity.badRequest().body(Map.of("error","Message is required"));
+        try {
+            TicketActivity a = ticketService.addActivity(id, body);
+            return ResponseEntity.status(201).body(serializeActivity(a));
         } catch (Exception e) {
-            Map<String, String> err = new HashMap<>();
-            err.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(err);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteTicket(@PathVariable Long id) {
-        if (!ticketRepository.existsById(id)) {
-            Map<String, String> err = new HashMap<>();
-            err.put("error", "Ticket not found");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(err);
-        }
-        ticketRepository.deleteById(id);
-        Map<String, String> res = new HashMap<>();
-        res.put("message", "Ticket deleted successfully");
-        return ResponseEntity.ok(res);
+    @PostMapping("/tickets/{id}/comments")
+    public ResponseEntity<?> addComment(@PathVariable Long id, @RequestBody Map<String,Object> body) {
+        body.put("activity_type", Boolean.TRUE.equals(body.get("is_internal")) ? "work_note" : "comment");
+        body.put("visibility_type", Boolean.TRUE.equals(body.get("is_internal")) ? "internal" : "public");
+        return addActivity(id, body);
     }
 
-    @GetMapping("/{id}/activities")
-    public ResponseEntity<List<TicketActivity>> getTicketActivities(@PathVariable Long id, @RequestParam(required = false) String visibility) {
-        if (visibility != null) {
-            return ResponseEntity.ok(ticketActivityRepository.findByTicketIdAndVisibilityTypeOrderByCreatedAtDesc(id, visibility));
-        }
-        return ResponseEntity.ok(ticketActivityRepository.findByTicketIdOrderByCreatedAtDesc(id));
+    // ── Leaderboard ───────────────────────────────────────────────────────────
+    @GetMapping("/leaderboard/daily")
+    public ResponseEntity<?> leaderboard() {
+        LocalDateTime today = LocalDateTime.now().toLocalDate().atStartOfDay();
+        List<Object[]> rows = ticketRepo.findLeaderboard(today);
+        List<Map<String,Object>> result = rows.stream().map(r -> Map.of(
+            "id",            r[0],
+            "name",          r[1] != null ? r[1] : r[0],
+            "points",        r[2] != null ? r[2] : 0,
+            "resolvedCount", r[3] != null ? r[3] : 0
+        )).toList();
+        return ResponseEntity.ok(result);
     }
 
-    @PostMapping("/{id}/comments")
-    public ResponseEntity<?> addComment(@PathVariable Long id, @RequestBody Map<String, Object> body) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        String message = (String) body.get("message");
-        Boolean isInternal = (Boolean) body.getOrDefault("is_internal", false);
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    private boolean checkAdminAccess() {
+        try {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null) return false;
+            String uid = (String) auth.getPrincipal();
+            return userRepo.findByUid(uid)
+                .map(u -> List.of("admin","super_admin","ultra_super_admin").contains(u.getRole()))
+                .orElse(false);
+        } catch (Exception e) { return false; }
+    }
 
-        if (message == null || message.trim().isEmpty()) {
-            Map<String, String> err = new HashMap<>();
-            err.put("error", "Comment message is required");
-            return ResponseEntity.badRequest().body(err);
-        }
+    private Map<String,Object> serialize(Ticket t) {
+        Map<String,Object> m = new LinkedHashMap<>();
+        m.put("id",                   String.valueOf(t.getId()));
+        m.put("ticket_number",        t.getTicketNumber());
+        m.put("caller",               t.getCaller());
+        m.put("caller_email",         t.getCallerEmail());
+        m.put("category",             t.getCategory());
+        m.put("incident_category",    t.getIncidentCategory());
+        m.put("title",                t.getTitle());
+        m.put("description",          t.getDescription());
+        m.put("status",               t.getStatus());
+        m.put("priority",             t.getPriority());
+        m.put("impact",               t.getImpact());
+        m.put("urgency",              t.getUrgency());
+        m.put("channel",              t.getChannel());
+        m.put("assignment_group",     t.getAssignmentGroup());
+        m.put("assigned_to",          t.getAssignedTo());
+        m.put("assigned_to_name",     t.getAssignedToName());
+        m.put("created_by",           t.getCreatedBy());
+        m.put("created_by_name",      t.getCreatedByName());
+        m.put("points",               t.getPoints());
+        m.put("response_deadline",    t.getResponseDeadline());
+        m.put("resolution_deadline",  t.getResolutionDeadline());
+        m.put("first_response_at",    t.getFirstResponseAt());
+        m.put("resolved_at",          t.getResolvedAt());
+        m.put("response_sla_status",  t.getResponseSlaStatus());
+        m.put("resolution_sla_status",t.getResolutionSlaStatus());
+        m.put("created_at",           t.getCreatedAt());
+        m.put("updated_at",           t.getUpdatedAt());
+        m.put("slaDelayMeta",         parseMeta(t.getSlaDelayMetaJson()));
+        m.put("slaDelayLogs",         parseMeta(t.getSlaDelayLogsJson()));
+        return m;
+    }
 
-        Comment comment = new Comment();
-        comment.setTicketId(id);
-        comment.setUserId(username);
-        comment.setUserName(username);
-        comment.setUserRole("user"); // Simple placeholder
-        comment.setMessage(message);
-        comment.setIsInternal(isInternal);
+    private Object parseMeta(String json) {
+        if (json == null || json.isBlank()) return Map.of();
+        return json; // Return raw JSON string — Jackson will serialize it
+    }
 
-        Comment savedComment = commentRepository.save(comment);
+    private Map<String,Object> serializeActivity(TicketActivity a) {
+        Map<String,Object> m = new LinkedHashMap<>();
+        m.put("id",              String.valueOf(a.getId()));
+        m.put("ticket_id",       String.valueOf(a.getTicketId()));
+        m.put("activity_type",   a.getActivityType());
+        m.put("visibility_type", a.getVisibilityType());
+        m.put("created_by",      a.getCreatedBy());
+        m.put("created_by_name", a.getCreatedByName());
+        m.put("message",         a.getMessage());
+        m.put("metadata_json",   a.getMetadataJson());
+        m.put("created_at",      a.getCreatedAt());
+        return m;
+    }
 
-        // Timeline log
-        TicketActivity act = new TicketActivity();
-        act.setTicketId(id);
-        act.setActivityType("comment");
-        act.setVisibilityType(isInternal ? "internal" : "public");
-        act.setCreatedBy(username);
-        act.setCreatedByName(username);
-        act.setMessage(isInternal ? "Internal note added" : "Comment added");
-        ticketActivityRepository.save(act);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(savedComment);
+    private ResponseEntity<?> ok(List<Ticket> tickets) {
+        return ResponseEntity.ok(tickets.stream().map(this::serialize).toList());
     }
 }

@@ -7,6 +7,9 @@ import java.util.List;
 
 @Repository
 public interface TicketActivityRepository extends JpaRepository<TicketActivity, Long> {
+    List<TicketActivity> findByTicketIdOrderByCreatedAtAsc(Long ticketId);
     List<TicketActivity> findByTicketIdOrderByCreatedAtDesc(Long ticketId);
-    List<TicketActivity> findByTicketIdAndVisibilityTypeOrderByCreatedAtDesc(Long ticketId, String visibilityType);
+    List<TicketActivity> findByTicketIdAndVisibilityTypeOrderByCreatedAtAsc(Long ticketId, String visibility);
+    List<TicketActivity> findByTicketIdAndVisibilityTypeOrderByCreatedAtDesc(Long ticketId, String visibility);
+    List<TicketActivity> findByTicketIdAndActivityTypeInOrderByCreatedAtAsc(Long ticketId, List<String> types);
 }

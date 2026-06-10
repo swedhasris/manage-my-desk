@@ -1,56 +1,61 @@
 package com.connectit.core.config;
 
+import com.connectit.core.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.List;
 
 @Component
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    @Autowired
-    private JwtUtil jwtUtil;
+    private final JwtUtil jwtUtil;
+    private final UserRepository userRepository;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
-        
-        final String authorizationHeader = request.getHeader("Authorization");
-
-        String username = null;
-        String jwt = null;
-        String role = null;
-
-        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-            jwt = authorizationHeader.substring(7);
-            try {
-                username = jwtUtil.extractUsername(jwt);
-                role = jwtUtil.extractClaim(jwt, claims -> claims.get("role", String.class));
-            } catch (Exception e) {
-                logger.warn("JWT token parsing failed: " + e.getMessage());
-            }
-        }
-
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            // Role prefix standard in Spring Security is ROLE_
-            String authority = role != null ? "ROLE_" + role.toUpperCase() : "ROLE_USER";
-            UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                    username, null, Collections.singletonList(new SimpleGrantedAuthority(authority))
+    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res,
+                                    FilterChain chain) throws ServletException, IOException {
+        String token = extractToken(req);
+        if (token != null && jwtUtil.isValid(token)) {
+            String uid   = jwtUtil.getUid(token);
+            String role  = jwtUtil.getRole(token);
+            var auth = new UsernamePasswordAuthenticationToken(
+                uid, null, List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
             );
-            authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+            SecurityContextHolder.getContext().setAuthentication(auth);
         }
 
-        filterChain.doFilter(request, response);
+        // Also support x-user-uid header (backward compat with React frontend)
+        String uid = req.getHeader("x-user-uid");
+        if (uid != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            userRepository.findByUid(uid).ifPresent(user -> {
+                var auth = new UsernamePasswordAuthenticationToken(
+                    uid, null,
+                    List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().toUpperCase()))
+                );
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            });
+        }
+
+        chain.doFilter(req, res);
+    }
+
+    private String extractToken(HttpServletRequest req) {
+        String header = req.getHeader("Authorization");
+        if (StringUtils.hasText(header) && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        return null;
     }
 }

@@ -1,245 +1,266 @@
 package com.connectit.core.service;
 
-import com.connectit.core.model.Ticket;
-import com.connectit.core.model.TicketActivity;
-import com.connectit.core.model.TicketCustomField;
-import com.connectit.core.repository.TicketActivityRepository;
-import com.connectit.core.repository.TicketCustomFieldRepository;
-import com.connectit.core.repository.TicketRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.connectit.core.model.*;
+import com.connectit.core.repository.*;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
+@RequiredArgsConstructor
 public class TicketService {
 
-    @Autowired
-    private TicketRepository ticketRepository;
+    private final TicketRepository ticketRepo;
+    private final TicketActivityRepository activityRepo;
+    private final NotificationRepository notifRepo;
+    private final UserRepository userRepo;
 
-    @Autowired
-    private TicketActivityRepository ticketActivityRepository;
+    private static final Map<String,Integer> RESPONSE_HOURS = Map.of(
+        "1 - Critical",2, "2 - High",4, "3 - Moderate",8, "4 - Low",24
+    );
+    private static final Map<String,Integer> RESOLUTION_HOURS = Map.of(
+        "1 - Critical",4, "2 - High",8, "3 - Moderate",24, "4 - Low",72
+    );
 
-    @Autowired
-    private TicketCustomFieldRepository ticketCustomFieldRepository;
-
-    private static final Map<String, Integer> PRIORITY_RESPONSE_HOURS = new HashMap<>();
-    private static final Map<String, Integer> PRIORITY_RESOLUTION_HOURS = new HashMap<>();
-
-    static {
-        PRIORITY_RESPONSE_HOURS.put("1 - Critical", 1);
-        PRIORITY_RESPONSE_HOURS.put("2 - High", 4);
-        PRIORITY_RESPONSE_HOURS.put("3 - Moderate", 8);
-        PRIORITY_RESPONSE_HOURS.put("4 - Low", 24);
-
-        PRIORITY_RESOLUTION_HOURS.put("1 - Critical", 4);
-        PRIORITY_RESOLUTION_HOURS.put("2 - High", 8);
-        PRIORITY_RESOLUTION_HOURS.put("3 - Moderate", 24);
-        PRIORITY_RESOLUTION_HOURS.put("4 - Low", 72);
+    public String resolveGroup(String category) {
+        return switch (category != null ? category : "") {
+            case "Network"  -> "Network Team";
+            case "Hardware" -> "Hardware Support";
+            case "Software" -> "App Support";
+            case "Database" -> "DBA Team";
+            default         -> "Service Desk";
+        };
     }
 
     public String generateTicketNumber() {
-        return "INC" + (int) (1000000 + Math.random() * 9000000);
+        return "INC" + (1_000_000 + new Random().nextInt(9_000_000));
     }
-
-    public String resolveAssignmentGroup(String category) {
-        if (category == null) return "Service Desk";
-        switch (category) {
-            case "Network": return "Network Team";
-            case "Hardware": return "Hardware Support";
-            case "Software": return "App Support";
-            case "Database": return "DBA Team";
-            default: return "Service Desk";
-        }
-    }
-
+    // ── Create ─────────────────────────────────────────────────────────────────
     @Transactional
-    public Ticket createTicket(Map<String, Object> body, String currentUserId, String currentUserName, boolean hasAdminAccess) {
-        Ticket ticket = new Ticket();
-        ticket.setTicketNumber(generateTicketNumber());
-        
-        String caller = (String) body.getOrDefault("caller", "System");
-        ticket.setCaller(caller);
-        ticket.setCallerUserId((String) body.get("callerUserId"));
-        ticket.setAffectedUser((String) body.get("affectedUser"));
-        ticket.setAffectedUserId((String) body.get("affectedUserId"));
-        
-        String category = (String) body.getOrDefault("category", "Inquiry / Help");
-        ticket.setCategory(category);
-        
-        if (hasAdminAccess) {
-            ticket.setIncidentCategory((String) body.get("incidentCategory"));
+    public Ticket createTicket(Map<String,Object> data, String createdBy, String createdByName, boolean hasAdminAccess) {
+        if (!hasAdminAccess) {
+            data.remove("incidentCategory");
+            data.remove("incident_category");
         }
-        
-        ticket.setSubcategory((String) body.get("subcategory"));
-        ticket.setService((String) body.get("service"));
-        ticket.setServiceOffering((String) body.get("serviceOffering"));
-        ticket.setCmdbItem((String) body.get("cmdbItem"));
-        
-        ticket.setTitle((String) body.getOrDefault("title", "Untitled Ticket"));
-        ticket.setDescription((String) body.get("description"));
-        
-        String priority = (String) body.getOrDefault("priority", "4 - Low");
-        ticket.setPriority(priority);
-        ticket.setImpact((String) body.getOrDefault("impact", "3 - Low"));
-        ticket.setUrgency((String) body.getOrDefault("urgency", "3 - Low"));
-        ticket.setChannel((String) body.getOrDefault("channel", "Self-service"));
-        
-        String group = (String) body.get("assignmentGroup");
-        ticket.setAssignmentGroup(group != null ? group : resolveAssignmentGroup(category));
-        ticket.setAssignedTo((String) body.get("assignedTo"));
-        ticket.setAssignedToName((String) body.get("assignedToName"));
-        
-        ticket.setCreatedBy(currentUserId != null ? currentUserId : caller);
-        ticket.setCreatedByName(currentUserName != null ? currentUserName : caller);
-        
+
+        String priority = (String) data.getOrDefault("priority", "4 - Low");
+        String category = (String) data.get("category");
+        String group    = (String) data.getOrDefault("assignmentGroup", resolveGroup(category));
         LocalDateTime now = LocalDateTime.now();
-        int respHours = PRIORITY_RESPONSE_HOURS.getOrDefault(priority, 24);
-        int resHours = PRIORITY_RESOLUTION_HOURS.getOrDefault(priority, 72);
-        
-        ticket.setResponseDeadline(now.plusHours(respHours));
-        ticket.setResolutionDeadline(now.plusHours(resHours));
-        ticket.setStatus("New");
-        ticket.setApprovalStatus("Not Required");
-        ticket.setPoints(0);
 
-        Ticket savedTicket = ticketRepository.save(ticket);
+        Ticket t = Ticket.builder()
+            .ticketNumber(generateTicketNumber())
+            .caller((String) data.getOrDefault("caller", "System"))
+            .callerEmail((String) data.get("callerEmail"))
+            .callerUserId((String) data.get("callerUserId"))
+            .category((String) data.getOrDefault("category", "Inquiry / Help"))
+            .incidentCategory(hasAdminAccess ? (String) data.get("incidentCategory") : null)
+            .subcategory((String) data.get("subcategory"))
+            .service((String) data.get("service"))
+            .title((String) data.get("title"))
+            .description((String) data.get("description"))
+            .status("New")
+            .priority(priority)
+            .impact((String) data.getOrDefault("impact", "3 - Low"))
+            .urgency((String) data.getOrDefault("urgency", "3 - Low"))
+            .channel((String) data.getOrDefault("channel", "Self-service"))
+            .assignmentGroup(group)
+            .assignedTo((String) data.get("assignedTo"))
+            .assignedToName((String) data.get("assignedToName"))
+            .createdBy(createdBy)
+            .createdByName(createdByName)
+            .responseDeadline(now.plusHours(RESPONSE_HOURS.getOrDefault(priority, 24)))
+            .resolutionDeadline(now.plusHours(RESOLUTION_HOURS.getOrDefault(priority, 72)))
+            .slaDelayLogsJson("[]")
+            .build();
 
-        // Save Custom Fields
-        if (body.get("customFields") instanceof Map) {
-            Map<String, String> customFields = (Map<String, String>) body.get("customFields");
-            for (Map.Entry<String, String> entry : customFields.entrySet()) {
-                if (entry.getValue() != null && !entry.getValue().trim().isEmpty()) {
-                    TicketCustomField cf = new TicketCustomField();
-                    cf.setTicketId(savedTicket.getId().toString());
-                    cf.setCategoryId(Integer.parseInt(entry.getKey()));
-                    cf.setCategoryName("Field_" + entry.getKey());
-                    cf.setValueText(entry.getValue());
-                    ticketCustomFieldRepository.save(cf);
-                }
-            }
+        t = ticketRepo.save(t);
+
+        // Timeline entry
+        logActivity(t.getId(), "system", "public",
+            t.getCreatedBy(), t.getCreatedByName(), "Ticket created", null);
+
+        if (List.of("1 - Critical","2 - High").contains(priority)) {
+            logActivity(t.getId(), "system", "internal",
+                "System Automation", "System Automation",
+                "Manager Notified (High Priority)", "{\"reason\":\"High priority ticket created\"}");
         }
 
-        // Timeline Audit Logging
-        TicketActivity act = new TicketActivity();
-        act.setTicketId(savedTicket.getId());
-        act.setActivityType("system");
-        act.setVisibilityType("public");
-        act.setCreatedBy(savedTicket.getCreatedBy());
-        act.setCreatedByName(savedTicket.getCreatedByName());
-        act.setMessage("Ticket created");
-        ticketActivityRepository.save(act);
+        // In-app notifications
+        sendCreateNotifications(t, data);
+        return t;
+    }
 
-        if ("1 - Critical".equals(priority) || "2 - High".equals(priority)) {
-            TicketActivity highAlertAct = new TicketActivity();
-            highAlertAct.setTicketId(savedTicket.getId());
-            highAlertAct.setActivityType("system");
-            highAlertAct.setVisibilityType("internal");
-            highAlertAct.setCreatedBy("System Automation");
-            highAlertAct.setCreatedByName("System Automation");
-            highAlertAct.setMessage("Manager Notified (High Priority)");
-            ticketActivityRepository.save(highAlertAct);
+    // ── Update ─────────────────────────────────────────────────────────────────
+    @Transactional
+    public Ticket updateTicket(Long id, Map<String,Object> data, String updatedBy, String updatedByName, boolean hasAdminAccess) {
+        Ticket t = ticketRepo.findById(id)
+            .orElseThrow(() -> new RuntimeException("Ticket not found: " + id));
+
+        String prevStatus   = t.getStatus();
+        String prevAssignee = t.getAssignedTo();
+
+        // SLA breach RCA validation
+        String newStatus = (String) data.get("status");
+        if (List.of("Resolved","Closed").contains(newStatus)) {
+            validateRcaIfBreached(t, data);
         }
 
-        return savedTicket;
+        // Points
+        int points = 0;
+        if (List.of("Resolved","Closed").contains(newStatus) && t.getResolvedAt() == null) {
+            points = calcPoints(t);
+        }
+
+        // Apply fields
+        apply(t, data, hasAdminAccess);
+        t.setPoints((t.getPoints() == null ? 0 : t.getPoints()) + points);
+
+        if (List.of("Resolved","Closed").contains(newStatus) && t.getResolvedAt() == null) {
+            t.setResolvedAt(LocalDateTime.now());
+        }
+
+        t = ticketRepo.save(t);
+
+        // Activity entry
+        String msg = "Ticket updated";
+        if (newStatus != null && !newStatus.equals(prevStatus)) msg = "Status changed to " + newStatus;
+        else if (data.containsKey("assignedTo") && !Objects.equals(data.get("assignedTo"), prevAssignee)) msg = "Assigned to updated";
+        logActivity(t.getId(), "status_change", "public",
+            updatedBy != null ? updatedBy : (String) data.getOrDefault("updatedById","System"),
+            updatedByName != null ? updatedByName : (String) data.getOrDefault("updatedBy","System"), msg, null);
+
+        // Notifications
+        if (newStatus != null && !newStatus.equals(prevStatus) && t.getCreatedBy() != null) {
+            createNotification(t.getCreatedBy(), "Ticket Status Updated",
+                "Your ticket " + t.getTicketNumber() + " status changed to " + newStatus,
+                "status_changed", t.getTicketNumber());
+        }
+        String newAssignee = (String) data.get("assignedTo");
+        if (newAssignee != null && !newAssignee.equals(prevAssignee)) {
+            createNotification(newAssignee, "Ticket Assigned to You",
+                "Ticket " + t.getTicketNumber() + " has been assigned to you.",
+                "ticket_assigned", t.getTicketNumber());
+        }
+
+        return t;
+    }
+
+    // ── Activities ─────────────────────────────────────────────────────────────
+    public List<TicketActivity> getActivities(Long ticketId, String visibility, List<String> types) {
+        if (visibility != null) {
+            return activityRepo.findByTicketIdAndVisibilityTypeOrderByCreatedAtAsc(ticketId, visibility);
+        }
+        if (types != null && !types.isEmpty()) {
+            return activityRepo.findByTicketIdAndActivityTypeInOrderByCreatedAtAsc(ticketId, types);
+        }
+        return activityRepo.findByTicketIdOrderByCreatedAtAsc(ticketId);
     }
 
     @Transactional
-    public Map<String, Object> updateTicket(Long id, Map<String, Object> body, String updaterId, String updaterName, boolean hasAdminAccess) {
-        Ticket ticket = ticketRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Ticket not found"));
-        String oldStatus = ticket.getStatus();
-        String newStatus = (String) body.get("status");
+    public TicketActivity addActivity(Long ticketId, Map<String,Object> data) {
+        String actType = (String) data.getOrDefault("activity_type", "comment");
+        String visType = (String) data.getOrDefault("visibility_type",
+            "work_note".equals(actType) ? "internal" : "public");
 
-        // Validate SLA Breach RCA if resolving/closing
-        if (("Resolved".equals(newStatus) || "Closed".equals(newStatus)) && !Objects.equals(oldStatus, newStatus)) {
-            boolean isBreached = "Breached".equals(ticket.getResolutionSlaStatus());
-            if (ticket.getResolutionDeadline() != null && LocalDateTime.now().isAfter(ticket.getResolutionDeadline()) && ticket.getResolvedAt() == null) {
-                isBreached = true;
-            }
+        TicketActivity a = TicketActivity.builder()
+            .ticketId(ticketId)
+            .activityType(actType)
+            .visibilityType(visType)
+            .channel((String) data.getOrDefault("channel","portal"))
+            .messageId((String) data.get("message_id"))
+            .threadId((String) data.get("thread_id"))
+            .createdBy((String) data.getOrDefault("created_by","System"))
+            .createdByName((String) data.getOrDefault("created_by_name","System"))
+            .message(((String) data.get("message")).trim())
+            .metadataJson(data.get("metadata_json") != null ? data.get("metadata_json").toString() : null)
+            .build();
 
-            if (isBreached) {
-                Map<String, Object> rcaMeta = (Map<String, Object>) body.get("slaDelayMeta");
-                if (rcaMeta == null || rcaMeta.get("rootCauseAnalysis") == null || rcaMeta.get("rootCauseAnalysis").toString().trim().isEmpty()) {
-                    throw new IllegalArgumentException("SLA Breach RCA is mandatory before resolving or closing a breached ticket.");
-                }
-            }
+        // Update ticket timestamp
+        ticketRepo.findById(ticketId).ifPresent(t -> { t.setUpdatedAt(LocalDateTime.now()); ticketRepo.save(t); });
+        return activityRepo.save(a);
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    private void logActivity(Long ticketId, String type, String vis, String by, String byName, String msg, String meta) {
+        activityRepo.save(TicketActivity.builder()
+            .ticketId(ticketId).activityType(type).visibilityType(vis)
+            .createdBy(by).createdByName(byName).message(msg).metadataJson(meta)
+            .channel("system").build());
+    }
+
+    private void createNotification(String userId, String title, String message, String type, String ticketId) {
+        notifRepo.save(Notification.builder()
+            .userId(userId).title(title).message(message).type(type).ticketId(ticketId)
+            .isRead(false).build());
+    }
+
+    private void sendCreateNotifications(Ticket t, Map<String,Object> data) {
+        String createdBy = (String) data.get("createdBy");
+        String assignedTo = (String) data.get("assignedTo");
+        if (createdBy != null) createNotification(createdBy, "Ticket Created Successfully",
+            "Ticket ID: " + t.getTicketNumber(), "ticket_created", t.getTicketNumber());
+        if (assignedTo != null) {
+            createNotification(assignedTo, "A ticket has been assigned to you",
+                "Ticket ID: " + t.getTicketNumber(), "ticket_assigned", t.getTicketNumber());
+        } else {
+            userRepo.findByRoleInAndIsActiveTrue(
+                List.of("agent","admin","super_admin","ultra_super_admin")
+            ).forEach(u -> createNotification(u.getUid(), "New Unassigned Ticket",
+                t.getCreatedByName() + " created ticket " + t.getTicketNumber(),
+                "ticket_unassigned", t.getTicketNumber()));
         }
+    }
 
-        // Calculate performance points if resolved
-        int pointsAwarded = 0;
-        if (("Resolved".equals(newStatus) || "Closed".equals(newStatus)) && ticket.getResolvedAt() == null) {
-            if (ticket.getResolutionDeadline() != null) {
-                LocalDateTime now = LocalDateTime.now();
-                if (now.isBefore(ticket.getResolutionDeadline())) {
-                    long totalSla = Duration.between(ticket.getCreatedAt(), ticket.getResolutionDeadline()).toMillis();
-                    long timeSaved = Duration.between(now, ticket.getResolutionDeadline()).toMillis();
-                    pointsAwarded = (int) Math.max(10, Math.round(((double) timeSaved / totalSla) * 100));
-                } else {
-                    pointsAwarded = 5;
-                }
-            }
-            ticket.setResolvedAt(LocalDateTime.now());
+    private int calcPoints(Ticket t) {
+        if (t.getResolutionDeadline() == null) return 5;
+        long deadline   = t.getResolutionDeadline().toEpochSecond(java.time.ZoneOffset.UTC) * 1000;
+        long createdAt  = t.getCreatedAt().toEpochSecond(java.time.ZoneOffset.UTC) * 1000;
+        long now        = System.currentTimeMillis();
+        if (now < deadline) {
+            long total  = deadline - createdAt;
+            long saved  = deadline - now;
+            return Math.max(10, (int) Math.round(((double) saved / total) * 100));
         }
+        return 5;
+    }
 
-        // Apply updates
-        if (body.containsKey("title")) ticket.setTitle((String) body.get("title"));
-        if (body.containsKey("description")) ticket.setDescription((String) body.get("description"));
-        if (body.containsKey("category")) ticket.setCategory((String) body.get("category"));
-        if (body.containsKey("subcategory")) ticket.setSubcategory((String) body.get("subcategory"));
-        if (body.containsKey("status")) ticket.setStatus(newStatus);
-        if (body.containsKey("priority")) ticket.setPriority((String) body.get("priority"));
-        if (body.containsKey("impact")) ticket.setImpact((String) body.get("impact"));
-        if (body.containsKey("urgency")) ticket.setUrgency((String) body.get("urgency"));
-        if (body.containsKey("assignmentGroup")) ticket.setAssignmentGroup((String) body.get("assignmentGroup"));
-        if (body.containsKey("assignedTo")) {
-            ticket.setAssignedTo((String) body.get("assignedTo"));
-            ticket.setAssignedToName((String) body.get("assignedToName"));
+    private void validateRcaIfBreached(Ticket t, Map<String,Object> data) {
+        boolean breached = false;
+        if (t.getResolutionDeadline() != null && t.getResolvedAt() == null) {
+            breached = LocalDateTime.now().isAfter(t.getResolutionDeadline());
         }
-        if (body.containsKey("approvalStatus")) ticket.setApprovalStatus((String) body.get("approvalStatus"));
-        
-        ticket.setPoints(ticket.getPoints() + pointsAwarded);
+        if (!breached) return;
 
-        Ticket updatedTicket = ticketRepository.save(ticket);
+        @SuppressWarnings("unchecked")
+        Map<String,Object> meta = (Map<String,Object>) data.get("slaDelayMeta");
+        if (meta == null) throw new RuntimeException(
+            "SLA Breach Root Cause Analysis (RCA) is mandatory before resolving a breached ticket.");
+        boolean hasRca = meta.get("rootCauseAnalysis") != null &&
+            !meta.get("rootCauseAnalysis").toString().isBlank();
+        if (!hasRca) throw new RuntimeException(
+            "SLA Breach Root Cause Analysis (RCA) is mandatory before resolving a breached ticket.");
+    }
 
-        // Save Custom Fields
-        if (body.containsKey("customFields") && body.get("customFields") instanceof Map) {
-            ticketCustomFieldRepository.deleteByTicketId(id.toString());
-            Map<String, String> customFields = (Map<String, String>) body.get("customFields");
-            for (Map.Entry<String, String> entry : customFields.entrySet()) {
-                if (entry.getValue() != null && !entry.getValue().trim().isEmpty()) {
-                    TicketCustomField cf = new TicketCustomField();
-                    cf.setTicketId(id.toString());
-                    cf.setCategoryId(Integer.parseInt(entry.getKey()));
-                    cf.setCategoryName("Field_" + entry.getKey());
-                    cf.setValueText(entry.getValue());
-                    ticketCustomFieldRepository.save(cf);
-                }
-            }
-        }
-
-        // Timeline Audit Logging
-        String actionMsg = "Ticket updated";
-        if (newStatus != null && !newStatus.equals(oldStatus)) {
-            actionMsg = "Status changed to " + newStatus;
-        } else if (body.containsKey("assignedTo")) {
-            actionMsg = "Assigned technician updated";
-        }
-
-        TicketActivity act = new TicketActivity();
-        act.setTicketId(id);
-        act.setActivityType("status_change");
-        act.setVisibilityType("public");
-        act.setCreatedBy(updaterId != null ? updaterId : "System");
-        act.setCreatedByName(updaterName != null ? updaterName : "System");
-        act.setMessage(actionMsg);
-        ticketActivityRepository.save(act);
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("ticket", updatedTicket);
-        result.put("pointsAwarded", pointsAwarded);
-        return result;
+    @SuppressWarnings("unchecked")
+    private void apply(Ticket t, Map<String,Object> data, boolean adminAccess) {
+        if (data.containsKey("caller"))            t.setCaller((String) data.get("caller"));
+        if (data.containsKey("callerEmail"))       t.setCallerEmail((String) data.get("callerEmail"));
+        if (data.containsKey("category"))          t.setCategory((String) data.get("category"));
+        if (adminAccess && data.containsKey("incidentCategory")) t.setIncidentCategory((String) data.get("incidentCategory"));
+        if (data.containsKey("title"))             t.setTitle((String) data.get("title"));
+        if (data.containsKey("description"))       t.setDescription((String) data.get("description"));
+        if (data.containsKey("status"))            t.setStatus((String) data.get("status"));
+        if (data.containsKey("priority"))          t.setPriority((String) data.get("priority"));
+        if (data.containsKey("impact"))            t.setImpact((String) data.get("impact"));
+        if (data.containsKey("urgency"))           t.setUrgency((String) data.get("urgency"));
+        if (data.containsKey("assignmentGroup"))   t.setAssignmentGroup((String) data.get("assignmentGroup"));
+        if (data.containsKey("assignedTo"))        t.setAssignedTo((String) data.get("assignedTo"));
+        if (data.containsKey("assignedToName"))    t.setAssignedToName((String) data.get("assignedToName"));
+        if (data.containsKey("responseSlaStatus")) t.setResponseSlaStatus((String) data.get("responseSlaStatus"));
+        if (data.containsKey("resolutionSlaStatus")) t.setResolutionSlaStatus((String) data.get("resolutionSlaStatus"));
     }
 }
