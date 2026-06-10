@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "dev:php": "php -S localhost:8000 php-backend/index.php",
     "dev:frontend": "vite",
     "build": "vite build",
     "start": "tsx server.ts",

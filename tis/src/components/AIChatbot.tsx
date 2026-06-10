@@ -88,7 +88,7 @@ export function AIChatbot() {
     {
       id: '1',
       sender: 'ai',
-      text: "Hey there! 👋 I'm **Kiru**, your AI assistant powered by Gemini 2.5 Pro.\n\nI can help with:\n- IT tickets, incidents & SLA questions\n- Coding in PHP, React, TypeScript\n- General questions & brainstorming\n\nWhat's on your mind?",
+      text: "Hey there! 👋 I'm **Kiru**, your AI assistant powered by Gemini 2.5 Pro.\n\nI can help with:\n- IT tickets, incidents & SLA questions\n- Coding in Java, React, TypeScript\n- General questions & brainstorming\n\nWhat's on your mind?",
     },
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -158,7 +158,7 @@ export function AIChatbot() {
     }
   };
 
-  const quickPrompts = ['Help with a ticket', 'Explain SLA', 'PHP code help', 'What can you do?'];
+  const quickPrompts = ['Help with a ticket', 'Explain SLA', 'Java code help', 'What can you do?'];
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
