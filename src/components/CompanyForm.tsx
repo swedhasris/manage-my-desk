@@ -49,8 +49,8 @@ export function CompanyForm({ initialData, isEditing = false, onSave, onCancel }
     fetch("/api/email-configs")
       .then(res => res.ok ? res.json() : [])
       .then(data => {
-        // filter for active config integrations
-        setEmailConfigs(data.filter((c: any) => c.is_active));
+        // filter for active config integrations supporting both camelCase and snake_case
+        setEmailConfigs(data.filter((c: any) => c.is_active || c.isActive || c.active));
       })
       .catch(() => setEmailConfigs([]));
   }, []);
@@ -121,7 +121,7 @@ export function CompanyForm({ initialData, isEditing = false, onSave, onCancel }
   };
 
   const selectedIntegration = emailConfigs.find(
-    c => c.id.toString() === formData.email_integration_id.toString()
+    c => c.id && formData.email_integration_id && c.id.toString() === formData.email_integration_id.toString()
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -308,9 +308,13 @@ export function CompanyForm({ initialData, isEditing = false, onSave, onCancel }
                   )}
                 >
                   <option value="">-- Select Mailbox Integration --</option>
-                  {emailConfigs.map(config => (
-                    <option key={config.id} value={config.id.toString()}>{config.company_name} ({config.email_address})</option>
-                  ))}
+                  {emailConfigs.map(config => {
+                    const cName = config.companyName || config.company_name || "";
+                    const cEmail = config.emailAddress || config.email_address || "";
+                    return (
+                      <option key={config.id} value={config.id.toString()}>{cName} ({cEmail})</option>
+                    );
+                  })}
                 </select>
                 {errors.email_integration_id && <p className="text-[11px] text-red-500 font-medium mt-1">{errors.email_integration_id}</p>}
               </div>
@@ -331,27 +335,27 @@ export function CompanyForm({ initialData, isEditing = false, onSave, onCancel }
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
                     <div>
                       <span className="text-[10px] text-muted-foreground uppercase font-semibold block mb-0.5">SMTP Mailbox</span>
-                      <p className="font-semibold text-slate-800">{selectedIntegration.email_address}</p>
+                      <p className="font-semibold text-slate-800">{selectedIntegration.emailAddress || selectedIntegration.email_address}</p>
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground uppercase font-semibold block mb-0.5">Status</span>
                       <p className={cn(
                         "font-semibold",
-                        selectedIntegration.is_active ? "text-emerald-600" : "text-amber-600"
+                        (selectedIntegration.isActive ?? selectedIntegration.is_active ?? selectedIntegration.active) ? "text-emerald-600" : "text-amber-600"
                       )}>
-                        {selectedIntegration.is_active ? "Active & Ingesting" : "Suspended"}
+                        {(selectedIntegration.isActive ?? selectedIntegration.is_active ?? selectedIntegration.active) ? "Active & Ingesting" : "Suspended"}
                       </p>
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground uppercase font-semibold block mb-0.5">SMTP Server Info</span>
                       <p className="font-semibold text-slate-700 font-mono text-[11px]">
-                        {selectedIntegration.smtp_host}:{selectedIntegration.smtp_port}
+                        {selectedIntegration.smtpHost || selectedIntegration.smtp_host}:{selectedIntegration.smtpPort || selectedIntegration.smtp_port}
                       </p>
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground uppercase font-semibold block mb-0.5">IMAP Server Info</span>
                       <p className="font-semibold text-slate-700 font-mono text-[11px]">
-                        {selectedIntegration.imap_host}:{selectedIntegration.imap_port}
+                        {selectedIntegration.imapHost || selectedIntegration.imap_host}:{selectedIntegration.imapPort || selectedIntegration.imap_port}
                       </p>
                     </div>
                   </div>

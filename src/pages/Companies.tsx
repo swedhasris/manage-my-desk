@@ -202,7 +202,7 @@ export function Companies() {
   const prospectCount = companies.filter(c => c.status === "Prospect").length;
 
   const mappedConfig = selectedCompany && emailConfigs.find(
-    c => c.id.toString() === selectedCompany.email_integration_id?.toString()
+    c => c.id && selectedCompany.email_integration_id && c.id.toString() === selectedCompany.email_integration_id.toString()
   );
 
   // Full-page form view logic
@@ -510,13 +510,13 @@ export function Companies() {
                       {mappedConfig ? (
                         <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-lg text-xs space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-700 truncate mr-2">{mappedConfig.company_name}</span>
+                            <span className="font-bold text-slate-700 truncate mr-2">{mappedConfig.companyName || mappedConfig.company_name}</span>
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0"></span>
                           </div>
                           <div className="space-y-1 text-[11px] text-slate-600">
-                            <p className="truncate"><span className="font-semibold text-slate-500">Inbox:</span> {mappedConfig.email_address}</p>
-                            <p className="font-mono truncate"><span className="font-semibold text-slate-500">SMTP:</span> {mappedConfig.smtp_host}:{mappedConfig.smtp_port}</p>
-                            <p className="font-mono truncate"><span className="font-semibold text-slate-500">IMAP:</span> {mappedConfig.imap_host}:{mappedConfig.imap_port}</p>
+                            <p className="truncate"><span className="font-semibold text-slate-500">Inbox:</span> {mappedConfig.emailAddress || mappedConfig.email_address}</p>
+                            <p className="font-mono truncate"><span className="font-semibold text-slate-500">SMTP:</span> {mappedConfig.smtpHost || mappedConfig.smtp_host}:{mappedConfig.smtpPort || mappedConfig.smtp_port}</p>
+                            <p className="font-mono truncate"><span className="font-semibold text-slate-500">IMAP:</span> {mappedConfig.imapHost || mappedConfig.imap_host}:{mappedConfig.imapPort || mappedConfig.imap_port}</p>
                           </div>
                         </div>
                       ) : (

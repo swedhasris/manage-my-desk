@@ -337,7 +337,23 @@ function AppBody() {
                   }
                 />
                 <Route
+                  path="/companies/new"
+                  element={
+                    <ProtectedRoute>
+                      <Companies />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/companies/:id"
+                  element={
+                    <ProtectedRoute>
+                      <Companies />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/companies/:id/edit"
                   element={
                     <ProtectedRoute>
                       <Companies />

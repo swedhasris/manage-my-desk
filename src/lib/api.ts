@@ -299,6 +299,20 @@ async function fetchFallbackData(path: string, queryObj?: any): Promise<any[]> {
         { id: "p3", name: "P3 SLA", priority: "3 - Moderate", category: "", resolutionTimeMinutes: 1440, isActive: true },
         { id: "p4", name: "P4 SLA", priority: "4 - Low", category: "", resolutionTimeMinutes: 4320, isActive: true },
       ];
+    } else if (path === "company_feature_permissions") {
+      let companyId = "";
+      if (queryObj && queryObj.clauses) {
+        const whereClause = queryObj.clauses.find(
+          (c: any) => c.type === "where" && (c.field === "companyId" || c.field === "company_id")
+        );
+        if (whereClause) companyId = whereClause.value;
+      }
+      if (companyId) {
+        const res = await fetch(`/api/feature-permissions?company_id=${companyId}`);
+        if (res.ok) result = await res.json();
+      } else {
+        result = [];
+      }
     } else if (path === "companies") {
       const res = await fetch("/api/companies");
       if (!res.ok) return [];
@@ -592,6 +606,19 @@ export async function updateDoc(docRef: any, data: any): Promise<void> {
     return;
   }
 
+  if (path === "company_feature_permissions") {
+    try {
+      await fetch("/api/feature-permissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+    } catch (e) {
+      console.error("[API] Error updating feature permissions:", e);
+    }
+    return;
+  }
+
   // Generic update
   try {
     await fetch(`/api/${path}/${id}`, {
@@ -627,6 +654,19 @@ export async function setDoc(docRef: any, data: any, options?: any): Promise<voi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+    }
+    return;
+  }
+
+  if (path === "company_feature_permissions") {
+    try {
+      await fetch("/api/feature-permissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+    } catch (e) {
+      console.error("[API] Error saving feature permissions:", e);
     }
     return;
   }

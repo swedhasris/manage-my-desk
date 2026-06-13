@@ -540,7 +540,7 @@ export function Tickets() {
         assignedToName: assignedUserName,
         createdBy: user?.uid,
         createdByName: profile?.name || user?.email || "",
-        companyId: newTicket.companyId,
+        companyId: newTicket.company,
         affectedUser: newTicket.affectedUser,
         affectedUserEmail: newTicket.affectedUserEmail,
         reportingUserEmail: newTicket.callerEmail,

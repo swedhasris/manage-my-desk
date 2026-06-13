@@ -208,21 +208,6 @@ public class MasterController {
         }
     }
 
-    // ── Companies API ────────────────────────────────────────────────────────
-    @GetMapping("/companies")
-    public ResponseEntity<?> getCompanies() {
-        try {
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT id, name FROM companies ORDER BY name ASC");
-            return ResponseEntity.ok(stringifyIds(rows));
-        } catch (Exception e) {
-            List<Map<String, Object>> fallback = List.of(
-                Map.of("id", "1", "name", "Technosprint"),
-                Map.of("id", "2", "name", "Acme Corp"),
-                Map.of("id", "3", "name", "Global Tech")
-            );
-            return ResponseEntity.ok(fallback);
-        }
-    }
 
     // ── Feature Permissions API ───────────────────────────────────────────────
     @GetMapping("/feature-permissions")

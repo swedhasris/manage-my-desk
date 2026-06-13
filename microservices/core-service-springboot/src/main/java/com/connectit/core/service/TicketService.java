@@ -53,6 +53,16 @@ public class TicketService {
         String group    = (String) data.getOrDefault("assignmentGroup", resolveGroup(category));
         LocalDateTime now = LocalDateTime.now();
 
+        Object rawCompanyId = data.containsKey("companyId") ? data.get("companyId") : data.get("company_id");
+        Long companyId = null;
+        if (rawCompanyId instanceof Number) {
+            companyId = ((Number) rawCompanyId).longValue();
+        } else if (rawCompanyId instanceof String && !((String) rawCompanyId).isBlank()) {
+            try {
+                companyId = Long.parseLong((String) rawCompanyId);
+            } catch (NumberFormatException ignored) {}
+        }
+
         Ticket t = Ticket.builder()
             .ticketNumber(generateTicketNumber())
             .caller((String) data.getOrDefault("caller", "System"))
@@ -74,6 +84,7 @@ public class TicketService {
             .assignedToName((String) data.get("assignedToName"))
             .createdBy(createdBy)
             .createdByName(createdByName)
+            .companyId(companyId)
             .responseDeadline(now.plusHours(RESPONSE_HOURS.getOrDefault(priority, 24)))
             .resolutionDeadline(now.plusHours(RESOLUTION_HOURS.getOrDefault(priority, 72)))
             .slaDelayLogsJson("[]")
@@ -93,6 +104,12 @@ public class TicketService {
 
         // In-app notifications
         sendCreateNotifications(t, data);
+
+        // Email notifications
+        if (!"Email".equalsIgnoreCase(t.getChannel())) {
+            emailService.notifyTicketCreated(t);
+        }
+
         return t;
     }
 
@@ -147,12 +164,22 @@ public class TicketService {
             createNotification(t.getCreatedBy(), "Ticket Status Updated",
                 "Your ticket " + t.getTicketNumber() + " status changed to " + newStatus,
                 "status_changed", t.getTicketNumber());
+
+            emailService.notifyStatusChanged(t, prevStatus, newStatus);
+            if ("Resolved".equalsIgnoreCase(newStatus)) {
+                emailService.notifyResolved(t);
+            }
         }
         String newAssignee = (String) data.get("assignedTo");
         if (newAssignee != null && !newAssignee.equals(prevAssignee)) {
             createNotification(newAssignee, "Ticket Assigned to You",
                 "Ticket " + t.getTicketNumber() + " has been assigned to you.",
                 "ticket_assigned", t.getTicketNumber());
+
+            final Ticket finalT = t;
+            userRepo.findByUid(newAssignee).ifPresent(agent -> {
+                emailService.notifyAssigned(finalT, agent.getEmail(), agent.getName());
+            });
         }
 
         return t;
@@ -316,6 +343,18 @@ public class TicketService {
     private void apply(Ticket t, Map<String,Object> data, boolean adminAccess) {
         if (data.containsKey("caller"))            t.setCaller((String) data.get("caller"));
         if (data.containsKey("callerEmail"))       t.setCallerEmail((String) data.get("callerEmail"));
+        if (data.containsKey("companyId") || data.containsKey("company_id")) {
+            Object rawCompanyId = data.containsKey("companyId") ? data.get("companyId") : data.get("company_id");
+            Long companyId = null;
+            if (rawCompanyId instanceof Number) {
+                companyId = ((Number) rawCompanyId).longValue();
+            } else if (rawCompanyId instanceof String && !((String) rawCompanyId).isBlank()) {
+                try {
+                    companyId = Long.parseLong((String) rawCompanyId);
+                } catch (NumberFormatException ignored) {}
+            }
+            t.setCompanyId(companyId);
+        }
         if (data.containsKey("category"))          t.setCategory((String) data.get("category"));
         if (adminAccess && data.containsKey("incidentCategory")) t.setIncidentCategory((String) data.get("incidentCategory"));
         if (data.containsKey("title"))             t.setTitle((String) data.get("title"));

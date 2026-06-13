@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.mail.internet.MimeMessage;
+import org.springframework.jdbc.core.JdbcTemplate;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -26,6 +27,7 @@ public class EmailService {
     private final CompanyEmailConfigRepository configRepo;
     private final JavaMailSender              mailSender;
     private final com.connectit.core.repository.UserRepository userRepo;
+    private final JdbcTemplate                 jdbcTemplate;
 
     @Value("${app.mail.from:support@technosprint.net}")
     private String defaultFrom;
@@ -60,12 +62,13 @@ public class EmailService {
         if (pending.isEmpty()) return;
         log.info("[EmailQueue] Processing {} queued emails...", pending.size());
 
-        CompanyEmailConfig activeCfg = getActiveConfig();
-        String fromAddress = activeCfg != null ? activeCfg.getEmailAddress() : defaultFrom;
-
         for (NotificationQueue job : pending) {
             job.setStatus("processing");
             queueRepo.save(job);
+            
+            CompanyEmailConfig cfg = getConfigForTicket(job.getTicketId());
+            String fromAddress = cfg != null ? cfg.getEmailAddress() : defaultFrom;
+            
             try {
                 String inReplyTo = null;
                 String references = null;
@@ -77,7 +80,7 @@ public class EmailService {
                     } catch (Exception ignored) {}
                 }
 
-                String sentMessageId = sendMail(job.getRecipient(), job.getSubject(), job.getBodyHtml(), job.getTicketNumber(), inReplyTo, references);
+                String sentMessageId = sendMail(cfg, job.getRecipient(), job.getSubject(), job.getBodyHtml(), job.getTicketNumber(), inReplyTo, references);
                 job.setStatus("sent");
                 job.setProcessedAt(LocalDateTime.now());
                 queueRepo.save(job);
@@ -204,8 +207,26 @@ public class EmailService {
         return mailSender;
     }
 
-    private String sendMail(String to, String subject, String html, String ticketNumber, String inReplyTo, String references) throws Exception {
-        CompanyEmailConfig cfg = getActiveConfig();
+    public CompanyEmailConfig getConfigForTicket(Long ticketId) {
+        if (ticketId != null) {
+            try {
+                Long companyId = jdbcTemplate.queryForObject(
+                    "SELECT company_id FROM tickets WHERE id = ?", Long.class, ticketId);
+                if (companyId != null) {
+                    Long configId = jdbcTemplate.queryForObject(
+                        "SELECT email_integration_id FROM companies WHERE id = ?", Long.class, companyId);
+                    if (configId != null) {
+                        return configRepo.findById(configId)
+                            .filter(cfg -> Boolean.TRUE.equals(cfg.getIsActive()))
+                            .orElseGet(this::getActiveConfig);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return getActiveConfig();
+    }
+
+    private String sendMail(CompanyEmailConfig cfg, String to, String subject, String html, String ticketNumber, String inReplyTo, String references) throws Exception {
         JavaMailSender activeSender = getActiveMailSender(cfg);
         MimeMessage msg = activeSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");
@@ -240,8 +261,12 @@ public class EmailService {
         return messageId;
     }
 
+    private String sendMail(String to, String subject, String html, String ticketNumber, String inReplyTo, String references) throws Exception {
+        return sendMail(getActiveConfig(), to, subject, html, ticketNumber, inReplyTo, references);
+    }
+
     private void sendMail(String to, String subject, String html, String ticketNumber) throws Exception {
-        sendMail(to, subject, html, ticketNumber, null, null);
+        sendMail(getActiveConfig(), to, subject, html, ticketNumber, null, null);
     }
 
     // ── Health ────────────────────────────────────────────────────────────────
