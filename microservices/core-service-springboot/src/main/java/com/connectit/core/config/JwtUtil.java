@@ -31,9 +31,12 @@ public class JwtUtil {
     }
 
     public String generate(String uid, String email, String role) {
+        String safeUid = uid != null ? uid : "";
+        String safeEmail = email != null ? email : "";
+        String safeRole = role != null ? role : "user";
         return Jwts.builder()
-            .subject(uid)
-            .claims(Map.of("email", email, "role", role))
+            .subject(safeUid)
+            .claims(Map.of("email", safeEmail, "role", safeRole))
             .issuedAt(new Date())
             .expiration(new Date(System.currentTimeMillis() + expiration))
             .signWith(key())

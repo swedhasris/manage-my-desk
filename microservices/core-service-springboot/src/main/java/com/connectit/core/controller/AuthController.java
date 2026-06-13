@@ -14,6 +14,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class AuthController {
 
     private final UserService userService;
@@ -27,21 +28,33 @@ public class AuthController {
         if (email == null || password == null)
             return ResponseEntity.badRequest().body(Map.of("error","Email and password required"));
 
-        Optional<User> userOpt = userService.authenticate(email.toLowerCase().trim(), password);
-        if (userOpt.isEmpty())
-            return ResponseEntity.status(401).body(Map.of("error","Invalid email or password"));
+        log.info("Login attempt for user: {}", email);
 
-        User user = userService.recordLogin(userOpt.get());
-        String token = jwtUtil.generate(user.getUid(), user.getEmail(), user.getRole());
+        try {
+            Optional<User> userOpt = userService.authenticate(email.toLowerCase().trim(), password);
+            if (userOpt.isEmpty()) {
+                log.warn("Authentication failed: invalid credentials for: {}", email);
+                return ResponseEntity.status(401).body(Map.of("error","Invalid email or password"));
+            }
 
-        return ResponseEntity.ok(Map.of(
-            "id",       String.valueOf(user.getId()),
-            "uid",      user.getUid(),
-            "name",     user.getName(),
-            "email",    user.getEmail(),
-            "role",     user.getRole(),
-            "phone",    user.getPhone() != null ? user.getPhone() : "",
-            "token",    token
-        ));
+            User user = userOpt.get();
+            User loggedIn = userService.recordLogin(user);
+            String token = jwtUtil.generate(loggedIn.getUid(), loggedIn.getEmail(), loggedIn.getRole());
+
+            log.info("Authentication successful for user: {}", email);
+
+            return ResponseEntity.ok(Map.of(
+                "id",       String.valueOf(loggedIn.getId()),
+                "uid",      loggedIn.getUid(),
+                "name",     loggedIn.getName(),
+                "email",    loggedIn.getEmail(),
+                "role",     loggedIn.getRole(),
+                "phone",    loggedIn.getPhone() != null ? loggedIn.getPhone() : "",
+                "token",    token
+            ));
+        } catch (Exception ex) {
+            log.error("Authentication failed", ex);
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error: " + ex.getMessage()));
+        }
     }
 }

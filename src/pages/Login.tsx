@@ -66,16 +66,20 @@ export function Login() {
       setIsLoading(true);
     }
 
+    const loginPayload = { email: emailVal, password: passwordVal };
+    console.log(loginPayload);
+
     try {
       // Primary: Try backend API (which checks SQLite/MySQL and handles database integration)
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailVal, password: passwordVal })
+        body: JSON.stringify(loginPayload)
       });
 
       if (response.ok) {
         const userData = await response.json();
+        console.log(userData);
         
         // Save to localStorage
         localStorage.setItem("demo_user", JSON.stringify({
@@ -90,13 +94,12 @@ export function Login() {
         return;
       }
 
-
-
       const errorData = await response.json().catch(() => ({}));
+      console.error("Error response:", errorData);
       setError(errorData.error || "Invalid email or password.");
       
     } catch (err: any) {
-      console.error("Login error:", err);
+      console.error("Login error:", err.response || err);
       setError("Login failed: Check your connection and try again.");
     } finally { 
       setIsLoading(false); 

@@ -2,6 +2,9 @@ import mysql from 'mysql2/promise';
 
 async function checkDbs() {
   const passwords = [
+    'Dhipak#2006#',
+    '',
+    'ticklora2026',
     'admin1234',
     'Password@123',
     'kiru2026',
@@ -18,22 +21,26 @@ async function checkDbs() {
     'connectit@2026'
   ];
 
-  for (const pw of passwords) {
-    try {
-      console.log(`Trying root with password "${pw}"...`);
-      const connection = await mysql.createConnection({
-        host: '127.0.0.1',
-        port: 3306,
-        user: 'root',
-        password: pw
-      });
-      console.log(`SUCCESS! Root password is "${pw}"`);
-      const [rows] = await connection.query('SHOW DATABASES');
-      console.log('Databases:', (rows as any[]).map(r => r.Database));
-      await connection.end();
-      return;
-    } catch (err: any) {
-      console.error('Failed:', err.message);
+  const ports = [3306, 3307];
+
+  for (const port of ports) {
+    for (const pw of passwords) {
+      try {
+        console.log(`Trying root on port ${port} with password "${pw}"...`);
+        const connection = await mysql.createConnection({
+          host: '127.0.0.1',
+          port: port,
+          user: 'root',
+          password: pw
+        });
+        console.log(`SUCCESS! Root password on port ${port} is "${pw}"`);
+        const [rows] = await connection.query('SHOW DATABASES');
+        console.log('Databases:', (rows as any[]).map(r => r.Database));
+        await connection.end();
+        return;
+      } catch (err: any) {
+        console.error('Failed:', err.message);
+      }
     }
   }
 }

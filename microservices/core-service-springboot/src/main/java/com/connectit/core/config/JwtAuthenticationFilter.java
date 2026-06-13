@@ -30,8 +30,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null && jwtUtil.isValid(token)) {
             String uid   = jwtUtil.getUid(token);
             String role  = jwtUtil.getRole(token);
+            String safeRole = role != null ? role.toUpperCase() : "USER";
             var auth = new UsernamePasswordAuthenticationToken(
-                uid, null, List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                uid, null, List.of(new SimpleGrantedAuthority("ROLE_" + safeRole))
             );
             SecurityContextHolder.getContext().setAuthentication(auth);
         }
@@ -40,9 +41,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String uid = req.getHeader("x-user-uid");
         if (uid != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             userRepository.findByUid(uid).ifPresent(user -> {
+                String userRole = user.getRole();
+                String safeRole = userRole != null ? userRole.toUpperCase() : "USER";
                 var auth = new UsernamePasswordAuthenticationToken(
                     uid, null,
-                    List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().toUpperCase()))
+                    List.of(new SimpleGrantedAuthority("ROLE_" + safeRole))
                 );
                 SecurityContextHolder.getContext().setAuthentication(auth);
             });

@@ -31,11 +31,19 @@ public class SettingsController {
                         Map<?, ?> parsed = objectMapper.readValue(settingVal, Map.class);
                         return ResponseEntity.ok(parsed);
                     } catch (Exception e) {
-                        return ResponseEntity.ok(Map.of("companyName", "Connect", "logoBase64", Optional.empty(), "logoType", Optional.empty()));
+                        Map<String, Object> fallback = new HashMap<>();
+                        fallback.put("companyName", "Connect");
+                        fallback.put("logoBase64", null);
+                        fallback.put("logoType", null);
+                        return ResponseEntity.ok(fallback);
                     }
                 }
             }
-            return ResponseEntity.ok(Map.of("companyName", "Connect", "logoBase64", Optional.empty(), "logoType", Optional.empty()));
+            Map<String, Object> fallback = new HashMap<>();
+            fallback.put("companyName", "Connect");
+            fallback.put("logoBase64", null);
+            fallback.put("logoType", null);
+            return ResponseEntity.ok(fallback);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
