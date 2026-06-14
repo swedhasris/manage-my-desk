@@ -1,7 +1,9 @@
 package com.connectit.core.config;
 
+import com.connectit.core.model.CompanyEmailConfig;
 import com.connectit.core.model.SLAPolicy;
 import com.connectit.core.model.User;
+import com.connectit.core.repository.CompanyEmailConfigRepository;
 import com.connectit.core.repository.SLAPolicyRepository;
 import com.connectit.core.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ public class DatabaseSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final SLAPolicyRepository slaPolicyRepository;
+    private final CompanyEmailConfigRepository companyEmailConfigRepository;
     private final JdbcTemplate jdbcTemplate;
 
     @Override
@@ -31,6 +34,9 @@ public class DatabaseSeeder implements CommandLineRunner {
 
         // 2. Seed Default Company if none exists
         seedDefaultCompany();
+
+        // 2b. Seed Default Company Email Config if none exists
+        seedDefaultCompanyEmailConfig();
 
         // 3. Seed Default SLA Policies if none exists
         seedDefaultSlaPolicies();
@@ -219,6 +225,31 @@ public class DatabaseSeeder implements CommandLineRunner {
             user.setIsActive(true);
             userRepository.save(user);
             log.info("[DatabaseSeeder] Updated existing user credentials: {}", email);
+        }
+    }
+
+    private void seedDefaultCompanyEmailConfig() {
+        try {
+            if (companyEmailConfigRepository.count() == 0) {
+                log.info("[DatabaseSeeder] Seeding default company email config...");
+                companyEmailConfigRepository.save(CompanyEmailConfig.builder()
+                    .companyName("Technosprint Support")
+                    .emailAddress("support@technosprint.net")
+                    .smtpHost("smtp.office365.com")
+                    .smtpPort(587)
+                    .smtpUser("support@technosprint.net")
+                    .smtpPass("Poland@01")
+                    .imapHost("outlook.office365.com")
+                    .imapPort(993)
+                    .imapUser("support@technosprint.net")
+                    .imapPass("Poland@01")
+                    .encryption("TLS")
+                    .isActive(true)
+                    .isDefault(true)
+                    .build());
+            }
+        } catch (Exception e) {
+            log.error("[DatabaseSeeder] Failed to seed default company email config: {}", e.getMessage());
         }
     }
 
