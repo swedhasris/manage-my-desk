@@ -24,7 +24,7 @@ import java.util.*;
 public class TimesheetController {
 
     private final JdbcTemplate jdbcTemplate;
-    private final JavaMailSender mailSender;
+    private final com.connectit.core.service.EmailService emailService;
 
     @Value("${app.mail.from:support@technosprint.net}")
     private String mailFrom;
@@ -609,10 +609,6 @@ public class TimesheetController {
 
     private void sendTimesheetEmail(String toEmail, String adminName, String employeeName, String weekStart, String weekEnd, String totalHours) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setTo(toEmail);
-            helper.setSubject("Timesheet Submitted: " + employeeName);
             String content = "<div style=\"font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;\">" +
                 "<h2 style=\"color: #2563eb;\">Timesheet Approval Required</h2>" +
                 "<p>Hello " + adminName + ",</p>" +
@@ -623,11 +619,9 @@ public class TimesheetController {
                   "<p style=\"margin: 5px 0 0 0;\"><strong>Total Hours:</strong> " + totalHours + "</p>" +
                 "</div>" +
                 "<p>This timesheet includes <strong>AI-captured screenshots and activity evidence</strong> for verification.</p>" +
-                "<a href=\"http://localhost:3000/timesheet/approvals\" style=\"display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 10px;\">Review & Approve</a>" +
+                "<a href=\"https://tech-nllq.onrender.com/timesheet/approvals\" style=\"display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 10px;\">Review & Approve</a>" +
               "</div>";
-            helper.setText(content, true);
-            helper.setFrom(mailFrom, mailFromName);
-            mailSender.send(message);
+            emailService.sendAsync(toEmail, "Timesheet Submitted: " + employeeName, content);
         } catch (Exception e) {
             System.err.println("Failed to send timesheet approval email to " + toEmail + ": " + e.getMessage());
         }

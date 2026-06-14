@@ -117,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       agent: "agent@technosprint.net",
       admin: "admin@technosprint.net",
       super_admin: "ulter@technosprint.net",
-      ultra_super_admin: "arun@technosprint.net",
+      ultra_super_admin: "arun.g@technosprint.net",
       sub_admin: "admin@technosprint.net",
     };
     const passwordMap: Record<string, string> = {

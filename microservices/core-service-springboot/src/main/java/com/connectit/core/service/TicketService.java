@@ -232,17 +232,32 @@ public class TicketService {
 
             ticketRepo.save(t);
 
-            // Queue outbound email if public comment from portal/API (not inbound email itself)
-            if ("public".equals(visType) && "comment".equals(actType) && !"email".equalsIgnoreCase(a.getChannel())) {
-                String recipient = t.getCallerEmail() != null ? t.getCallerEmail() : (t.getCaller() != null && t.getCaller().contains("@") ? t.getCaller() : null);
-                if (recipient != null) {
+            // Queue outbound email if requested or if it's a public comment from portal/API (not inbound email itself)
+            boolean emailNoteOption = Boolean.TRUE.equals(data.get("email_note")) 
+                || Boolean.TRUE.equals(data.get("emailNote"))
+                || Boolean.TRUE.equals(data.get("send_email"))
+                || Boolean.TRUE.equals(data.get("sendEmail"));
+            
+            boolean shouldEmailNote = emailNoteOption || ("public".equals(visType) && "comment".equals(actType) && !"email".equalsIgnoreCase(a.getChannel()));
+
+            if (shouldEmailNote) {
+                String recipient = null;
+                if (data.containsKey("recipient") && data.get("recipient") != null && !data.get("recipient").toString().isBlank()) {
+                    recipient = data.get("recipient").toString();
+                } else if (data.containsKey("to") && data.get("to") != null && !data.get("to").toString().isBlank()) {
+                    recipient = data.get("to").toString();
+                } else {
+                    recipient = t.getCallerEmail() != null ? t.getCallerEmail() : (t.getCaller() != null && t.getCaller().contains("@") ? t.getCaller() : null);
+                }
+
+                if (recipient != null && recipient.contains("@")) {
                     String creatorEmail = a.getCreatedBy();
                     if (creatorEmail != null && !creatorEmail.contains("@")) {
                         creatorEmail = userRepo.findByUid(creatorEmail)
                             .map(User::getEmail)
                             .orElse(creatorEmail);
                     }
-                    if (!recipient.equalsIgnoreCase(creatorEmail)) {
+                    if (emailNoteOption || !recipient.equalsIgnoreCase(creatorEmail)) {
                         List<EmailLog> logs = emailLogRepo.findByTicketIdOrderByCreatedAtDesc(ticketId);
                         String inReplyTo = null;
                         String references = null;
@@ -255,10 +270,29 @@ public class TicketService {
                         }
 
                         String subject = "Re: [" + t.getTicketNumber() + "] " + t.getTitle();
-                        String emailBody = emailService.buildTemplate("New Comment Added", t.getTicketNumber(),
-                            "<p>A new comment has been added to your ticket by <strong>" + a.getCreatedByName() + "</strong>:</p>" +
-                            "<div style='padding:12px;background:#f8fafc;border-left:4px solid #1e293b;margin:16px 0;white-space:pre-wrap;'>" +
-                            a.getMessage() + "</div>", t.getTicketNumber());
+                        String formattedTime = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                        String emailBody;
+                        if (emailNoteOption) {
+                            emailBody = emailService.buildTemplate("Ticket Note Notification", t.getTicketNumber(),
+                                "<div style=\"font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto;\">" +
+                                "  <h2 style=\"color: #2563eb;\">New Ticket Note Added</h2>" +
+                                "  <table style=\"width: 100%; border-collapse: collapse; margin-bottom: 20px;\">" +
+                                "    <tr><td style=\"padding: 6px 0; font-weight: bold; width: 120px;\">Ticket ID:</td><td>" + t.getTicketNumber() + "</td></tr>" +
+                                "    <tr><td style=\"padding: 6px 0; font-weight: bold;\">Subject:</td><td>" + t.getTitle() + "</td></tr>" +
+                                "    <tr><td style=\"padding: 6px 0; font-weight: bold;\">Note Author:</td><td>" + a.getCreatedByName() + "</td></tr>" +
+                                "    <tr><td style=\"padding: 6px 0; font-weight: bold;\">Timestamp:</td><td>" + formattedTime + "</td></tr>" +
+                                "  </table>" +
+                                "  <div style=\"padding: 16px; background: #f8fafc; border-left: 4px solid #3b82f6; border-radius: 4px; font-size: 14px; white-space: pre-wrap; margin-bottom: 20px;\">" +
+                                "    " + a.getMessage() + "" +
+                                "  </div>" +
+                                "  <p style=\"font-size: 12px; color: #64748b;\">This is an automated notification from Ticklora.</p>" +
+                                "</div>", t.getTicketNumber());
+                        } else {
+                            emailBody = emailService.buildTemplate("New Comment Added", t.getTicketNumber(),
+                                "<p>A new comment has been added to your ticket by <strong>" + a.getCreatedByName() + "</strong>:</p>" +
+                                "<div style='padding:12px;background:#f8fafc;border-left:4px solid #1e293b;margin:16px 0;white-space:pre-wrap;'>" +
+                                a.getMessage() + "</div>", t.getTicketNumber());
+                        }
 
                         String metaJson = null;
                         if ((inReplyTo != null && !inReplyTo.isBlank()) || (references != null && !references.isBlank())) {

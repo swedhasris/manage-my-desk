@@ -13,6 +13,14 @@ import java.time.LocalDateTime;
 public class EmailLog {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
     @Column(name = "ticket_id")             private Long ticketId;
     @Column(name = "ticket_number")         private String ticketNumber;
     @Column(nullable = false, length = 20)  private String direction;

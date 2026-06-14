@@ -186,15 +186,39 @@ public class DatabaseSeeder implements CommandLineRunner {
     }
 
     private void seedDefaultUsers() {
-        if (userRepository.count() == 0) {
-            log.info("[DatabaseSeeder] Seeding default quick-login users...");
-            userRepository.saveAll(List.of(
-                User.builder().uid("demo_t342dq").email("arun@technosprint.net").name("Arun (Ultra Admin)").role("ultra_super_admin").passwordHash("h_ps1kdz_9").isActive(true).isDemo(true).provider("email").build(),
-                User.builder().uid("demo_voust").email("ulter@technosprint.net").name("Demo Super Admin").role("super_admin").passwordHash("h_c2sm7e_12").isActive(true).isDemo(true).provider("email").build(),
-                User.builder().uid("demo_admin").email("admin@technosprint.net").name("Demo Admin").role("admin").passwordHash("h_c2sm7e_12").isActive(true).isDemo(true).provider("email").build(),
-                User.builder().uid("demo_agent").email("agent@technosprint.net").name("Demo Support Agent").role("agent").passwordHash("h_c2sm7e_12").isActive(true).isDemo(true).provider("email").build(),
-                User.builder().uid("demo_user").email("user@technosprint.net").name("Demo User").role("user").passwordHash("h_c2sm7e_12").isActive(true).isDemo(true).provider("email").build()
-            ));
+        // arun.g@technosprint.net  password: Poland@01  → simpleHash = h_ps1kdz_9
+        seedUser("demo_t342dq", "arun.g@technosprint.net",  "Arun G (Ultra Super Admin)",  "ultra_super_admin", "h_ps1kdz_9");
+        // swedhasris@gmail.com     password: 123202      → simpleHash = h_nzmtky_6
+        seedUser("demo_swedha", "swedhasris@gmail.com",     "Swedha (Ultra Super Admin)",   "ultra_super_admin", "h_nzmtky_6");
+        // Password123! → h_c2sm7e_12
+        seedUser("demo_voust", "ulter@technosprint.net",   "Demo Super Admin",             "super_admin",       "h_c2sm7e_12");
+        seedUser("demo_admin", "admin@technosprint.net",   "Demo Admin",                   "admin",             "h_c2sm7e_12");
+        seedUser("demo_agent", "agent@technosprint.net",   "Demo Support Agent",           "agent",             "h_c2sm7e_12");
+        seedUser("demo_user",  "user@technosprint.net",    "Demo User",                    "user",              "h_c2sm7e_12");
+    }
+
+    private void seedUser(String uid, String email, String name, String role, String passwordHash) {
+        java.util.Optional<User> existing = userRepository.findByEmailIgnoreCase(email);
+        if (existing.isEmpty()) {
+            userRepository.save(User.builder()
+                .uid(uid)
+                .email(email)
+                .name(name)
+                .role(role)
+                .passwordHash(passwordHash)
+                .isActive(true)
+                .isDemo(true)
+                .provider("email")
+                .build());
+            log.info("[DatabaseSeeder] Seeded default user: {}", email);
+        } else {
+            // Always force-update role, password hash, and active status on every startup
+            User user = existing.get();
+            user.setRole(role);
+            user.setPasswordHash(passwordHash);
+            user.setIsActive(true);
+            userRepository.save(user);
+            log.info("[DatabaseSeeder] Updated existing user credentials: {}", email);
         }
     }
 

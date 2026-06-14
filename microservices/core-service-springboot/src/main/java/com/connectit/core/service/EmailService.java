@@ -297,8 +297,12 @@ public class EmailService {
         MimeMessage msg = activeSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");
         
-        String fromAddress = cfg != null ? cfg.getEmailAddress() : defaultFrom;
-        String fromName = cfg != null ? cfg.getCompanyName() + " Support" : defaultFromName;
+        String fromAddress = (cfg != null && cfg.getEmailAddress() != null && !cfg.getEmailAddress().isBlank())
+            ? cfg.getEmailAddress()
+            : defaultFrom;
+        String fromName = (cfg != null && cfg.getCompanyName() != null && !cfg.getCompanyName().isBlank())
+            ? cfg.getCompanyName() + " Support"
+            : defaultFromName;
 
         // Validation Rules:
         // - Sender email must come from Email Integration settings.
@@ -308,22 +312,30 @@ public class EmailService {
         if (ticketNumber != null) {
             try {
                 Map<String, Object> ticketInfo = jdbcTemplate.queryForMap(
-                    "SELECT t.caller_email, c.email as company_email " +
+                    "SELECT t.caller_email, c.email as company_email, t.created_by " +
                     "FROM tickets t " +
                     "LEFT JOIN companies c ON t.company_id = c.id " +
                     "WHERE t.ticket_number = ?", ticketNumber);
                 
                 String callerEmail = (String) ticketInfo.get("caller_email");
                 String companyEmail = (String) ticketInfo.get("company_email");
+                String requestor = (String) ticketInfo.get("created_by");
                 
                 if (fromAddress != null) {
-                    if (fromAddress.equalsIgnoreCase(callerEmail)) {
-                        log.warn("[SMTP] Guard Triggered: Sender email matches ticket caller email ({}). Overriding to integration settings default.", fromAddress);
-                        fromAddress = cfg != null ? cfg.getEmailAddress() : defaultFrom;
-                    }
-                    if (fromAddress.equalsIgnoreCase(companyEmail)) {
-                        log.warn("[SMTP] Guard Triggered: Sender email matches company contact email ({}). Overriding to integration settings default.", fromAddress);
-                        fromAddress = cfg != null ? cfg.getEmailAddress() : defaultFrom;
+                    boolean matchesCaller = fromAddress.equalsIgnoreCase(callerEmail);
+                    boolean matchesCompany = fromAddress.equalsIgnoreCase(companyEmail);
+                    boolean matchesRequestor = requestor != null && requestor.contains("@") && fromAddress.equalsIgnoreCase(requestor);
+                    
+                    if (matchesCaller || matchesCompany || matchesRequestor) {
+                        log.warn("[SMTP] Guard Triggered: Sender email ({}) matches caller, company, or requestor email. Forcing to defaultFrom.", fromAddress);
+                        fromAddress = defaultFrom;
+                        
+                        if (fromAddress.equalsIgnoreCase(callerEmail) || fromAddress.equalsIgnoreCase(companyEmail) || (requestor != null && requestor.contains("@") && fromAddress.equalsIgnoreCase(requestor))) {
+                            CompanyEmailConfig active = getActiveConfig();
+                            if (active != null && active.getEmailAddress() != null && !active.getEmailAddress().isBlank()) {
+                                fromAddress = active.getEmailAddress();
+                            }
+                        }
                     }
                 }
             } catch (Exception ignored) {}

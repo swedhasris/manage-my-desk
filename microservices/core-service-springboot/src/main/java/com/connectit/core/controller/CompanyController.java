@@ -34,25 +34,28 @@ public class CompanyController {
 
     // ── Helper: Format Company Row with Snake & Camel Case ──────────────────
     private Map<String, Object> formatCompany(Map<String, Object> row) {
-        Map<String, Object> m = new HashMap<>(row);
-        if (row.containsKey("id") && row.get("id") != null) {
-            m.put("id", String.valueOf(row.get("id")));
+        Map<String, Object> m = new HashMap<>();
+        for (Map.Entry<String, Object> entry : row.entrySet()) {
+            m.put(entry.getKey().toLowerCase(), entry.getValue());
         }
-        mapField(row, m, "contact_name", "contactName");
-        mapField(row, m, "postal_code", "postalCode");
-        mapField(row, m, "logo_url", "logoUrl");
-        mapField(row, m, "primary_color", "primaryColor");
-        mapField(row, m, "secondary_color", "secondaryColor");
-        mapField(row, m, "support_signature", "supportSignature");
-        mapField(row, m, "priority_tier", "priorityTier");
-        mapField(row, m, "default_assignment_group", "defaultAssignmentGroup");
-        mapField(row, m, "default_sla_policy", "defaultSlaPolicy");
-        mapField(row, m, "default_support_mailbox", "defaultSupportMailbox");
-        mapField(row, m, "created_at", "createdAt");
-        mapField(row, m, "updated_at", "updatedAt");
+        if (m.containsKey("id") && m.get("id") != null) {
+            m.put("id", String.valueOf(m.get("id")));
+        }
+        mapField(m, "contact_name", "contactName");
+        mapField(m, "postal_code", "postalCode");
+        mapField(m, "logo_url", "logoUrl");
+        mapField(m, "primary_color", "primaryColor");
+        mapField(m, "secondary_color", "secondaryColor");
+        mapField(m, "support_signature", "supportSignature");
+        mapField(m, "priority_tier", "priorityTier");
+        mapField(m, "default_assignment_group", "defaultAssignmentGroup");
+        mapField(m, "default_sla_policy", "defaultSlaPolicy");
+        mapField(m, "default_support_mailbox", "defaultSupportMailbox");
+        mapField(m, "created_at", "createdAt");
+        mapField(m, "updated_at", "updatedAt");
 
-        if (row.containsKey("email_integration_id")) {
-            Object val = row.get("email_integration_id");
+        if (m.containsKey("email_integration_id")) {
+            Object val = m.get("email_integration_id");
             if (val != null) {
                 m.put("email_integration_id", String.valueOf(val));
                 m.put("emailIntegrationId", String.valueOf(val));
@@ -64,26 +67,43 @@ public class CompanyController {
         return m;
     }
 
-    private void mapField(Map<String, Object> src, Map<String, Object> dest, String snake, String camel) {
-        if (src.containsKey(snake)) {
-            Object val = src.get(snake);
-            dest.put(camel, val);
-            dest.put(snake, val);
+    private void mapField(Map<String, Object> m, String snake, String camel) {
+        if (m.containsKey(snake)) {
+            Object val = m.get(snake);
+            m.put(camel, val);
         }
     }
 
     // ── Helper: Format Ticket Row ───────────────────────────────────────────
     private Map<String, Object> formatTicket(Map<String, Object> row) {
-        Map<String, Object> m = new HashMap<>(row);
-        if (row.containsKey("id") && row.get("id") != null) {
-            m.put("id", String.valueOf(row.get("id")));
+        Map<String, Object> m = new HashMap<>();
+        for (Map.Entry<String, Object> entry : row.entrySet()) {
+            m.put(entry.getKey().toLowerCase(), entry.getValue());
         }
-        if (row.containsKey("created_at") && row.get("created_at") != null) {
-            m.put("createdAt", String.valueOf(row.get("created_at")));
+        if (m.containsKey("id") && m.get("id") != null) {
+            m.put("id", String.valueOf(m.get("id")));
         }
-        if (row.containsKey("company_id") && row.get("company_id") != null) {
-            m.put("companyId", String.valueOf(row.get("company_id")));
-            m.put("company_id", String.valueOf(row.get("company_id")));
+        if (m.containsKey("created_at") && m.get("created_at") != null) {
+            m.put("createdAt", String.valueOf(m.get("created_at")));
+        }
+        if (m.containsKey("company_id") && m.get("company_id") != null) {
+            m.put("companyId", String.valueOf(m.get("company_id")));
+            m.put("company_id", String.valueOf(m.get("company_id")));
+        }
+        return m;
+    }
+
+    private Map<String, Object> formatHistory(Map<String, Object> row) {
+        Map<String, Object> m = new HashMap<>();
+        for (Map.Entry<String, Object> entry : row.entrySet()) {
+            m.put(entry.getKey().toLowerCase(), entry.getValue());
+        }
+        if (m.containsKey("id") && m.get("id") != null) {
+            m.put("id", String.valueOf(m.get("id")));
+        }
+        if (m.containsKey("company_id") && m.get("company_id") != null) {
+            m.put("companyId", String.valueOf(m.get("company_id")));
+            m.put("company_id", String.valueOf(m.get("company_id")));
         }
         return m;
     }
@@ -204,7 +224,11 @@ public class CompanyController {
             List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "SELECT * FROM company_history WHERE company_id = ? ORDER BY timestamp DESC", id
             );
-            return ResponseEntity.ok(rows);
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (Map<String, Object> row : rows) {
+                result.add(formatHistory(row));
+            }
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error fetching history for company {}: ", id, e);
             return ResponseEntity.ok(List.of());

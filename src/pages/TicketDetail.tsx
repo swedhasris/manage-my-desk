@@ -34,6 +34,8 @@ export function TicketDetail() {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [workNote, setWorkNote] = useState("");
+  const [emailWorkNote, setEmailWorkNote] = useState(false);
+  const [emailComment, setEmailComment] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [agents, setAgents] = useState<any[]>([]);
   const [incidentCategories, setIncidentCategories] = useState<string[]>([]);
@@ -244,7 +246,7 @@ export function TicketDetail() {
     if (!id || !user || !editedTicket) return;
 
     const hasCategoryAccess = ["admin", "super_admin", "ultra_super_admin"].includes(profile?.role || "") ||
-      ["arun@technosprint.net", "ulter@technosprint.net", "admin@technosprint.net", "admin@connectit.local", "demo-admin@connectit.local", "demo-super_admin@connectit.local", "demo-ultra_super_admin@connectit.local"].includes(user?.email || profile?.email || "");
+      ["arun.g@technosprint.net", "swedhasris@gmail.com", "ulter@technosprint.net", "admin@technosprint.net", "admin@connectit.local", "demo-admin@connectit.local", "demo-super_admin@connectit.local", "demo-ultra_super_admin@connectit.local"].includes(user?.email || profile?.email || "");
     if (hasCategoryAccess) {
       for (const field of dynamicFields) {
         if (!editedTicket?.customFields?.[field.id]) {
@@ -490,7 +492,8 @@ export function TicketDetail() {
           visibility_type: 'public',
           created_by: user.uid,
           created_by_name: profile?.name || user.email,
-          message: newComment.trim()
+          message: newComment.trim(),
+          email_note: emailComment
         })
       });
       if (!res.ok) throw new Error('Failed to post comment');
@@ -513,6 +516,7 @@ export function TicketDetail() {
       } catch (e) { /* Firestore update non-critical */ }
 
       setNewComment("");
+      setEmailComment(false);
       setTimelineRefresh(prev => prev + 1);
       setPostMessage({ text: 'Comment posted successfully', type: 'success' });
       setTimeout(() => setPostMessage(null), 3000);
@@ -539,7 +543,8 @@ export function TicketDetail() {
           visibility_type: 'internal',
           created_by: user.uid,
           created_by_name: profile?.name || user.email,
-          message: workNote.trim()
+          message: workNote.trim(),
+          email_note: emailWorkNote
         })
       });
       if (!res.ok) throw new Error('Failed to post work note');
@@ -565,6 +570,7 @@ export function TicketDetail() {
       } catch (e) { /* Firestore update non-critical */ }
 
       setWorkNote("");
+      setEmailWorkNote(false);
       setTimelineRefresh(prev => prev + 1);
       setPostMessage({ text: 'Work note added successfully', type: 'success' });
       setTimeout(() => setPostMessage(null), 3000);
@@ -1184,7 +1190,7 @@ export function TicketDetail() {
 
               {/* Incident Category Dynamic Custom Dropdowns */}
               {(["admin", "super_admin", "ultra_super_admin"].includes(profile?.role || "") ||
-                ["arun@technosprint.net", "ulter@technosprint.net", "admin@technosprint.net", "admin@connectit.local", "demo-admin@connectit.local", "demo-super_admin@connectit.local", "demo-ultra_super_admin@connectit.local"].includes(user?.email || profile?.email || "")) && (
+                ["arun.g@technosprint.net", "swedhasris@gmail.com", "ulter@technosprint.net", "admin@technosprint.net", "admin@connectit.local", "demo-admin@connectit.local", "demo-super_admin@connectit.local", "demo-ultra_super_admin@connectit.local"].includes(user?.email || profile?.email || "")) && (
                   <>
                     {dynamicFields.map((field) => {
                       const fieldOptions = dynamicOptions[field.id] || [];
@@ -1629,9 +1635,20 @@ export function TicketDetail() {
                       className="w-full p-3 border border-amber-200 rounded-md text-xs outline-none focus:ring-2 focus:ring-amber-300 min-h-[120px] resize-none bg-white/80 placeholder:text-amber-400"
                     />
                     <div className="flex items-center justify-between mt-3">
-                      <span className="text-[9px] text-amber-600 font-medium flex items-center gap-1">
-                        <Lock className="w-3 h-3" /> Not visible to customer
-                      </span>
+                      <div className="flex items-center gap-4">
+                        <span className="text-[9px] text-amber-600 font-medium flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> Not visible to customer
+                        </span>
+                        <label className="flex items-center gap-1.5 text-[10px] text-amber-700 font-semibold cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={emailWorkNote}
+                            onChange={(e) => setEmailWorkNote(e.target.checked)}
+                            className="w-3.5 h-3.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 accent-amber-500"
+                          />
+                          Email Note
+                        </label>
+                      </div>
                       <Button
                         type="button"
                         size="sm"
@@ -1663,9 +1680,20 @@ export function TicketDetail() {
                       className="w-full p-3 border border-blue-200 rounded-md text-xs outline-none focus:ring-2 focus:ring-blue-300 min-h-[120px] resize-none bg-white/80 placeholder:text-blue-400"
                     />
                     <div className="flex items-center justify-between mt-3">
-                      <span className="text-[9px] text-blue-600 font-medium flex items-center gap-1">
-                        <Globe className="w-3 h-3" /> Visible to customer
-                      </span>
+                      <div className="flex items-center gap-4">
+                        <span className="text-[9px] text-blue-600 font-medium flex items-center gap-1">
+                          <Globe className="w-3 h-3" /> Visible to customer
+                        </span>
+                        <label className="flex items-center gap-1.5 text-[10px] text-blue-700 font-semibold cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={emailComment}
+                            onChange={(e) => setEmailComment(e.target.checked)}
+                            className="w-3.5 h-3.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500 accent-blue-500"
+                          />
+                          Email Note
+                        </label>
+                      </div>
                       <Button
                         type="button"
                         size="sm"
