@@ -7,7 +7,6 @@ import com.connectit.core.util.SimpleHash;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.*;
 
@@ -18,7 +17,6 @@ public class UserController {
 
     private final UserService userService;
     private final EmailService emailService;
-    private final JdbcTemplate jdbcTemplate;
 
     @GetMapping("/users")
     public ResponseEntity<?> list() {
@@ -125,16 +123,7 @@ public class UserController {
             updates.setPasswordHash(newHash);
             userService.update(user.getUid(), updates);
 
-            // 5. Log password change activity in audit logs
-            try {
-                String auditId = "sal_" + UUID.randomUUID().toString().substring(0, 8) + "_" + System.currentTimeMillis();
-                jdbcTemplate.update(
-                    "INSERT INTO settings_audit_logs (id, module_id, module_name, action, old_value, new_value, performed_by, performed_by_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    auditId, user.getUid(), "User", "Password Reset", "[REDACTED]", "[REDACTED]", user.getEmail(), user.getRole()
-                );
-            } catch (Exception logEx) {
-                System.err.println("[UserController] Warning: Failed to log password reset activity in settings_audit_logs: " + logEx.getMessage());
-            }
+            // 5. (Audit logging skipped - password reset is a user self-service action)
 
             // 6. Send password change email notification
             String emailBody = emailService.buildTemplate(
