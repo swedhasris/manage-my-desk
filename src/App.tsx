@@ -48,6 +48,7 @@ const ApprovedTickets = lazy(() => import("./pages/ApprovedTickets").then(m => (
 const Companies = lazy(() => import("./pages/Companies").then(m => ({ default: m.Companies })));
 const TimesheetApprovals = lazy(() => import("./pages/TimesheetApprovals").then(m => ({ default: m.TimesheetApprovals })));
 const Groups = lazy(() => import("./pages/Groups").then(m => ({ default: m.Groups })));
+const GroupsPlaceholder = lazy(() => import("./pages/GroupsPlaceholder").then(m => ({ default: m.GroupsPlaceholder })));
 const ClearUsers = lazy(() => import("./pages/ClearUsers").then(m => ({ default: m.ClearUsers })));
 const BrandingSettings = lazy(() => import("./pages/BrandingSettings").then(m => ({ default: m.BrandingSettings })));
 const ActivityTracker = lazy(() => import("./pages/ActivityTracker").then(m => ({ default: m.ActivityTracker })));
@@ -373,6 +374,54 @@ function AppBody() {
                   element={
                     <ProtectedRoute>
                       <Groups />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/groups/my-groups"
+                  element={
+                    <ProtectedRoute>
+                      <GroupsPlaceholder />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/groups/all-groups"
+                  element={
+                    <ProtectedRoute>
+                      <GroupsPlaceholder />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/groups/members"
+                  element={
+                    <ProtectedRoute>
+                      <GroupsPlaceholder />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/groups/activities"
+                  element={
+                    <ProtectedRoute>
+                      <GroupsPlaceholder />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/groups/reports"
+                  element={
+                    <ProtectedRoute>
+                      <GroupsPlaceholder />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/groups/settings"
+                  element={
+                    <ProtectedRoute>
+                      <GroupsPlaceholder />
                     </ProtectedRoute>
                   }
                 />

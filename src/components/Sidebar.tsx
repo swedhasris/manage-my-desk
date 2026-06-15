@@ -93,7 +93,6 @@ export function Sidebar() {
           { icon: LayoutDashboard, label: "Personal Dashboard", path: "/my-dashboard" },
           { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },
           { icon: CalendarDays, label: "Calendar", path: "/calendar" },
-          { icon: Users, label: "Groups", path: "/groups" },
           { icon: Ticket, label: "My Tickets", path: "/timesheet" },
           { icon: BarChart2, label: "Timesheet Reports", path: "/timesheet/reports" },
           { icon: Monitor, label: "AI Activity Tracker", path: "/activity-tracker" },
@@ -102,7 +101,6 @@ export function Sidebar() {
           { icon: LayoutDashboard, label: "Personal Dashboard", path: "/" },
           { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },
           { icon: CalendarDays, label: "Calendar", path: "/calendar" },
-          { icon: Users, label: "Groups", path: "/groups" },
           { icon: Ticket, label: "My Tickets", path: "/timesheet" },
           { icon: BarChart2, label: "Timesheet Reports", path: "/timesheet/reports" },
           { icon: Monitor, label: "AI Activity Tracker", path: "/activity-tracker" },
@@ -156,6 +154,22 @@ export function Sidebar() {
         { icon: CalendarDays, label: "Meeting Management", path: "/meetings" },
         { icon: PlusCircle, label: "Create Meeting", path: "/create-meeting" },
       ]
+    },
+    {
+      label: "Groups",
+      items: profile?.role === "user"
+        ? [
+          { icon: Users, label: "My Groups", path: "/groups/my-groups" },
+          { icon: History, label: "Group Activities", path: "/groups/activities" },
+        ]
+        : [
+          { icon: Users, label: "My Groups", path: "/groups/my-groups" },
+          { icon: List, label: "All Groups", path: "/groups/all-groups" },
+          { icon: Users, label: "Group Members", path: "/groups/members" },
+          { icon: History, label: "Group Activities", path: "/groups/activities" },
+          { icon: BarChart2, label: "Group Reports", path: "/groups/reports" },
+          { icon: Settings, label: "Group Settings", path: "/groups/settings" },
+        ]
     },
     {
       label: "Data Analytics",
