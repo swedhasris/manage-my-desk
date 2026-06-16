@@ -524,6 +524,11 @@ export async function getDoc(docRef: any): Promise<any> {
     } else if (path === "companies") {
       const res = await fetch(`/api/companies/${id}`);
       if (res.ok) data = await res.json();
+    } else {
+      try {
+        const res = await fetch(`/api/${path}/${id}`);
+        if (res.ok) data = await res.json();
+      } catch {}
     }
   } catch (e) {
     console.error("[API] getDoc error:", e);

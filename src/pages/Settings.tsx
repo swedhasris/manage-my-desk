@@ -18,6 +18,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
+import { TypographySettings } from "../components/TypographySettings";
 
 const MOCK_TRAFFIC_DATA = [
   { time: "00:00", requests: 400 },
@@ -34,7 +35,7 @@ export function Settings() {
   const role = profile?.role || 'user';
   const { categories, subcategories, serviceProviders, groups, members } = useServiceCatalog();
 
-  const [activeTab, setActiveTab] = useState<"master" | "automation" | "security" | "audit" | "system">("master");
+  const [activeTab, setActiveTab] = useState<"master" | "automation" | "security" | "audit" | "system" | "typography">("master");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
@@ -256,6 +257,7 @@ export function Settings() {
               { id: "automation", label: "Workflows", icon: Zap },
               { id: "security", label: "Security", icon: Shield },
               { id: "system", label: "System", icon: Cpu },
+              { id: "typography", label: "Typography", icon: Edit3 },
               { id: "audit", label: "Audit", icon: History },
             ].map(t => (
               <button
@@ -544,6 +546,10 @@ export function Settings() {
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === "typography" && (
+            <TypographySettings />
           )}
         </motion.div>
       </AnimatePresence>

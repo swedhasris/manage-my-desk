@@ -46,6 +46,8 @@ public class ViewController {
         "/settings",
         "/activity-tracker",
         "/data-analytics",
+        "/forecasting-planning",
+        "/service-portal",
         "/global-search",
         "/meetings",
         "/create-meeting",

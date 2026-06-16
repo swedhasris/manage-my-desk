@@ -298,6 +298,104 @@ public class SettingsController {
         }
     }
 
+    // ── GET Typography Settings ──────────────────────────────────────────────
+    @GetMapping("/settings/typography")
+    public ResponseEntity<?> getTypography() {
+        log.info("[Typography] Fetching typography settings");
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT setting_value FROM system_settings WHERE setting_key = 'typography'"
+            );
+            if (!rows.isEmpty()) {
+                String settingVal = (String) rows.get(0).get("setting_value");
+                if (settingVal != null && !settingVal.isBlank()) {
+                    try {
+                        Map<?, ?> parsed = objectMapper.readValue(settingVal, Map.class);
+                        return ResponseEntity.ok(parsed);
+                    } catch (Exception e) {
+                        log.warn("[Typography] Failed to parse typography JSON, using fallback", e);
+                    }
+                }
+            }
+            Map<String, Object> fallback = new HashMap<>();
+            fallback.put("globalFont", "Inter");
+            fallback.put("loginFont", "Inter");
+            fallback.put("dashboardFont", "Inter");
+            fallback.put("ticketFont", "Inter");
+            fallback.put("reportFont", "Inter");
+            fallback.put("portalFont", "Inter");
+            fallback.put("kbFont", "Inter");
+            fallback.put("profileFont", "Inter");
+            fallback.put("customFonts", new ArrayList<>());
+            return ResponseEntity.ok(fallback);
+        } catch (Exception e) {
+            log.error("[Typography] Error fetching typography settings: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ── POST Typography Settings ─────────────────────────────────────────────
+    @PostMapping("/settings/typography")
+    @Transactional
+    public ResponseEntity<?> postTypography(@RequestBody Map<String, Object> body) {
+        log.info("[Typography] Updating typography settings with body: {}", body);
+        try {
+            String typographyJson = objectMapper.writeValueAsString(body);
+            String updatedBy = (String) body.getOrDefault("updatedBy", "System");
+
+            List<Map<String, Object>> existing = jdbcTemplate.queryForList(
+                "SELECT id FROM system_settings WHERE setting_key = 'typography'"
+            );
+
+            if (!existing.isEmpty()) {
+                jdbcTemplate.update(
+                    "UPDATE system_settings SET setting_value = ?, updated_by = ? WHERE setting_key = 'typography'",
+                    typographyJson, updatedBy
+                );
+            } else {
+                jdbcTemplate.update(
+                    "INSERT INTO system_settings (setting_key, setting_value, setting_type, description, updated_by) VALUES (?, ?, ?, ?, ?)",
+                    "typography", typographyJson, "json", "Typography and custom font settings", updatedBy
+                );
+            }
+
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            log.error("[Typography] Error saving typography: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    // ── POST Custom Font Upload ──────────────────────────────────────────────
+    @PostMapping("/settings/upload-font")
+    public ResponseEntity<?> uploadFont(@RequestParam("fontFile") org.springframework.web.multipart.MultipartFile file) {
+        log.info("[Typography] Uploading custom font file: {}", file.getOriginalFilename());
+        try {
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Empty file"));
+            }
+            String filename = file.getOriginalFilename();
+            if (filename == null || filename.isBlank() || (!filename.endsWith(".woff") && !filename.endsWith(".woff2") && !filename.endsWith(".ttf") && !filename.endsWith(".otf"))) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Unsupported font file extension"));
+            }
+            
+            java.io.File uploadDir = new java.io.File("./public/uploads").getAbsoluteFile();
+            if (!uploadDir.exists()) uploadDir.mkdirs();
+            java.io.File destination = new java.io.File(uploadDir, filename);
+            
+            java.nio.file.Files.copy(
+                file.getInputStream(), 
+                destination.toPath(), 
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            );
+            
+            return ResponseEntity.ok(Map.of("success", true, "font_url", "/uploads/" + filename, "font_name", filename.replaceAll("\\.[^.]+$", "")));
+        } catch (Exception e) {
+            log.error("[Typography] Error uploading font file: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // ── 1. SETTINGS CATEGORIES ────────────────────────────────────────────────
     @GetMapping("/settings_categories")
     public ResponseEntity<?> getCategories(

@@ -84,6 +84,9 @@ public class DatabaseSeeder implements CommandLineRunner {
         // 7. Seed Incident Categories if empty
         seedIncidentCategories();
 
+        // 8. Seed Planning, Forecasting, and Dashboard Templates if empty
+        seedPlanningAndForecasting();
+
         log.info("[DatabaseSeeder] Database initialization completed successfully.");
     }
 
@@ -210,6 +213,55 @@ public class DatabaseSeeder implements CommandLineRunner {
                     "last_updated_by VARCHAR(255), " +
                     "last_updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 
+            // Customizable Dashboard Layouts
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS settings_dashboard_layouts (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "user_uid VARCHAR(128) UNIQUE NOT NULL, " +
+                    "layout_json TEXT NOT NULL, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
+            // Customizable Dashboard Templates
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS settings_dashboard_templates (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "name VARCHAR(255) NOT NULL, " +
+                    "role VARCHAR(50) NOT NULL, " +
+                    "layout_json TEXT NOT NULL, " +
+                    "is_locked TINYINT(1) DEFAULT 0, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
+            // Forecasting & Planning Targets
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS planning_targets (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "target_type VARCHAR(50) NOT NULL, " +
+                    "target_period VARCHAR(50) NOT NULL, " +
+                    "metric_name VARCHAR(100) NOT NULL, " +
+                    "target_value DOUBLE NOT NULL, " +
+                    "actual_value DOUBLE DEFAULT 0.0, " +
+                    "team_id VARCHAR(128), " +
+                    "assignee_uid VARCHAR(128), " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
+            // Forecasting & Planning Forecasts
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS planning_forecasts (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "forecast_type VARCHAR(50) NOT NULL, " +
+                    "forecast_period VARCHAR(50) NOT NULL, " +
+                    "forecasted_value DOUBLE NOT NULL, " +
+                    "accuracy DOUBLE DEFAULT 1.0, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
+            // Forecasting & Planning Calendar Events
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS planning_calendar_events (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "title VARCHAR(255) NOT NULL, " +
+                    "event_type VARCHAR(50) NOT NULL, " +
+                    "event_date DATE NOT NULL, " +
+                    "details TEXT, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+
             log.info("[DatabaseSeeder] DDL initialization of settings tables checked/applied.");
         } catch (Exception e) {
             log.error("[DatabaseSeeder] DDL initialization failed: {}", e.getMessage(), e);
@@ -253,8 +305,30 @@ public class DatabaseSeeder implements CommandLineRunner {
     }
 
     private void seedUser(String uid, String email, String name, String role, String passwordHash) {
-        java.util.Optional<User> existing = userRepository.findByEmailIgnoreCase(email);
-        if (existing.isEmpty()) {
+        java.util.Optional<User> existingByUid = userRepository.findByUid(uid);
+        if (existingByUid.isPresent()) {
+            User user = existingByUid.get();
+            user.setEmail(email);
+            user.setName(name);
+            user.setRole(role);
+            user.setPasswordHash(passwordHash);
+            user.setIsActive(true);
+            userRepository.save(user);
+            log.info("[DatabaseSeeder] Updated existing user (by uid={}): {}", uid, email);
+            return;
+        }
+
+        java.util.Optional<User> existingByEmail = userRepository.findByEmailIgnoreCase(email);
+        if (existingByEmail.isPresent()) {
+            User user = existingByEmail.get();
+            user.setUid(uid);
+            user.setName(name);
+            user.setRole(role);
+            user.setPasswordHash(passwordHash);
+            user.setIsActive(true);
+            userRepository.save(user);
+            log.info("[DatabaseSeeder] Updated existing user (by email={}): uid={}", email, uid);
+        } else {
             userRepository.save(User.builder()
                 .uid(uid)
                 .email(email)
@@ -266,14 +340,6 @@ public class DatabaseSeeder implements CommandLineRunner {
                 .provider("email")
                 .build());
             log.info("[DatabaseSeeder] Seeded default user: {}", email);
-        } else {
-            // Always force-update role, password hash, and active status on every startup
-            User user = existing.get();
-            user.setRole(role);
-            user.setPasswordHash(passwordHash);
-            user.setIsActive(true);
-            userRepository.save(user);
-            log.info("[DatabaseSeeder] Updated existing user credentials: {}", email);
         }
     }
 
@@ -371,6 +437,57 @@ public class DatabaseSeeder implements CommandLineRunner {
             }
         } catch (Exception e) {
             log.error("[DatabaseSeeder] Failed to seed incident categories: {}", e.getMessage());
+        }
+    }
+
+    private void seedPlanningAndForecasting() {
+        try {
+            List<Map<String, Object>> existingTargets = jdbcTemplate.queryForList("SELECT id FROM planning_targets LIMIT 1");
+            if (existingTargets.isEmpty()) {
+                log.info("[DatabaseSeeder] Seeding default planning targets...");
+                jdbcTemplate.update("INSERT INTO planning_targets (id, target_type, target_period, metric_name, target_value, actual_value) VALUES (?, ?, ?, ?, ?, ?)",
+                        "target_1", "Monthly", "June 2026", "SLA Compliance", 95.0, 94.2);
+                jdbcTemplate.update("INSERT INTO planning_targets (id, target_type, target_period, metric_name, target_value, actual_value) VALUES (?, ?, ?, ?, ?, ?)",
+                        "target_2", "Monthly", "June 2026", "Resolution Capacity", 500.0, 485.0);
+                jdbcTemplate.update("INSERT INTO planning_targets (id, target_type, target_period, metric_name, target_value, actual_value) VALUES (?, ?, ?, ?, ?, ?)",
+                        "target_3", "Monthly", "June 2026", "Ticket Volume", 450.0, 420.0);
+                jdbcTemplate.update("INSERT INTO planning_targets (id, target_type, target_period, metric_name, target_value, actual_value) VALUES (?, ?, ?, ?, ?, ?)",
+                        "target_4", "Quarterly", "Q2 2026", "Team Customer Satisfaction", 90.0, 92.5);
+            }
+
+            List<Map<String, Object>> existingForecasts = jdbcTemplate.queryForList("SELECT id FROM planning_forecasts LIMIT 1");
+            if (existingForecasts.isEmpty()) {
+                log.info("[DatabaseSeeder] Seeding default planning forecasts...");
+                jdbcTemplate.update("INSERT INTO planning_forecasts (id, forecast_type, forecast_period, forecasted_value, accuracy) VALUES (?, ?, ?, ?, ?)",
+                        "fc_1", "Ticket Volume", "July 2026", 480.0, 0.92);
+                jdbcTemplate.update("INSERT INTO planning_forecasts (id, forecast_type, forecast_period, forecasted_value, accuracy) VALUES (?, ?, ?, ?, ?)",
+                        "fc_2", "SLA Achievement", "July 2026", 96.5, 0.95);
+                jdbcTemplate.update("INSERT INTO planning_forecasts (id, forecast_type, forecast_period, forecasted_value, accuracy) VALUES (?, ?, ?, ?, ?)",
+                        "fc_3", "Resolution Capacity", "July 2026", 520.0, 0.89);
+            }
+
+            List<Map<String, Object>> existingEvents = jdbcTemplate.queryForList("SELECT id FROM planning_calendar_events LIMIT 1");
+            if (existingEvents.isEmpty()) {
+                log.info("[DatabaseSeeder] Seeding default planning calendar events...");
+                jdbcTemplate.update("INSERT INTO planning_calendar_events (id, title, event_type, event_date, details) VALUES (?, ?, ?, ?, ?)",
+                        "evt_1", "SLA Breach Target Review", "SLA Goals", java.sql.Date.valueOf("2026-06-20"), "Monthly review of SLA compliance targets and metrics.");
+                jdbcTemplate.update("INSERT INTO planning_calendar_events (id, title, event_type, event_date, details) VALUES (?, ?, ?, ?, ?)",
+                        "evt_2", "Capacity Planning Session", "Planned Workloads", java.sql.Date.valueOf("2026-06-25"), "Evaluate agent workload distribution and capacity constraints.");
+                jdbcTemplate.update("INSERT INTO planning_calendar_events (id, title, event_type, event_date, details) VALUES (?, ?, ?, ?, ?)",
+                        "evt_3", "Milestone Q2 Review", "Milestones", java.sql.Date.valueOf("2026-06-30"), "Review Q2 target achievements.");
+            }
+
+            List<Map<String, Object>> existingTemplates = jdbcTemplate.queryForList("SELECT id FROM settings_dashboard_templates LIMIT 1");
+            if (existingTemplates.isEmpty()) {
+                log.info("[DatabaseSeeder] Seeding default dashboard templates...");
+                String defaultLayout = "[\"Open Tickets\", \"Closed Tickets\", \"Pending Tickets\", \"SLA Compliance\", \"Escalated Tickets\", \"Ticket Trend Chart\"]";
+                jdbcTemplate.update("INSERT INTO settings_dashboard_templates (id, name, role, layout_json, is_locked) VALUES (?, ?, ?, ?, ?)",
+                        "tpl_admin", "Admin Template", "admin", defaultLayout, 0);
+                jdbcTemplate.update("INSERT INTO settings_dashboard_templates (id, name, role, layout_json, is_locked) VALUES (?, ?, ?, ?, ?)",
+                        "tpl_agent", "Agent Template", "agent", defaultLayout, 0);
+            }
+        } catch (Exception e) {
+            log.error("[DatabaseSeeder] Failed to seed planning and forecasting: {}", e.getMessage());
         }
     }
 }

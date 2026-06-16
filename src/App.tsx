@@ -14,7 +14,9 @@ import { AITrackerPet } from "./components/AITrackerPet";
 import { seedInitialData } from "./lib/seed";
 import { useEffect } from "react";
 import { ROLE_HIERARCHY, Role } from "./lib/roles";
+import { DynamicTypography } from "./components/DynamicTypography";
 import "./styles/codex-pet.css";
+import { TabWorkspaceProvider, WorkspaceLayout } from "./components/WorkspaceLayout";
 
 // Lazy loaded components
 const Dashboard = lazy(() => import("./pages/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -58,6 +60,10 @@ const MeetingManagement = lazy(() => import("./pages/MeetingManagement").then(m 
 const CreateMeeting = lazy(() => import("./pages/CreateMeeting").then(m => ({ default: m.CreateMeeting })));
 const TSMeetingLobby = lazy(() => import("./pages/TSMeetingLobby").then(m => ({ default: m.TSMeetingLobby })));
 const TSMeetingRoom = lazy(() => import("./pages/TSMeetingRoom").then(m => ({ default: m.TSMeetingRoom })));
+const ForecastingPlanning = lazy(() => import("./pages/ForecastingPlanning").then(m => ({ default: m.ForecastingPlanning })));
+const CallLogs = lazy(() => import("./pages/calls/CallLogs").then(m => ({ default: m.CallLogs })));
+const CreateCall = lazy(() => import("./pages/calls/CreateCall").then(m => ({ default: m.CreateCall })));
+const CallDetail = lazy(() => import("./pages/calls/CallDetail").then(m => ({ default: m.CallDetail })));
 
 function LoadingScreen() {
   return (
@@ -82,13 +88,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         <Sidebar />
         <div className="flex-grow flex flex-col overflow-hidden">
           <AppNavbar />
-          <main className="flex-grow p-8 overflow-y-auto">
-            <ErrorBoundary>
-              <Suspense fallback={<LoadingScreen />}>
-                {children}
-              </Suspense>
-            </ErrorBoundary>
-          </main>
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingScreen />}>
+              {children}
+            </Suspense>
+          </ErrorBoundary>
         </div>
         <AIChatbot />
       </div>
@@ -121,352 +125,71 @@ function AppBody() {
 
   return (
     <ThemeProvider>
+      <DynamicTypography />
       <BrandingProvider>
         <ActivityTrackerProvider>
           <Router>
-            <Suspense fallback={<LoadingScreen />}>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <HomeRedirect />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/my-dashboard"
-                  element={
-                    <ProtectedRoute>
-                      <MyDashboard />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/dashboard"
-                  element={
-                    <ProtectedRoute>
-                      <Dashboard />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/tickets"
-                  element={
-                    <ProtectedRoute>
-                      <Tickets />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/tickets/:id"
-                  element={
-                    <ProtectedRoute>
-                      <TicketDetail />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/history"
-                  element={
-                    <ProtectedRoute>
-                      <GlobalHistory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/sla"
-                  element={
-                    <ProtectedRoute>
-                      <SLAManagement />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/approvals"
-                  element={
-                    <ProtectedRoute>
-                      <Approvals />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/users"
-                  element={
-                    <ProtectedRoute>
-                      <Users />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/incident-categories"
-                  element={
-                    <ProtectedRoute>
-                      <IncidentCategoryManagement />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/timesheet"
-                  element={
-                    <ProtectedRoute>
-                      <Timesheet />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/timesheet/:weekStart"
-                  element={
-                    <ProtectedRoute>
-                      <Timesheet />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/timesheet/weekly"
-                  element={
-                    <ProtectedRoute>
-                      <TimesheetWeekly />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/timesheet/reports"
-                  element={
-                    <ProtectedRoute>
-                      <TimesheetReports />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/reports"
-                  element={
-                    <ProtectedRoute>
-                      <Reports />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/catalog"
-                  element={
-                    <ProtectedRoute>
-                      <ServiceCatalog />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/cmdb"
-                  element={
-                    <ProtectedRoute>
-                      <CMDB />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/conversations"
-                  element={
-                    <ProtectedRoute>
-                      <Conversations />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/problem"
-                  element={
-                    <ProtectedRoute>
-                      <ProblemManagement />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/change"
-                  element={
-                    <ProtectedRoute>
-                      <ChangeManagement />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/kb"
-                  element={
-                    <ProtectedRoute>
-                      <KnowledgeBase />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/calendar"
-                  element={
-                    <ProtectedRoute>
-                      <Calendar />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/access-control"
-                  element={
-                    <ProtectedRoute>
-                      <AccessControl />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/leaderboard"
-                  element={
-                    <ProtectedRoute>
-                      <Leaderboard />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/approved-tickets"
-                  element={
-                    <ProtectedRoute>
-                      <ApprovedTickets />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/companies"
-                  element={
-                    <ProtectedRoute>
-                      <Companies />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/companies/new"
-                  element={
-                    <ProtectedRoute>
-                      <Companies />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/companies/:id"
-                  element={
-                    <ProtectedRoute>
-                      <Companies />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/companies/:id/edit"
-                  element={
-                    <ProtectedRoute>
-                      <Companies />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/timesheet-approvals"
-                  element={
-                    <ProtectedRoute>
-                      <TimesheetApprovals />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/groups"
-                  element={
-                    <ProtectedRoute>
-                      <Groups />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/clear-users"
-                  element={
-                    <ProtectedRoute>
-                      <ClearUsers />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/email-integrations"
-                  element={
-                    <ProtectedRoute>
-                      <EmailIntegrations />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/branding"
-                  element={
-                    <ProtectedRoute>
-                      <BrandingSettings />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/settings"
-                  element={
-                    <ProtectedRoute>
-                      <Settings />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/activity-tracker"
-                  element={
-                    <ProtectedRoute>
-                      <ActivityTracker />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/data-analytics"
-                  element={
-                    <ProtectedRoute>
-                      <DataAnalytics />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/global-search"
-                  element={
-                    <ProtectedRoute>
-                      <GlobalSearch />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/meetings"
-                  element={
-                    <ProtectedRoute>
-                      <MeetingManagement />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/create-meeting"
-                  element={
-                    <ProtectedRoute>
-                      <CreateMeeting />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/ts-meeting/:tsmId/lobby"
-                  element={
-                    <ProtectedRoute>
-                      <TSMeetingLobby />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/ts-meeting/:tsmId/room"
-                  element={
-                    <ProtectedRoute>
-                      <TSMeetingRoom />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="*" element={<Navigate to="/" />} />
-              </Routes>
-            </Suspense>
+            <TabWorkspaceProvider>
+              <Suspense fallback={<LoadingScreen />}>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+
+                  {/* Protected routes wrapped in WorkspaceLayout */}
+                  <Route element={<ProtectedRoute><WorkspaceLayout /></ProtectedRoute>}>
+                    <Route path="/" element={<HomeRedirect />} />
+                    <Route path="/my-dashboard" element={<MyDashboard />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/tickets" element={<Tickets />} />
+                    <Route path="/tickets/:id" element={<TicketDetail />} />
+                    <Route path="/history" element={<GlobalHistory />} />
+                    <Route path="/sla" element={<SLAManagement />} />
+                    <Route path="/approvals" element={<Approvals />} />
+                    <Route path="/users" element={<Users />} />
+                    <Route path="/incident-categories" element={<IncidentCategoryManagement />} />
+                    <Route path="/timesheet" element={<Timesheet />} />
+                    <Route path="/timesheet/:weekStart" element={<Timesheet />} />
+                    <Route path="/timesheet/weekly" element={<TimesheetWeekly />} />
+                    <Route path="/timesheet/reports" element={<TimesheetReports />} />
+                    <Route path="/reports" element={<Reports />} />
+                    <Route path="/forecasting-planning" element={<ForecastingPlanning />} />
+                    <Route path="/catalog" element={<ServiceCatalog />} />
+                    <Route path="/cmdb" element={<CMDB />} />
+                    <Route path="/conversations" element={<Conversations />} />
+                    <Route path="/problem" element={<ProblemManagement />} />
+                    <Route path="/change" element={<ChangeManagement />} />
+                    <Route path="/kb" element={<KnowledgeBase />} />
+                    <Route path="/service-portal" element={<ServicePortal />} />
+                    <Route path="/calendar" element={<Calendar />} />
+                    <Route path="/access-control" element={<AccessControl />} />
+                    <Route path="/leaderboard" element={<Leaderboard />} />
+                    <Route path="/approved-tickets" element={<ApprovedTickets />} />
+                    <Route path="/companies" element={<Companies />} />
+                    <Route path="/companies/new" element={<Companies />} />
+                    <Route path="/companies/:id" element={<Companies />} />
+                    <Route path="/companies/:id/edit" element={<Companies />} />
+                    <Route path="/timesheet-approvals" element={<TimesheetApprovals />} />
+                    <Route path="/groups" element={<Groups />} />
+                    <Route path="/clear-users" element={<ClearUsers />} />
+                    <Route path="/email-integrations" element={<EmailIntegrations />} />
+                    <Route path="/branding" element={<BrandingSettings />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/activity-tracker" element={<ActivityTracker />} />
+                    <Route path="/data-analytics" element={<DataAnalytics />} />
+                    <Route path="/global-search" element={<GlobalSearch />} />
+                    <Route path="/meetings" element={<MeetingManagement />} />
+                    <Route path="/create-meeting" element={<CreateMeeting />} />
+                    <Route path="/ts-meeting/:tsmId/lobby" element={<TSMeetingLobby />} />
+                    <Route path="/ts-meeting/:tsmId/room" element={<TSMeetingRoom />} />
+                    <Route path="/calls" element={<CallLogs />} />
+                    <Route path="/calls/new" element={<CreateCall />} />
+                    <Route path="/calls/:id" element={<CallDetail />} />
+                  </Route>
+
+                  <Route path="*" element={<Navigate to="/" />} />
+                </Routes>
+              </Suspense>
+            </TabWorkspaceProvider>
             <TechnosprintPet />
             <AITrackerPet />
           </Router>

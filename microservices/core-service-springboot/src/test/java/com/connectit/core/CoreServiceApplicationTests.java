@@ -80,4 +80,94 @@ class CoreServiceApplicationTests {
     void simpleHash_consistentResults() {
         assertEquals(SimpleHash.hash("test123"), SimpleHash.hash("test123"));
     }
+
+    @Test
+    void dashboardLayout_crudOperations() {
+        String testUser = "user_test_uid";
+        String layoutJson = "[\"Open Tickets\", \"Closed Tickets\"]";
+        String id = "lay_test";
+
+        // Insert
+        jdbcTemplate.update(
+            "INSERT INTO settings_dashboard_layouts (id, user_uid, layout_json) VALUES (?, ?, ?)",
+            id, testUser, layoutJson
+        );
+
+        // Fetch
+        String fetched = jdbcTemplate.queryForObject(
+            "SELECT layout_json FROM settings_dashboard_layouts WHERE user_uid = ?",
+            String.class, testUser
+        );
+        assertEquals(layoutJson, fetched);
+
+        // Update
+        String updatedLayout = "[\"Open Tickets\"]";
+        jdbcTemplate.update(
+            "UPDATE settings_dashboard_layouts SET layout_json = ? WHERE user_uid = ?",
+            updatedLayout, testUser
+        );
+        String fetchedUpdated = jdbcTemplate.queryForObject(
+            "SELECT layout_json FROM settings_dashboard_layouts WHERE user_uid = ?",
+            String.class, testUser
+        );
+        assertEquals(updatedLayout, fetchedUpdated);
+
+        // Delete
+        jdbcTemplate.update("DELETE FROM settings_dashboard_layouts WHERE user_uid = ?", testUser);
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM settings_dashboard_layouts WHERE user_uid = ?",
+            Integer.class, testUser
+        );
+        assertEquals(0, count);
+    }
+
+    @Test
+    void planningModule_crudOperations() {
+        String testId = "tgt_test_123";
+        // Insert Target
+        jdbcTemplate.update(
+            "INSERT INTO planning_targets (id, target_type, target_period, metric_name, target_value, actual_value, assignee_uid) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            testId, "Global", "2026-Q3", "SLA Resolution Rate", 95.0, 92.5, "assignee_123"
+        );
+
+        // Fetch
+        Double targetVal = jdbcTemplate.queryForObject(
+            "SELECT target_value FROM planning_targets WHERE id = ?",
+            Double.class, testId
+        );
+        assertEquals(95.0, targetVal);
+
+        // Delete
+        jdbcTemplate.update("DELETE FROM planning_targets WHERE id = ?", testId);
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM planning_targets WHERE id = ?",
+            Integer.class, testId
+        );
+        assertEquals(0, count);
+    }
+
+    @Test
+    void calendarEvents_crudOperations() {
+        String testId = "evt_test_123";
+        // Insert Event
+        jdbcTemplate.update(
+            "INSERT INTO planning_calendar_events (id, title, event_type, event_date, details) VALUES (?, ?, ?, ?, ?)",
+            testId, "Test Release", "Release", java.sql.Date.valueOf("2026-06-16"), "Test Details"
+        );
+
+        // Fetch
+        String title = jdbcTemplate.queryForObject(
+            "SELECT title FROM planning_calendar_events WHERE id = ?",
+            String.class, testId
+        );
+        assertEquals("Test Release", title);
+
+        // Delete
+        jdbcTemplate.update("DELETE FROM planning_calendar_events WHERE id = ?", testId);
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM planning_calendar_events WHERE id = ?",
+            Integer.class, testId
+        );
+        assertEquals(0, count);
+    }
 }

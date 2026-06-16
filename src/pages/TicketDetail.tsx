@@ -17,6 +17,7 @@ import { SLADelayDialog } from "../components/SLADelayDialog";
 import { createDefaultSlaDelayMeta, getEffectiveSlaDelayState, type SlaDelayLogEntry, type SlaDelayMeta, type SlaDelayResponseType } from "../lib/slaDelayUtils";
 import { useActivityTracker } from "../contexts/ActivityTrackerContext";
 import { SaveActivityModal, type SessionFormType } from "../components/SaveActivityModal";
+import { useWorkspace, useCurrentTab } from "../components/WorkspaceLayout";
 
 export function TicketDetail() {
   const { id } = useParams();
@@ -26,7 +27,18 @@ export function TicketDetail() {
   const { status: trackerStatus, elapsed: trackerElapsed, startWatcher, stopWatcher, setSelectedIncident, entries: trackerEntries, summary: trackerSummary } = useActivityTracker();
   const isActiveSession = trackerStatus === 'active';
 
+  const currentTab = useCurrentTab();
+  const { setTabTitle } = useWorkspace();
+
   const [ticket, setTicket] = useState<any>(null);
+
+  useEffect(() => {
+    if (ticket && currentTab?.tabId && setTabTitle) {
+      const num = ticket.number || "Ticket";
+      const desc = ticket.short_description || ticket.title || "Details";
+      setTabTitle(currentTab.tabId, `${num}: ${desc}`);
+    }
+  }, [ticket, currentTab?.tabId, setTabTitle]);
   const [editedTicket, setEditedTicket] = useState<any>(null);
   const customFieldsRef = useRef<any>(null);
   const canEdit = profile?.role ? (ROLE_HIERARCHY[profile.role as Role] >= ROLE_HIERARCHY["agent"]) : false;

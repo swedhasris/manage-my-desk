@@ -528,3 +528,59 @@ CREATE TABLE IF NOT EXISTS company_feature_permissions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_company_feature (company_id, feature_id)
 ) ENGINE=InnoDB;
+
+-- ============================================================
+-- CALL LOGS TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS call_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    caller_name VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(50) NOT NULL,
+    email VARCHAR(255) NULL,
+    department VARCHAR(100) NULL,
+    subject VARCHAR(500) NOT NULL,
+    description TEXT NOT NULL,
+    call_type VARCHAR(50) NOT NULL,
+    priority VARCHAR(50) NOT NULL,
+    agent_uid VARCHAR(128) NOT NULL,
+    agent_name VARCHAR(255) NULL,
+    call_date_time TIMESTAMP NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    linked_ticket_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (linked_ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
+    INDEX idx_call_agent (agent_uid),
+    INDEX idx_call_status (status),
+    INDEX idx_call_ticket (linked_ticket_id)
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- CALL NOTES TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS call_notes (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    call_id BIGINT NOT NULL,
+    user_id VARCHAR(128) NOT NULL,
+    user_name VARCHAR(255) NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (call_id) REFERENCES call_logs(id) ON DELETE CASCADE,
+    INDEX idx_note_call (call_id)
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- CALL ACTIVITIES TABLE (AUDIT TIMELINE)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS call_activities (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    call_id BIGINT NOT NULL,
+    action VARCHAR(255) NOT NULL,
+    user_id VARCHAR(128) NOT NULL,
+    user_name VARCHAR(255) NULL,
+    details TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (call_id) REFERENCES call_logs(id) ON DELETE CASCADE,
+    INDEX idx_activity_call (call_id)
+) ENGINE=InnoDB;

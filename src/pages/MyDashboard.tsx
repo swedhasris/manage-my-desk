@@ -10,11 +10,13 @@ import MyTasksList from "../components/MyTasksList";
 import QuickActions from "../components/QuickActions";
 import { db } from "../lib/firebase";
 import { validateTicket, computeSla, dedupeTickets, auditLog, toDate, isBleachedTicket } from "../lib/dashboardUtils";
+import { CustomizableDashboard } from "../components/CustomizableDashboard";
 
 export function MyDashboard() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [data, setData] = useState<any>(null);
   const [breaches, setBreaches] = useState<any[]>([]);
+  const [customizedMode, setCustomizedMode] = useState(true);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -263,13 +265,30 @@ export function MyDashboard() {
           </h1>
           <p className="page-description">Real-time performance metrics and active tasks</p>
         </div>
-        <span className="text-[10px] text-muted-foreground bg-muted/30 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-border/40 font-bold self-start sm:self-auto">
-          Operator: <strong className="text-foreground">{user?.email || "User"}</strong>
-        </span>
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          <button
+            onClick={() => setCustomizedMode(!customizedMode)}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-border/40 hover:bg-muted/30"
+          >
+            Switch to {customizedMode ? "Classic Layout" : "Customizable Layout"}
+          </button>
+          <span className="text-[10px] text-muted-foreground bg-muted/30 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-border/40 font-bold">
+            Operator: <strong className="text-foreground">{user?.email || "User"}</strong>
+          </span>
+        </div>
       </div>
 
-      {/* Quick Actions */}
-      <QuickActions />
+      {customizedMode ? (
+        <CustomizableDashboard
+          data={data}
+          userUid={user.uid}
+          role={profile?.role || "user"}
+          validBreaches={validBreaches}
+        />
+      ) : (
+        <>
+          {/* Quick Actions */}
+          <QuickActions />
 
       {/* Analytics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -379,6 +398,8 @@ export function MyDashboard() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

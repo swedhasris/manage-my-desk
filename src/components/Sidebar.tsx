@@ -43,6 +43,7 @@ import {
   Eye,
   EyeOff,
   X,
+  PhoneCall,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,7 @@ interface MenuItem {
   adminOnly?: boolean;
   superAdminOnly?: boolean;
   ultraSuperAdminOnly?: boolean;
+  agentOrAdminOnly?: boolean;
   items?: MenuItem[];
   badge?: number;
   onClick?: () => void;
@@ -140,6 +142,7 @@ export function Sidebar() {
     {
       label: "Service Desk",
       items: [
+        { icon: HelpCircle, label: "Self-Service Portal", path: "/service-portal" },
         { icon: ShoppingCart, label: "Service Catalog", path: "/catalog" },
         { icon: BookOpen, label: "Knowledge Base", path: "/kb" },
         { icon: Clock, label: "SLA Policies", path: "/sla" },
@@ -173,6 +176,14 @@ export function Sidebar() {
       ]
     },
     {
+      label: "Call Management",
+      agentOrAdminOnly: true,
+      items: [
+        { icon: PhoneCall, label: "Call Logs", path: "/calls" },
+        { icon: PlusCircle, label: "Log New Call", path: "/calls/new" },
+      ]
+    },
+    {
       label: "Groups",
       items: profile?.role === "user"
         ? [
@@ -193,6 +204,7 @@ export function Sidebar() {
       adminOnly: true,
       items: [
         { icon: BarChart3, label: "Data Analytics", path: "/data-analytics" },
+        { icon: BarChart2, label: "Forecasting & Targets", path: "/forecasting-planning" },
       ]
     },
     {
@@ -238,6 +250,7 @@ export function Sidebar() {
     if (item.ultraSuperAdminOnly) return profile?.role === "ultra_super_admin";
     if (item.superAdminOnly) return profile?.role === "super_admin" || profile?.role === "ultra_super_admin";
     if (item.adminOnly) return profile?.role === "admin" || profile?.role === "super_admin" || profile?.role === "ultra_super_admin";
+    if (item.agentOrAdminOnly) return ["agent", "admin", "sub_admin", "super_admin", "ultra_super_admin"].includes(profile?.role || "");
     return true;
   };
 

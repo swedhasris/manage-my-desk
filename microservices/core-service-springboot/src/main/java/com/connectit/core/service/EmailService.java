@@ -79,7 +79,8 @@ public class EmailService {
             queueRepo.save(job);
             
             CompanyEmailConfig cfg = getConfigForTicket(job.getTicketId());
-            String fromAddress = cfg != null ? cfg.getEmailAddress() : defaultFrom;
+            // All outbound emails are sent from the centralized company email (info@technosprint.net)
+            String fromAddress = defaultFrom;
             
             try {
                 String inReplyTo = null;
@@ -366,53 +367,19 @@ public class EmailService {
     }
 
     private String sendMail(CompanyEmailConfig cfg, String to, String subject, String html, String ticketNumber, String inReplyTo, String references) throws Exception {
-        JavaMailSender activeSender = getActiveMailSender(cfg);
+        // ═══════════════════════════════════════════════════════════════════════
+        // CRITICAL: ALL outbound emails MUST be sent from info@technosprint.net
+        // We ALWAYS use the default Spring Mail sender (configured in application.properties)
+        // and NEVER use employee/company-specific SMTP configs for outbound mail.
+        // Company configs are used for INBOUND polling only.
+        // ═══════════════════════════════════════════════════════════════════════
+        JavaMailSender activeSender = getActiveMailSender(null); // Force default sender
         MimeMessage msg = activeSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");
         
-        String fromAddress = (cfg != null && cfg.getEmailAddress() != null && !cfg.getEmailAddress().isBlank())
-            ? cfg.getEmailAddress()
-            : defaultFrom;
-        String fromName = (cfg != null && cfg.getCompanyName() != null && !cfg.getCompanyName().isBlank())
-            ? cfg.getCompanyName() + " Support"
-            : defaultFromName;
-
-        // Validation Rules:
-        // - Sender email must come from Email Integration settings.
-        // - Sender email must not come from ticket caller.
-        // - Sender email must not come from company contact email.
-        // - Sender email must not come from requestor email.
-        if (ticketNumber != null) {
-            try {
-                Map<String, Object> ticketInfo = jdbcTemplate.queryForMap(
-                    "SELECT t.caller_email, c.email as company_email, t.created_by " +
-                    "FROM tickets t " +
-                    "LEFT JOIN companies c ON t.company_id = c.id " +
-                    "WHERE t.ticket_number = ?", ticketNumber);
-                
-                String callerEmail = (String) ticketInfo.get("caller_email");
-                String companyEmail = (String) ticketInfo.get("company_email");
-                String requestor = (String) ticketInfo.get("created_by");
-                
-                if (fromAddress != null) {
-                    boolean matchesCaller = fromAddress.equalsIgnoreCase(callerEmail);
-                    boolean matchesCompany = fromAddress.equalsIgnoreCase(companyEmail);
-                    boolean matchesRequestor = requestor != null && requestor.contains("@") && fromAddress.equalsIgnoreCase(requestor);
-                    
-                    if (matchesCaller || matchesCompany || matchesRequestor) {
-                        log.warn("[SMTP] Guard Triggered: Sender email ({}) matches caller, company, or requestor email. Forcing to defaultFrom.", fromAddress);
-                        fromAddress = defaultFrom;
-                        
-                        if (fromAddress.equalsIgnoreCase(callerEmail) || fromAddress.equalsIgnoreCase(companyEmail) || (requestor != null && requestor.contains("@") && fromAddress.equalsIgnoreCase(requestor))) {
-                            CompanyEmailConfig active = getActiveConfig();
-                            if (active != null && active.getEmailAddress() != null && !active.getEmailAddress().isBlank()) {
-                                fromAddress = active.getEmailAddress();
-                            }
-                        }
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
+        // Always use the centralized company email as sender
+        String fromAddress = defaultFrom;       // info@technosprint.net
+        String fromName = defaultFromName;      // TechnoSprint Support
 
         helper.setFrom(fromAddress, fromName);
         helper.setReplyTo(fromAddress, fromName);
@@ -423,11 +390,8 @@ public class EmailService {
             msg.addHeader("X-Ticket-Number", ticketNumber);
         }
         
-        // Generate Message-ID
+        // Generate Message-ID using the company domain
         String cleanDomain = "technosprint.net";
-        if (fromAddress.contains("@")) {
-            cleanDomain = fromAddress.split("@")[1];
-        }
         String messageId = "<" + UUID.randomUUID().toString() + "@" + cleanDomain + ">";
         msg.setHeader("Message-ID", messageId);
         

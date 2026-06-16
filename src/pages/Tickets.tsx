@@ -3,7 +3,7 @@ import { collection, addDoc, query, onSnapshot, updateDoc, doc, serverTimestamp,
 import { db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { ROLE_HIERARCHY, Role } from "../lib/roles";
-import { Plus, Filter, MoreVertical, Search, Edit, Trash2, Users, Mic } from "lucide-react";
+import { Plus, Filter, MoreVertical, Search, Edit, Trash2, Users, Mic, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatDate } from "@/lib/utils";
 import { useServiceCatalog } from "../lib/serviceCatalog";
@@ -11,7 +11,8 @@ import { calculateSLADeadline } from "../lib/slaUtils";
 import { createSpeechController } from "../lib/speechToEnglish";
 import { getEffectiveSlaDelayState } from "../lib/slaDelayUtils";
 
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { ContextMenu } from "../components/ContextMenu";
 import { CREATE_INCIDENT_FORM_DEFAULTS, DEFAULT_COMPANY_FEATURE_PERMISSION } from "../lib/createIncidentFeatures";
 
 function toMs(val: any): number {
@@ -26,12 +27,24 @@ import { SLATimer } from "../components/SLATimer";
 
 export function Tickets() {
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
   const { categories, subcategories, serviceProviders, groups, members } = useServiceCatalog();
   const [searchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<'hybrid' | 'table'>('hybrid');
   const [showFilters, setShowFilters] = useState(false);
   const filter = searchParams.get("filter");
   const action = searchParams.get("action");
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, ticketId: string, ticketNumber: string } | null>(null);
+
+  const handleContextMenu = (e: React.MouseEvent, ticket: any) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      ticketId: ticket.id,
+      ticketNumber: ticket.number || ticket.id
+    });
+  };
 
   const [tickets, setTickets] = useState<any[]>([]);
   const [agents, setAgents] = useState<any[]>([]);
@@ -872,7 +885,7 @@ export function Tickets() {
                 }).toISOString() : undefined);
 
               return (
-                <div key={ticket.id} className={cn("glass-panel rounded-2xl p-5 flex flex-col justify-between border border-border/80 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-blue-500/30 group", priorityClass)}>
+                <div key={ticket.id} onContextMenu={(e) => handleContextMenu(e, ticket)} className={cn("glass-panel rounded-2xl p-5 flex flex-col justify-between border border-border/80 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-blue-500/30 group", priorityClass)}>
                   <div>
                     <div className="flex items-center justify-between mb-3.5">
                       <Link to={`/tickets/${ticket.id}`} className="font-mono text-[10px] font-black uppercase tracking-wider bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 px-2 py-0.5 rounded border border-blue-500/20 hover:underline">
@@ -883,9 +896,11 @@ export function Tickets() {
                       </span>
                     </div>
 
-                    <h4 className="font-outfit font-bold text-sm text-foreground line-clamp-2 mb-2 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors" title={ticket.title}>
-                      {ticket.title}
-                    </h4>
+                    <Link to={`/tickets/${ticket.id}`} className="block hover:underline">
+                      <h4 className="font-outfit font-bold text-sm text-foreground line-clamp-2 mb-2 group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors" title={ticket.title}>
+                        {ticket.title}
+                      </h4>
+                    </Link>
 
                     <div className="text-[10px] text-muted-foreground space-y-1.5 my-3 bg-muted/30 dark:bg-black/10 p-2.5 rounded-xl border border-border/30 dark:border-white/5">
                       <div className="flex justify-between"><span className="font-semibold uppercase tracking-wider text-muted-foreground text-[8px]">Reporting User:</span> <span className="text-foreground font-medium truncate max-w-[150px]">{ticket.caller}</span></div>
@@ -936,6 +951,9 @@ export function Tickets() {
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <a href={`/tickets/${ticket.id}`} target="_blank" rel="noreferrer" className="p-1.5 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors border border-transparent hover:border-blue-500/20" title="Open in New Tab">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
                         <Link to={`/tickets/${ticket.id}`} className="p-1.5 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors border border-transparent hover:border-blue-500/20" title="Edit Ticket">
                           <Edit className="w-3.5 h-3.5" />
                         </Link>
@@ -1006,7 +1024,7 @@ export function Tickets() {
                     }).toISOString() : undefined);
 
                   return (
-                    <tr key={ticket.id} className="hover:bg-blue-500/5 transition-colors font-outfit">
+                    <tr key={ticket.id} onContextMenu={(e) => handleContextMenu(e, ticket)} className="hover:bg-blue-500/5 transition-colors font-outfit">
                       <td className="p-3">
                         <Link to={`/tickets/${ticket.id}`} className="font-mono text-xs font-bold text-blue-500 dark:text-blue-400 hover:underline">
                           {ticket.number || `INC000${idx + 1}`}
@@ -1050,6 +1068,9 @@ export function Tickets() {
                       </td>
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <a href={`/tickets/${ticket.id}`} target="_blank" rel="noreferrer" className="p-1.5 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors" title="Open in New Tab">
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
                           <Link to={`/tickets/${ticket.id}`} className="p-1.5 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors" title="Edit Ticket">
                             <Edit className="w-3.5 h-3.5" />
                           </Link>
@@ -1824,6 +1845,42 @@ export function Tickets() {
             </form>
           </div>
         </div>
+      )}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={[
+            {
+              label: "Open Incident",
+              icon: <Edit size={14} />,
+              onClick: () => navigate(`/tickets/${contextMenu.ticketId}`)
+            },
+            {
+              label: "Open in New Tab",
+              icon: <ExternalLink size={14} />,
+              onClick: () => window.open(`/tickets/${contextMenu.ticketId}`, "_blank")
+            },
+            {
+              label: "Copy Incident Key",
+              icon: <span className="text-[10px] font-mono">ID</span>,
+              onClick: () => {
+                navigator.clipboard.writeText(contextMenu.ticketNumber);
+              }
+            },
+            {
+              label: "Delete Incident",
+              icon: <Trash2 size={14} className="text-red-500" />,
+              disabled: profile?.role !== "admin" && profile?.role !== "super_admin",
+              onClick: async () => {
+                if (confirm(`Are you sure you want to delete ticket ${contextMenu.ticketNumber}?`)) {
+                  await deleteDoc(doc(db, "tickets", contextMenu.ticketId));
+                }
+              }
+            }
+          ]}
+        />
       )}
     </div>
   );

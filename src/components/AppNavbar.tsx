@@ -10,6 +10,8 @@ import { useTheme } from "../contexts/ThemeContext";
 import { useActivityTracker } from "../contexts/ActivityTrackerContext";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "./WorkspaceLayout";
+
 
 function Highlight({ text, query }: { text: string; query: string }) {
   if (!query || !text) return <>{text}</>;
@@ -54,6 +56,7 @@ export function AppNavbar() {
   const { user, profile } = useAuth();
   const { theme, setTheme, resolvedTheme, lightBrightness, setLightBrightness } = useTheme();
   const { status, elapsed, startWatcher, stopWatcher } = useActivityTracker();
+  const { isTabsEnabled, toggleTabsEnabled } = useWorkspace();
   const [notificationCount, setNotificationCount] = React.useState(0);
   const [notifications, setNotifications] = React.useState<any[]>([]);
   const [isOpen, setIsOpen] = React.useState(false);
@@ -983,6 +986,19 @@ export function AppNavbar() {
       </div>
 
       <div className="flex items-center gap-4">
+
+        {/* Workspace Tabs Toggle */}
+        <div className="flex items-center gap-2 border-r border-border/30 pr-4">
+          <label className="flex items-center gap-2 text-[10px] font-outfit text-muted-foreground hover:text-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isTabsEnabled}
+              onChange={() => toggleTabsEnabled()}
+              className="rounded border-muted-foreground/30 bg-muted/20 text-cyan-400 focus:ring-cyan-500 w-3.5 h-3.5 cursor-pointer"
+            />
+            <span className="hidden md:inline font-bold uppercase tracking-wider">Workspace Tabs</span>
+          </label>
+        </div>
 
         {/* ── Global AI Activity Tracker Toggle ── */}
         {!isActive ? (
