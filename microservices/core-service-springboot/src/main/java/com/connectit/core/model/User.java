@@ -57,6 +57,9 @@ public class User {
     private LocalDateTime updatedAt;
     private LocalDateTime lastLogin;
 
+    @Column(name = "restricted_modules", columnDefinition = "TEXT")
+    private String restrictedModules;
+
     @PrePersist
     public void prePersist() {
         createdAt = LocalDateTime.now();

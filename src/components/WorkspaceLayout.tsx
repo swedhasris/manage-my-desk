@@ -11,6 +11,48 @@ import {
 } from "lucide-react";
 import { TabContentMapper } from "./TabContentMapper";
 import { cn } from "@/lib/utils";
+import { useAuth } from "../contexts/AuthContext";
+import { AccessRestricted } from "./AccessRestricted";
+import { useTickets } from "../contexts/TicketsContext";
+
+// Helper to map paths to module keys for access restriction
+function getModuleKeyForPath(path: string): string | null {
+  const cleanPath = path.split("?")[0];
+  if (cleanPath === "/tickets") return "tickets";
+  if (cleanPath.startsWith("/tickets/")) return "tickets";
+  if (cleanPath === "/conversations") return "conversations";
+  if (cleanPath === "/catalog") return "catalog";
+  if (cleanPath === "/kb") return "kb";
+  if (cleanPath === "/approvals") return "approvals";
+  if (cleanPath === "/approved-tickets") return "approvals";
+  if (cleanPath === "/history") return "history";
+  if (cleanPath.startsWith("/timesheet")) {
+    if (cleanPath.includes("/reports")) {
+      if (path.includes("status=Approved")) return "approved_timesheet";
+      return "timesheet_reports";
+    }
+    return "timesheet";
+  }
+  if (cleanPath === "/timesheet-approvals") return "timesheet_approvals";
+  if (cleanPath === "/problem") return "problem";
+  if (cleanPath === "/change") return "change";
+  if (cleanPath === "/reports") return "reports";
+  if (cleanPath === "/forecasting-planning") return "reports";
+  if (cleanPath === "/data-analytics") return "reports";
+  if (cleanPath === "/sla") return "sla";
+  if (cleanPath === "/users") return "users";
+  if (cleanPath === "/settings") return "settings";
+  if (cleanPath === "/branding") return "settings";
+  if (cleanPath === "/incident-categories") return "settings";
+  if (cleanPath === "/access-control") return "access_control";
+  return null;
+}
+
+export function isRestrictedPath(path: string, restrictedModules: string[]): boolean {
+  if (!restrictedModules || restrictedModules.length === 0) return false;
+  const key = getModuleKeyForPath(path);
+  return key ? restrictedModules.includes(key) : false;
+}
 
 export interface Tab {
   id: string;
@@ -474,6 +516,8 @@ export function WorkspaceLayout() {
   const { isTabsEnabled, tabs, activeTabId, openTab, closeTab, pinTab, unpinTab, duplicateTab, closeOthers, closeAll, reorder, switchToTab } = useWorkspace();
   const navigate = useNavigate();
   const location = useLocation();
+  const { profile } = useAuth();
+  const restrictedModules = profile?.restrictedModules || [];
 
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<{
@@ -695,7 +739,11 @@ export function WorkspaceLayout() {
       {/* Viewport render area */}
       <div className="flex-grow min-h-0 overflow-y-auto">
         {!isTabsEnabled ? (
-          <Outlet />
+          isRestrictedPath(location.pathname + location.search, restrictedModules) ? (
+            <AccessRestricted />
+          ) : (
+            <Outlet />
+          )
         ) : (
           <div className="w-full h-full relative">
             {tabs.map((tab) => (

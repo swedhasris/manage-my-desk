@@ -33,6 +33,23 @@ public class UserController {
     @PostMapping("/users")
     public ResponseEntity<?> create(@RequestBody Map<String,Object> body) {
         try {
+            String restrictedModulesStr = "";
+            if (body.get("restrictedModules") != null) {
+                Object val = body.get("restrictedModules");
+                if (val instanceof List) {
+                    restrictedModulesStr = String.join(",", (List<String>) val);
+                } else if (val instanceof String) {
+                    restrictedModulesStr = (String) val;
+                }
+            } else if (body.get("restricted_modules") != null) {
+                Object val = body.get("restricted_modules");
+                if (val instanceof List) {
+                    restrictedModulesStr = String.join(",", (List<String>) val);
+                } else if (val instanceof String) {
+                    restrictedModulesStr = (String) val;
+                }
+            }
+
             User user = User.builder()
                 .uid((String) body.get("uid"))
                 .name((String) body.get("name"))
@@ -45,6 +62,7 @@ public class UserController {
                 .passwordHash(body.get("password_hash") != null
                     ? (String) body.get("password_hash")
                     : body.get("password") != null ? SimpleHash.hash((String) body.get("password")) : null)
+                .restrictedModules(restrictedModulesStr)
                 .build();
             return ResponseEntity.status(201).body(serialize(userService.create(user)));
         } catch (Exception e) {
@@ -64,6 +82,21 @@ public class UserController {
             if (body.get("is_active")  != null) updates.setIsActive(Boolean.parseBoolean(body.get("is_active").toString()));
             if (body.get("password")   != null) updates.setPasswordHash(SimpleHash.hash((String) body.get("password")));
             if (body.get("password_hash") != null) updates.setPasswordHash((String) body.get("password_hash"));
+            if (body.get("restrictedModules") != null) {
+                Object val = body.get("restrictedModules");
+                if (val instanceof List) {
+                    updates.setRestrictedModules(String.join(",", (List<String>) val));
+                } else if (val instanceof String) {
+                    updates.setRestrictedModules((String) val);
+                }
+            } else if (body.get("restricted_modules") != null) {
+                Object val = body.get("restricted_modules");
+                if (val instanceof List) {
+                    updates.setRestrictedModules(String.join(",", (List<String>) val));
+                } else if (val instanceof String) {
+                    updates.setRestrictedModules((String) val);
+                }
+            }
             return ResponseEntity.ok(serialize(userService.update(uid, updates)));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error","Failed to update user: " + e.getMessage()));
@@ -130,11 +163,11 @@ public class UserController {
                 "Password Changed",
                 null,
                 "<p>Hello " + user.getName() + ",</p>" +
-                "<p>The password for your Connect IT account has been successfully changed.</p>" +
+                "<p>The password for your Manage My Desk account has been successfully changed.</p>" +
                 "<p>If you did not make this change, please contact your administrator immediately.</p>",
                 null
             );
-            emailService.sendAsync(user.getEmail(), "Connect IT - Password Reset Successful", emailBody);
+            emailService.sendAsync(user.getEmail(), "Manage My Desk - Password Reset Successful", emailBody);
 
             return ResponseEntity.ok(Map.of("success", true, "message", "Password reset successfully."));
         } catch (Exception e) {
@@ -155,6 +188,13 @@ public class UserController {
         m.put("is_demo",     u.getIsDemo());
         m.put("created_at",  u.getCreatedAt());
         m.put("last_login",  u.getLastLogin());
+
+        List<String> modulesList = new ArrayList<>();
+        if (u.getRestrictedModules() != null && !u.getRestrictedModules().isBlank()) {
+            modulesList = Arrays.asList(u.getRestrictedModules().split(","));
+        }
+        m.put("restrictedModules", modulesList);
+        m.put("restricted_modules", u.getRestrictedModules() != null ? u.getRestrictedModules() : "");
         return m;
     }
 }

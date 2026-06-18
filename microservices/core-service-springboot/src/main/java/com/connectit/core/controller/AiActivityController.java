@@ -368,7 +368,7 @@ public class AiActivityController {
                 "Analyze the user's current work activity using the provided metadata and screenshot (if available).\n" +
                 "Determine:\n" +
                 "1. The activity category. Choose EXACTLY one from: [\"Ticket Work\", \"Documentation\", \"System Maintenance\", \"Meeting\", \"Communication\", \"General Work\"].\n" +
-                "2. A short, professional, specific one-sentence description of the user's active task (e.g., \"Reviewing incident ticket details on ConnectIT\", \"Writing code in Visual Studio Code\", \"Communicating with team in Slack\").\n" +
+                "2. A short, professional, specific one-sentence description of the user's active task (e.g., \"Reviewing incident ticket details on Manage My Desk\", \"Writing code in Visual Studio Code\", \"Communicating with team in Slack\").\n" +
                 "3. A confidence score between 0.0 and 1.0.\n" +
                 "4. The detected application name.\n" +
                 "5. The detected website domain/name (if browser is active).\n\n" +
@@ -413,7 +413,7 @@ public class AiActivityController {
             description = "Writing and debugging code in editor";
         } else if (lowerTitle.contains("ticket") || lowerTitle.contains("incident") || lowerTitle.contains("inc")) {
             activity = "Ticket Work";
-            description = "Reviewing ticket details in Connect IT";
+            description = "Reviewing ticket details in Manage My Desk";
         } else if (lowerApp.contains("gmail") || lowerApp.contains("mail") || lowerApp.contains("outlook")) {
             activity = "Communication";
             description = "Reading and responding to customer emails";
@@ -560,7 +560,7 @@ public class AiActivityController {
         String fallbackResponse = "Thanks for asking! I'm Kiru, your assistant. I am analyzing: \"" + message + "\". Based on your context, please make sure your SLA policies are updated and that database tables have channel columns properly defined.";
 
         try {
-            String prompt = "You are Kiru, an AI assistant for ConnectIT / Nexus, an advanced IT ticketing and timesheet platform.\n" +
+            String prompt = "You are Kiru, an AI assistant for Manage My Desk / Nexus, an advanced IT ticketing and timesheet platform.\n" +
                     "Help the user with their question. Be professional, friendly, and concise.\n" +
                     "Conversation History:\n" +
                     objectMapper.writeValueAsString(history) + "\n\n" +

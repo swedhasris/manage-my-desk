@@ -21,7 +21,7 @@ export function CustomerStories() {
               Trusted by the world's leading organizations
             </h2>
             <p className="text-lg text-text-dim">
-              See how companies across every industry are using Connect to transform their business and deliver extraordinary results.
+              See how companies across every industry are using Manage My Desk to transform their business and deliver extraordinary results.
             </p>
           </div>
           <a href="#" className="text-lg font-semibold text-sn-green hover:underline">
@@ -40,14 +40,14 @@ export function CustomerStories() {
             <div className="absolute inset-0 flex flex-col justify-end p-8 bg-gradient-to-t from-sn-dark to-transparent">
               <span className="mb-2 text-[11px] font-bold uppercase tracking-widest text-sn-green">Case Study</span>
               <h3 className="mb-4 text-2xl font-bold">How a global retailer transformed their customer service with AI</h3>
-              <p className="text-text-dim">"Connect has completely changed how we interact with our customers, reducing response times by 40%."</p>
+              <p className="text-text-dim">"Manage My Desk has completely changed how we interact with our customers, reducing response times by 40%."</p>
             </div>
           </div>
           
           <div className="flex flex-col gap-8">
             <div className="rounded-[12px] border border-white/10 bg-white/5 p-8">
               <blockquote className="mb-6 text-xl font-medium italic text-white">
-                "The Connect platform is the backbone of our digital transformation journey. It allows us to move faster and innovate more effectively."
+                "The Manage My Desk platform is the backbone of our digital transformation journey. It allows us to move faster and innovate more effectively."
               </blockquote>
               <div className="flex items-center gap-4">
                 <div className="h-12 w-12 rounded-full bg-white/10" />

@@ -1,4 +1,7 @@
 import React, { Suspense, lazy, useMemo } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { AccessRestricted } from "./AccessRestricted";
+import { isRestrictedPath } from "./WorkspaceLayout";
 
 // Lazy load page components to share chunks with App.tsx
 const Dashboard = lazy(() => import("../pages/Dashboard").then(m => ({ default: m.Dashboard })));
@@ -164,7 +167,15 @@ function resolveComponent(path: string): React.ReactNode {
 }
 
 export function TabContentMapper({ path }: { path: string }) {
-  const component = useMemo(() => resolveComponent(path), [path]);
+  const { profile } = useAuth();
+  const restrictedModules = profile?.restrictedModules || [];
+
+  const component = useMemo(() => {
+    if (isRestrictedPath(path, restrictedModules)) {
+      return <AccessRestricted />;
+    }
+    return resolveComponent(path);
+  }, [path, restrictedModules]);
 
   return (
     <Suspense fallback={

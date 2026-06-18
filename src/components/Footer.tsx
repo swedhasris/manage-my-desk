@@ -27,11 +27,11 @@ export function Footer() {
           <div className="lg:col-span-1">
             <a href="/" className="mb-8 block">
               <span className="text-2xl font-bold tracking-tighter text-sn-green">
-                connect
+                Manage My Desk
               </span>
             </a>
             <p className="mb-8 text-sm text-gray-400">
-              Connect is making the world of work, work better for people. Our cloud-based platform and solutions deliver digital workflows that create great experiences and unlock productivity.
+              Manage My Desk is making the world of work, work better for people. Our cloud-based platform and solutions deliver digital workflows that create great experiences and unlock productivity.
             </p>
             <div className="flex gap-4">
               <a href="#" className="text-gray-400 hover:text-sn-green"><Linkedin className="h-5 w-5" /></a>
@@ -68,7 +68,7 @@ export function Footer() {
             <a href="#" className="hover:text-white">Sitemap</a>
             <a href="#" className="hover:text-white">Modern Slavery Statement</a>
           </div>
-          <p>© 2024 Connect, Inc. All rights reserved.</p>
+          <p>© 2024 Manage My Desk, Inc. All rights reserved.</p>
         </div>
       </div>
     </footer>

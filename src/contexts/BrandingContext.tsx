@@ -19,9 +19,9 @@ interface BrandingContextType {
 }
 
 const defaultBranding: BrandingSettings = {
-  companyName: "Connect",
-  logoBase64: null,
-  logoType: null,
+  companyName: "Manage My Desk",
+  logoBase64: "/manage_my_desk_logo.jpg",
+  logoType: "image/jpeg",
 };
 
 const BrandingContext = createContext<BrandingContextType | undefined>(undefined);

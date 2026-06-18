@@ -134,9 +134,15 @@ export function Register() {
 
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden relative z-10">
         <div className="bg-sn-sidebar p-10 text-white text-center relative">
-          <div className="w-20 h-20 bg-sn-green rounded-2xl flex items-center justify-center font-bold text-4xl text-sn-dark mx-auto mb-4 shadow-xl transform rotate-3">C</div>
+          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center font-bold text-4xl text-sn-dark mx-auto mb-4 shadow-xl transform rotate-3 overflow-hidden">
+            <img 
+              src="/manage_my_desk_logo.jpg" 
+              alt="Manage My Desk Logo" 
+              className="w-full h-full object-contain" 
+            />
+          </div>
           <h1 className="text-3xl font-extrabold tracking-tight">Create Account</h1>
-          <p className="text-white/60 text-sm mt-3 font-medium">Join the Connect IT Service Portal</p>
+          <p className="text-white/60 text-sm mt-3 font-medium">Join the Manage My Desk Service Portal</p>
           
           <div className="absolute bottom-0 left-0 w-full h-1 bg-white/5">
              <div className="h-full bg-sn-green w-1/3 shadow-[0_0_10px_#81B532]" />

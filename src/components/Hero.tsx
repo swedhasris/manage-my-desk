@@ -17,7 +17,7 @@ export function Hero() {
               Now Platform Vancouver Release
             </span>
             <h1 className="text-5xl font-bold leading-[1.1] tracking-tight lg:text-[56px]">
-              The world works with Connect.
+              The world works with Manage My Desk.
             </h1>
             <p className="max-w-xl text-lg leading-[1.6] text-text-dim lg:text-[18px]">
               The intelligent platform for digital transformation. Automate processes, unify data, and create better experiences for employees and customers.
@@ -44,7 +44,7 @@ export function Hero() {
             <div className="relative h-[480px] w-full overflow-hidden rounded-[12px] border border-white/10 bg-white/5 p-1">
               <img
                 src="https://picsum.photos/seed/vancouver/1200/800"
-                alt="Connect Platform"
+                alt="Manage My Desk Platform"
                 className="h-full w-full rounded-[8px] object-cover opacity-60"
                 referrerPolicy="no-referrer"
               />

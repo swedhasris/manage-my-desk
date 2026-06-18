@@ -344,7 +344,7 @@ async function fetchFallbackData(path: string, queryObj?: any): Promise<any[]> {
             userEmailMap.set(uid, email);
             userNameMap.set(uid, name);
           }
-          return { id: uid, uid, name, email, role: u.role || "user", phone: u.phone || "", passwordHash: u.password_hash || "" };
+          return { id: uid, uid, name, email, role: u.role || "user", phone: u.phone || "", passwordHash: u.password_hash || "", restrictedModules: u.restrictedModules || [] };
         });
       } else if (path === "settings_groups") {
         const res = await fetch("/api/settings_groups");
@@ -677,35 +677,50 @@ export async function updateDoc(docRef: any, data: any): Promise<void> {
   }
 
   if (path === "users") {
-    await fetch(`/api/users/${id}`, {
+    const res = await fetch(`/api/users/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      try {
+        const errObj = JSON.parse(errText);
+        throw new Error(errObj.error || `Failed to update user (HTTP ${res.status})`);
+      } catch {
+        throw new Error(errText || `Failed to update user (HTTP ${res.status})`);
+      }
+    }
     return;
   }
 
   if (path === "company_feature_permissions") {
-    try {
-      await fetch("/api/feature-permissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-    } catch (e) {
-      console.error("[API] Error updating feature permissions:", e);
+    const res = await fetch("/api/feature-permissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      try {
+        const errObj = JSON.parse(errText);
+        throw new Error(errObj.error || `Failed to update feature permissions (HTTP ${res.status})`);
+      } catch {
+        throw new Error(errText || `Failed to update feature permissions (HTTP ${res.status})`);
+      }
     }
     return;
   }
 
   // Generic update
-  try {
-    await fetch(`/api/${path}/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-  } catch {}
+  const res = await fetch(`/api/${path}/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to update ${path} (HTTP ${res.status})`);
+  }
 }
 
 export async function setDoc(docRef: any, data: any, options?: any): Promise<void> {
@@ -721,78 +736,97 @@ export async function setDoc(docRef: any, data: any, options?: any): Promise<voi
 
   if (path === "users") {
     // If merge, use PUT; otherwise POST
+    let res;
     if (options?.merge && id) {
-      await fetch(`/api/users/${id}`, {
+      res = await fetch(`/api/users/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
     } else {
-      await fetch("/api/users", {
+      res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+    }
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      try {
+        const errObj = JSON.parse(errText);
+        throw new Error(errObj.error || `Failed to set user (HTTP ${res.status})`);
+      } catch {
+        throw new Error(errText || `Failed to set user (HTTP ${res.status})`);
+      }
     }
     return;
   }
 
   if (path === "company_feature_permissions") {
-    try {
-      await fetch("/api/feature-permissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-    } catch (e) {
-      console.error("[API] Error saving feature permissions:", e);
+    const res = await fetch("/api/feature-permissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      try {
+        const errObj = JSON.parse(errText);
+        throw new Error(errObj.error || `Failed to save feature permissions (HTTP ${res.status})`);
+      } catch {
+        throw new Error(errText || `Failed to save feature permissions (HTTP ${res.status})`);
+      }
     }
     return;
   }
 
   if (path === "settings_groups") {
-    await fetch("/api/settings_groups", {
+    const res = await fetch("/api/settings_groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, ...data }),
     });
+    if (!res.ok) {
+      throw new Error(`Failed to save settings group (HTTP ${res.status})`);
+    }
     return;
   }
 
   if (path === "settings" && id === "branding") {
-    try {
-      let currentData = { companyName: "Connect", logoBase64: null, logoType: null };
-      const getRes = await fetch("/api/settings/branding");
-      if (getRes.ok) currentData = await getRes.json();
-      const newData = { ...currentData, ...data };
-      await fetch("/api/settings/branding", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newData),
-      });
-    } catch (e) {
-      console.error("[API] Error saving branding:", e);
+    let currentData = { companyName: "Connect", logoBase64: null, logoType: null };
+    const getRes = await fetch("/api/settings/branding");
+    if (getRes.ok) currentData = await getRes.json();
+    const newData = { ...currentData, ...data };
+    const res = await fetch("/api/settings/branding", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newData),
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to save branding (HTTP ${res.status})`);
     }
     notifyListeners("settings", "branding");
     return;
   }
 
   // Generic setDoc
-  try {
-    if (id) {
-      await fetch(`/api/${path}/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-    } else {
-      await fetch(`/api/${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...data }),
-      });
-    }
-  } catch {}
+  let res;
+  if (id) {
+    res = await fetch(`/api/${path}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  } else {
+    res = await fetch(`/api/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...data }),
+    });
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to set ${path} (HTTP ${res.status})`);
+  }
 }
 
 export async function deleteDoc(docRef: any): Promise<void> {

@@ -6,6 +6,8 @@
  */
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { ROLE_HIERARCHY, ROLE_LABELS, Role } from "../lib/roles";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 interface AuthContextType {
   user: any | null;
@@ -27,6 +29,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<any | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Sync user profile from Firestore/DB in real time
+  useEffect(() => {
+    if (!user?.uid) {
+      setProfile(null);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(
+      doc(db, "users", user.uid),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const merged = {
+            uid: user.uid,
+            name: data.name || user.displayName || user.email?.split("@")[0] || "User",
+            email: data.email || user.email,
+            role: data.role || "user",
+            restrictedModules: data.restrictedModules || [],
+            disabled: data.disabled || false,
+            phone: data.phone || "",
+          };
+          setProfile(merged);
+          localStorage.setItem("demo_user", JSON.stringify(merged));
+        } else {
+          setProfile((prev: any) => prev || {
+            uid: user.uid,
+            name: user.displayName || user.email?.split("@")[0] || "User",
+            email: user.email,
+            role: "user",
+            restrictedModules: [],
+          });
+        }
+      },
+      (error) => {
+        console.error("Error syncing user profile:", error);
+      }
+    );
+
+    return unsubscribe;
+  }, [user?.uid]);
 
   // Sync auth state to localStorage so standalone pages (timesheet) can read it
   useEffect(() => {

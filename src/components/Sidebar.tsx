@@ -58,6 +58,7 @@ interface MenuItem {
   icon?: any;
   label: string;
   path?: string;
+  moduleKey?: string;
   adminOnly?: boolean;
   superAdminOnly?: boolean;
   ultraSuperAdminOnly?: boolean;
@@ -129,8 +130,8 @@ export function Sidebar() {
           { icon: LayoutDashboard, label: "Personal Dashboard", path: "/my-dashboard" },
           { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },
           { icon: CalendarDays, label: "Calendar", path: "/calendar" },
-          { icon: Ticket, label: "My Tickets", path: "/timesheet" },
-          { icon: BarChart2, label: "Timesheet Reports", path: "/timesheet/reports" },
+          { icon: Ticket, label: "My Tickets", path: "/timesheet", moduleKey: "timesheet" },
+          { icon: BarChart2, label: "Timesheet Reports", path: "/timesheet/reports", moduleKey: "timesheet_reports" },
           { icon: Monitor, label: "AI Activity Tracker", path: "/activity-tracker" },
           { icon: KeyRound, label: "Reset Password", onClick: () => setShowResetModal(true) },
         ]
@@ -138,8 +139,8 @@ export function Sidebar() {
           { icon: LayoutDashboard, label: "Personal Dashboard", path: "/" },
           { icon: Trophy, label: "Leaderboard", path: "/leaderboard" },
           { icon: CalendarDays, label: "Calendar", path: "/calendar" },
-          { icon: Ticket, label: "My Tickets", path: "/timesheet" },
-          { icon: BarChart2, label: "Timesheet Reports", path: "/timesheet/reports" },
+          { icon: Ticket, label: "My Tickets", path: "/timesheet", moduleKey: "timesheet" },
+          { icon: BarChart2, label: "Timesheet Reports", path: "/timesheet/reports", moduleKey: "timesheet_reports" },
           { icon: Monitor, label: "AI Activity Tracker", path: "/activity-tracker" },
           { icon: KeyRound, label: "Reset Password", onClick: () => setShowResetModal(true) },
         ]
@@ -162,29 +163,29 @@ export function Sidebar() {
       label: "Service Desk",
       items: [
         { icon: HelpCircle, label: "Self-Service Portal", path: "/service-portal" },
-        { icon: ShoppingCart, label: "Service Catalog", path: "/catalog" },
-        { icon: BookOpen, label: "Knowledge Base", path: "/kb" },
-        { icon: Clock, label: "SLA Policies", path: "/sla" },
-        { icon: History, label: "System Activity Log", path: "/history" },
+        { icon: ShoppingCart, label: "Service Catalog", path: "/catalog", moduleKey: "catalog" },
+        { icon: BookOpen, label: "Knowledge Base", path: "/kb", moduleKey: "kb" },
+        { icon: Clock, label: "SLA Policies", path: "/sla", moduleKey: "sla" },
+        { icon: History, label: "System Activity Log", path: "/history", moduleKey: "history" },
       ]
     },
     {
       label: "Incident",
       items: [
-        { icon: PlusCircle, label: "Create New Incident", path: "/tickets?action=new" },
-        { icon: UserCheck, label: "Assigned to Me", path: "/tickets?filter=assigned_to_me", badge: assignedToMeCount },
-        { icon: FolderOpen, label: "Open Incidents", path: "/tickets?filter=open", badge: openTicketsCount },
-        { icon: UserMinus, label: "Open - Unassigned", path: "/tickets?filter=unassigned" },
-        { icon: CheckCircle2, label: "Resolved Incidents", path: "/tickets?filter=resolved" },
-        { icon: List, label: "All Incidents", path: "/tickets" },
-        { icon: Map, label: "Critical Incidents Map", path: "/reports" },
+        { icon: PlusCircle, label: "Create New Incident", path: "/tickets?action=new", moduleKey: "tickets" },
+        { icon: UserCheck, label: "Assigned to Me", path: "/tickets?filter=assigned_to_me", badge: assignedToMeCount, moduleKey: "tickets" },
+        { icon: FolderOpen, label: "Open Incidents", path: "/tickets?filter=open", badge: openTicketsCount, moduleKey: "tickets" },
+        { icon: UserMinus, label: "Open - Unassigned", path: "/tickets?filter=unassigned", moduleKey: "tickets" },
+        { icon: CheckCircle2, label: "Resolved Incidents", path: "/tickets?filter=resolved", moduleKey: "tickets" },
+        { icon: List, label: "All Incidents", path: "/tickets", moduleKey: "tickets" },
+        { icon: Map, label: "Critical Incidents Map", path: "/reports", moduleKey: "reports" },
       ]
     },
     {
       label: "Problem & Change",
       items: [
-        { icon: AlertOctagon, label: "Problem Management", path: "/problem" },
-        { icon: GitPullRequest, label: "Change Management", path: "/change" },
+        { icon: AlertOctagon, label: "Problem Management", path: "/problem", moduleKey: "problem" },
+        { icon: GitPullRequest, label: "Change Management", path: "/change", moduleKey: "change" },
       ]
     },
     {
@@ -229,23 +230,23 @@ export function Sidebar() {
       label: "Data Analytics",
       adminOnly: true,
       items: [
-        { icon: BarChart3, label: "Data Analytics", path: "/data-analytics" },
-        { icon: BarChart2, label: "Forecasting & Targets", path: "/forecasting-planning" },
+        { icon: BarChart3, label: "Data Analytics", path: "/data-analytics", moduleKey: "reports" },
+        { icon: BarChart2, label: "Forecasting & Targets", path: "/forecasting-planning", moduleKey: "reports" },
       ]
     },
     {
       label: "System Administration",
       adminOnly: true,
       items: [
-        { icon: Users, label: "User Management", path: "/users" },
-        { icon: KeyRound, label: "Access Control", path: "/access-control" },
+        { icon: Users, label: "User Management", path: "/users", moduleKey: "users" },
+        { icon: KeyRound, label: "Access Control", path: "/access-control", moduleKey: "access_control" },
         { icon: Users, label: "Group Management", path: "/groups" },
-        { icon: Settings2, label: "System Settings", path: "/settings" },
+        { icon: Settings2, label: "System Settings", path: "/settings", moduleKey: "settings" },
         { icon: CheckCircle2, label: "Approved Tickets", path: "/approved-tickets" },
-        { icon: ClipboardList, label: "Ticket Approvals", path: "/timesheet-approvals" },
-        { icon: CheckCircle2, label: "Approved Timesheets", path: "/timesheet/reports?status=Approved" },
-        { icon: Palette, label: "Branding", path: "/branding", superAdminOnly: true },
-        { icon: Tag, label: "Incident Category Management", path: "/incident-categories" },
+        { icon: ClipboardList, label: "Ticket Approvals", path: "/timesheet-approvals", moduleKey: "timesheet_approvals" },
+        { icon: CheckCircle2, label: "Approved Timesheets", path: "/timesheet/reports?status=Approved", moduleKey: "approved_timesheet" },
+        { icon: Palette, label: "Branding", path: "/branding", superAdminOnly: true, moduleKey: "settings" },
+        { icon: Tag, label: "Incident Category Management", path: "/incident-categories", moduleKey: "settings" },
       ]
     }
   ];
@@ -256,31 +257,41 @@ export function Sidebar() {
     );
   };
 
-  const filterItems = (items: MenuItem[]): MenuItem[] => {
+  const hasAccess = (item: MenuItem) => {
+    if (item.ultraSuperAdminOnly && profile?.role !== "ultra_super_admin") return false;
+    if (item.superAdminOnly && !["super_admin", "ultra_super_admin"].includes(profile?.role || "")) return false;
+    if (item.adminOnly && !["admin", "super_admin", "ultra_super_admin"].includes(profile?.role || "")) return false;
+    if (item.agentOrAdminOnly && !["agent", "admin", "sub_admin", "super_admin", "ultra_super_admin"].includes(profile?.role || "")) return false;
+
+    if (item.moduleKey && profile?.restrictedModules?.includes(item.moduleKey)) {
+      return false;
+    }
+    return true;
+  };
+
+  const getFilteredMenu = (items: MenuItem[]): MenuItem[] => {
     return items
       .map(item => {
+        if (!hasAccess(item)) return null;
+
         if (item.items) {
-          const filteredSubItems = filterItems(item.items);
-          if (filteredSubItems.length > 0 || item.label.toLowerCase().includes(searchQuery.toLowerCase())) {
+          const filteredSubItems = getFilteredMenu(item.items);
+          if (filteredSubItems.length > 0) {
             return { ...item, items: filteredSubItems };
           }
-        } else if (item.label.toLowerCase().includes(searchQuery.toLowerCase())) {
-          return item;
+          return null;
         }
-        return null;
+
+        if (searchQuery && !item.label.toLowerCase().includes(searchQuery.toLowerCase())) {
+          return null;
+        }
+
+        return item;
       })
       .filter(Boolean) as MenuItem[];
   };
 
-  const hasAccess = (item: MenuItem) => {
-    if (item.ultraSuperAdminOnly) return profile?.role === "ultra_super_admin";
-    if (item.superAdminOnly) return profile?.role === "super_admin" || profile?.role === "ultra_super_admin";
-    if (item.adminOnly) return profile?.role === "admin" || profile?.role === "super_admin" || profile?.role === "ultra_super_admin";
-    if (item.agentOrAdminOnly) return ["agent", "admin", "sub_admin", "super_admin", "ultra_super_admin"].includes(profile?.role || "");
-    return true;
-  };
-
-  const filteredMenu = filterItems(menuStructure).filter(hasAccess);
+  const filteredMenu = getFilteredMenu(menuStructure);
 
   return (
     <aside className={cn(

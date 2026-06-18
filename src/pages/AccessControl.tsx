@@ -47,16 +47,22 @@ const ROLE_ICONS: Record<string, any> = {
 /** iOS-style toggle */
 function Toggle({ enabled, onChange, disabled }: { enabled: boolean; onChange: () => void; disabled?: boolean }) {
   return (
-    <button type="button" onClick={onChange} disabled={disabled}
+    <div
+      role="button"
+      onClick={disabled ? undefined : onChange}
+      style={{
+        backgroundColor: enabled ? "#22c55e" : "#d1d5db"
+      }}
       className={cn(
-        "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed",
-        enabled ? "bg-sn-green" : "bg-gray-300"
-      )}>
+        "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none cursor-pointer select-none",
+        disabled && "opacity-40 cursor-not-allowed"
+      )}
+    >
       <span className={cn(
         "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200",
         enabled ? "translate-x-6" : "translate-x-1"
       )} />
-    </button>
+    </div>
   );
 }
 
@@ -194,35 +200,47 @@ export function AccessControl() {
     const willDisable = u.disabled !== true;
     if (willDisable && !confirm(`Remove ALL access for "${u.name || u.email}"?`)) return;
     setUpdating(u.id + "_access");
-    await updateDoc(doc(db, "users", u.id), {
-      disabled: willDisable,
-      accessUpdatedBy: profile?.uid,
-      accessUpdatedAt: serverTimestamp(),
-    });
-    setUpdating(null);
+    try {
+      await updateDoc(doc(db, "users", u.id), {
+        disabled: willDisable,
+        accessUpdatedBy: profile?.uid,
+        accessUpdatedAt: serverTimestamp(),
+      });
+    } catch (error: any) {
+      console.error("Failed to toggle access:", error);
+      alert(`Failed to update account access: ${error.message || error}`);
+    } finally {
+      setUpdating(null);
+    }
   };
 
   /* ── Toggle individual module access ── */
   const toggleModule = async (userId: string, moduleKey: string, currentValue: boolean) => {
     setUpdating(userId + "_" + moduleKey);
-    const user = users.find(u => u.id === userId);
-    const uRole = (user?.role || "user") as Role;
-    if (!canManage(myRole, uRole)) { alert("No permission."); setUpdating(null); return; }
-    const restrictedModules = user?.restrictedModules || [];
-    let updated: string[];
-    if (currentValue) {
-      // currently allowed → restrict it
-      updated = [...restrictedModules, moduleKey];
-    } else {
-      // currently restricted → allow it
-      updated = restrictedModules.filter((m: string) => m !== moduleKey);
+    try {
+      const user = users.find(u => u.id === userId);
+      const uRole = (user?.role || "user") as Role;
+      if (!canManage(myRole, uRole)) { alert("No permission."); return; }
+      const restrictedModules = user?.restrictedModules || [];
+      let updated: string[];
+      if (currentValue) {
+        // currently allowed → restrict it
+        updated = [...restrictedModules, moduleKey];
+      } else {
+        // currently restricted → allow it
+        updated = restrictedModules.filter((m: string) => m !== moduleKey);
+      }
+      await updateDoc(doc(db, "users", userId), {
+        restrictedModules: updated,
+        moduleUpdatedBy: profile?.uid,
+        moduleUpdatedAt: serverTimestamp(),
+      });
+    } catch (error: any) {
+      console.error("Failed to toggle module access:", error);
+      alert(`Failed to update feature access: ${error.message || error}`);
+    } finally {
+      setUpdating(null);
     }
-    await updateDoc(doc(db, "users", userId), {
-      restrictedModules: updated,
-      moduleUpdatedBy: profile?.uid,
-      moduleUpdatedAt: serverTimestamp(),
-    });
-    setUpdating(null);
   };
 
   /* ── Change role ── */
@@ -231,10 +249,16 @@ export function AccessControl() {
       alert("You cannot assign roles at or above your own level."); return;
     }
     setUpdating(userId + "_role");
-    await updateDoc(doc(db, "users", userId), {
-      role: newRole, roleUpdatedBy: profile?.uid, roleUpdatedAt: serverTimestamp(),
-    });
-    setUpdating(null);
+    try {
+      await updateDoc(doc(db, "users", userId), {
+        role: newRole, roleUpdatedBy: profile?.uid, roleUpdatedAt: serverTimestamp(),
+      });
+    } catch (error: any) {
+      console.error("Failed to change user role:", error);
+      alert(`Failed to change role: ${error.message || error}`);
+    } finally {
+      setUpdating(null);
+    }
   };
 
   /* ── Create new user via REST API ── */
@@ -613,15 +637,39 @@ export function AccessControl() {
                           </div>
                         ))}
                         <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                          <button onClick={async () => {
-                            await updateDoc(doc(db, "users", u.id), { restrictedModules: MODULES.map(m => m.key) });
-                          }} className="px-3 py-1.5 text-xs font-bold border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors">
-                            Restrict All
+                          <button
+                            disabled={updating === u.id + "_restrict_all"}
+                            onClick={async () => {
+                              setUpdating(u.id + "_restrict_all");
+                              try {
+                                await updateDoc(doc(db, "users", u.id), { restrictedModules: MODULES.map(m => m.key) });
+                              } catch (error: any) {
+                                console.error("Failed to restrict all modules:", error);
+                                alert(`Failed to restrict all features: ${error.message || error}`);
+                              } finally {
+                                setUpdating(null);
+                              }
+                            }}
+                            className="px-3 py-1.5 text-xs font-bold border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                          >
+                            {updating === u.id + "_restrict_all" ? "Restricting..." : "Restrict All"}
                           </button>
-                          <button onClick={async () => {
-                            await updateDoc(doc(db, "users", u.id), { restrictedModules: [] });
-                          }} className="px-3 py-1.5 text-xs font-bold border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-colors">
-                            Allow All
+                          <button
+                            disabled={updating === u.id + "_allow_all"}
+                            onClick={async () => {
+                              setUpdating(u.id + "_allow_all");
+                              try {
+                                await updateDoc(doc(db, "users", u.id), { restrictedModules: [] });
+                              } catch (error: any) {
+                                console.error("Failed to allow all modules:", error);
+                                alert(`Failed to allow all features: ${error.message || error}`);
+                              } finally {
+                                setUpdating(null);
+                              }
+                            }}
+                            className="px-3 py-1.5 text-xs font-bold border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50"
+                          >
+                            {updating === u.id + "_allow_all" ? "Allowing..." : "Allow All"}
                           </button>
                         </div>
                       </div>

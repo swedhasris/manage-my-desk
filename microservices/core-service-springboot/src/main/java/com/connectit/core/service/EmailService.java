@@ -32,7 +32,7 @@ public class EmailService {
     @Value("${app.mail.from:info@technosprint.net}")
     private String defaultFrom;
 
-    @Value("${app.mail.from-name:Technosprint Support}")
+    @Value("${app.mail.from-name:Manage My Desk Support}")
     private String defaultFromName;
 
     @Value("${spring.mail.host:smtp.office365.com}")
@@ -251,7 +251,7 @@ public class EmailService {
             "<p><strong>Status:</strong> " + t.getStatus() + "</p>" +
             "<p><strong>Created Date:</strong> " + createdDate + "</p>" +
             "<p>Please log in to the system for complete details.</p>" +
-            "<p>Regards,<br/>Technosprint Ticketing System</p>";
+            "<p>Regards,<br/>Manage My Desk Ticketing System</p>";
 
         String htmlContent = buildTemplate("Ticket Created", ticketNum, bodyText, t.getTicketNumber());
 
@@ -280,7 +280,7 @@ public class EmailService {
             "<p><strong>Short Description:</strong><br/>" + t.getTitle() + "</p>" +
             "<p><strong>Status:</strong> " + t.getStatus() + "</p>" +
             "<p>Please log in to review the ticket.</p>" +
-            "<p>Regards,<br/>Technosprint Ticketing System</p>";
+            "<p>Regards,<br/>Manage My Desk Ticketing System</p>";
 
         String htmlContent = buildTemplate("Ticket Assigned", ticketNum, bodyText, t.getTicketNumber());
 
@@ -312,7 +312,7 @@ public class EmailService {
             "<p><strong>Updated By:</strong> " + (updatedByName != null ? updatedByName : "System") + "</p>" +
             "<p><strong>Date & Time:</strong> " + updateTime + "</p>" +
             "<p>Please log in to the system for complete details.</p>" +
-            "<p>Regards,<br/>Technosprint Ticketing System</p>";
+            "<p>Regards,<br/>Manage My Desk Ticketing System</p>";
 
         String htmlContent = buildTemplate("Ticket Status Updated", ticketNum, bodyText, t.getTicketNumber());
 
@@ -343,7 +343,7 @@ public class EmailService {
             "<p><strong>Status:</strong> Resolved</p>" +
             "<p><strong>Date & Time:</strong> " + updateTime + "</p>" +
             "<p>Please log in to review the resolution details.</p>" +
-            "<p>Regards,<br/>Technosprint Ticketing System</p>";
+            "<p>Regards,<br/>Manage My Desk Ticketing System</p>";
 
         String htmlContent = buildTemplate("Ticket Resolved", ticketNum, bodyText, t.getTicketNumber());
 
@@ -372,7 +372,7 @@ public class EmailService {
             "<p><strong>Closed By:</strong> " + (closedBy != null ? closedBy : "System") + "</p>" +
             "<p><strong>Status:</strong> Closed</p>" +
             "<p><strong>Date & Time:</strong> " + updateTime + "</p>" +
-            "<p>Regards,<br/>Technosprint Ticketing System</p>";
+            "<p>Regards,<br/>Manage My Desk Ticketing System</p>";
 
         String htmlContent = buildTemplate("Ticket Closed", ticketNum, bodyText, t.getTicketNumber());
 
@@ -402,7 +402,7 @@ public class EmailService {
             "<p><strong>Status:</strong> Reopened</p>" +
             "<p><strong>Date & Time:</strong> " + updateTime + "</p>" +
             "<p>Please log in to review the ticket.</p>" +
-            "<p>Regards,<br/>Technosprint Ticketing System</p>";
+            "<p>Regards,<br/>Manage My Desk Ticketing System</p>";
 
         String htmlContent = buildTemplate("Ticket Reopened", ticketNum, bodyText, t.getTicketNumber());
 
@@ -438,7 +438,7 @@ public class EmailService {
             "<p><strong>Changes:</strong></p>" +
             "<ul style='padding-left:20px;margin:16px 0;'>" + changesHtml.toString() + "</ul>" +
             "<p>Please log in to the system for complete details.</p>" +
-            "<p>Regards,<br/>Technosprint Ticketing System</p>";
+            "<p>Regards,<br/>Manage My Desk Ticketing System</p>";
 
         String htmlContent = buildTemplate("Ticket Updated", ticketNum, bodyText, t.getTicketNumber());
 
@@ -483,7 +483,7 @@ public class EmailService {
             "<div style='padding:12px;background:#f8fafc;border-left:4px solid #1e293b;margin:16px 0;white-space:pre-wrap;'>" +
             a.getMessage() + "</div>" +
             "<p>Please log in to review the ticket.</p>" +
-            "<p>Regards,<br/>Technosprint Ticketing System</p>";
+            "<p>Regards,<br/>Manage My Desk Ticketing System</p>";
 
         String htmlContent = buildTemplate("Ticket Comment Added", ticketNum, bodyText, t.getTicketNumber());
 
@@ -861,12 +861,13 @@ public class EmailService {
 
     public String buildTemplate(String title, String ticketNumber, String body, String tn) {
         String footer = tn != null ? "Reply with [" + tn + "] in the subject to update your ticket." :
-            "This is an automated message from Technosprint Ticketing System.";
+            "This is an automated message from Manage My Desk Ticketing System.";
         return "<!DOCTYPE html><html><body style='margin:0;padding:0;font-family:Segoe UI,Arial,sans-serif;background:#f4f6f9'>" +
             "<div style='max-width:640px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)'>" +
             "<div style='background:linear-gradient(135deg,#1e3a8a,#172554);padding:28px 32px;color:#fff'>" +
+            "<img src='http://localhost:3000/manage_my_desk_logo.jpg' alt='Manage My Desk Logo' style='height:40px;margin-bottom:12px;display:block;' />" +
             "<h1 style='margin:0;font-size:20px'>🎫 " + title + "</h1>" +
-            "<div style='color:#94a3b8;font-size:13px;margin-top:4px'>Technosprint Support</div></div>" +
+            "<div style='color:#94a3b8;font-size:13px;margin-top:4px'>Manage My Desk Support</div></div>" +
             "<div style='padding:32px;color:#334155;line-height:1.6;font-size:14px;'>" + body + "</div>" +
             "<div style='padding:20px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center'>" +
             footer + "</div></div></body></html>";

@@ -1,4 +1,4 @@
--- Connect IT - MySQL Database Schema
+-- Manage My Desk - MySQL Database Schema
 -- Migration from Firebase Firestore to MySQL
 -- Run this SQL to create the complete database structure
 
@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     last_login TIMESTAMP NULL,
+    restricted_modules TEXT,
     INDEX idx_email (email),
     INDEX idx_uid (uid),
     INDEX idx_role (role),
@@ -455,7 +456,8 @@ INSERT INTO system_settings (setting_key, setting_value, setting_type, descripti
 ('ticket_number_next', '1000000', 'number', 'Next ticket number sequence'),
 ('enable_sla_monitoring', 'true', 'boolean', 'Enable automatic SLA monitoring'),
 ('enable_email_notifications', 'false', 'boolean', 'Enable email notifications'),
-('company_name', 'Connect IT', 'string', 'Company name displayed in portal'),
+('company_name', 'Manage My Desk', 'string', 'Company name displayed in portal'),
+('branding', '{"companyName":"Manage My Desk","logoBase64":"/manage_my_desk_logo.jpg","logoType":"image/jpeg"}', 'json', 'Branding logo and company name'),
 ('maintenance_mode', 'false', 'boolean', 'Enable maintenance mode');
 
 -- ============================================================

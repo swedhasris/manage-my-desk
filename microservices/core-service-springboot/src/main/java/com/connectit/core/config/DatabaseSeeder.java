@@ -273,7 +273,7 @@ public class DatabaseSeeder implements CommandLineRunner {
             List<Map<String, Object>> existing = jdbcTemplate.queryForList("SELECT id FROM companies LIMIT 1");
             if (existing.isEmpty()) {
                 log.info("[DatabaseSeeder] Seeding default company...");
-                jdbcTemplate.update("INSERT INTO companies (id, name, status) VALUES (1, 'Connect IT', 'Active')");
+                jdbcTemplate.update("INSERT INTO companies (id, name, status) VALUES (1, 'Manage My Desk', 'Active')");
             }
         } catch (Exception e) {
             log.error("[DatabaseSeeder] Failed to seed default company: {}", e.getMessage());
@@ -387,11 +387,11 @@ public class DatabaseSeeder implements CommandLineRunner {
                 jdbcTemplate.update("INSERT INTO system_settings (setting_key, setting_value, setting_type, description) VALUES (?, ?, ?, ?)",
                         "enable_email_notifications", "false", "boolean", "Enable email notifications");
                 jdbcTemplate.update("INSERT INTO system_settings (setting_key, setting_value, setting_type, description) VALUES (?, ?, ?, ?)",
-                        "company_name", "Connect IT", "string", "Company name displayed in portal");
+                        "company_name", "Manage My Desk", "string", "Company name displayed in portal");
                 jdbcTemplate.update("INSERT INTO system_settings (setting_key, setting_value, setting_type, description) VALUES (?, ?, ?, ?)",
                         "maintenance_mode", "false", "boolean", "Enable maintenance mode");
                 jdbcTemplate.update("INSERT INTO system_settings (setting_key, setting_value, setting_type, description) VALUES (?, ?, ?, ?)",
-                        "branding", "{\"companyName\":\"Connect IT\",\"logoBase64\":null,\"logoType\":null}", "json", "Branding logo and company name");
+                        "branding", "{\"companyName\":\"Manage My Desk\",\"logoBase64\":\"/manage_my_desk_logo.jpg\",\"logoType\":\"image/jpeg\"}", "json", "Branding logo and company name");
             }
         } catch (Exception e) {
             log.error("[DatabaseSeeder] Failed to seed system settings: {}", e.getMessage());

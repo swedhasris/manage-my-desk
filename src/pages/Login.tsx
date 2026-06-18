@@ -83,8 +83,14 @@ export function Login() {
             <div className="absolute top-0 right-0 w-24 h-24 bg-sn-green/10 rounded-full blur-2xl" />
             <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-sn-green/5 rounded-full blur-xl" />
 
-            <div className="w-16 h-16 bg-sn-green rounded-xl flex items-center justify-center font-bold text-3xl text-sn-dark mx-auto mb-4 shadow-lg transform transition-transform hover:scale-105 duration-300">C</div>
-            <h1 className="text-2xl font-bold tracking-tight">Connect IT</h1>
+            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center font-bold text-3xl text-sn-dark mx-auto mb-4 shadow-lg transform transition-transform hover:scale-105 duration-300 overflow-hidden">
+              <img 
+                src="/manage_my_desk_logo.jpg" 
+                alt="Manage My Desk Logo" 
+                className="w-full h-full object-contain" 
+              />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">Manage My Desk</h1>
             <p className="text-white/60 text-sm mt-2">Sign in to your employee portal</p>
           </div>
 

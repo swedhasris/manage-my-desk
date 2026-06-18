@@ -72,6 +72,7 @@ public class UserService {
         if (updates.getDepartment() != null) existing.setDepartment(updates.getDepartment());
         if (updates.getIsActive()   != null) existing.setIsActive(updates.getIsActive());
         if (updates.getPasswordHash() != null) existing.setPasswordHash(updates.getPasswordHash());
+        if (updates.getRestrictedModules() != null) existing.setRestrictedModules(updates.getRestrictedModules());
         return userRepository.save(existing);
     }
 

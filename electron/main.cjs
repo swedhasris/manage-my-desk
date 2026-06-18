@@ -1,6 +1,6 @@
 /**
  * Electron Main Process
- * Wraps the Connect IT web app as a desktop application.
+ * Wraps the Manage My Desk web app as a desktop application.
  * Provides silent full-screen capture via desktopCapturer (no browser dialog).
  */
 
@@ -39,7 +39,7 @@ function createWindow() {
     height: Math.min(height, 1000),
     minWidth: 1024,
     minHeight: 700,
-    title: 'Connect IT',
+    title: 'Manage My Desk',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

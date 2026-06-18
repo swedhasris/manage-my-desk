@@ -1,5 +1,5 @@
 -- ============================================================
--- ConnectIT / Nexus — Complete MySQL Initialization Script
+-- Manage My Desk — Complete MySQL Initialization Script
 -- Idempotent: safe to re-run at any time
 -- Run this ONCE to set up the entire MySQL database
 -- ============================================================
@@ -1015,7 +1015,8 @@ INSERT IGNORE INTO system_settings (setting_key, setting_value, setting_type, de
 ('ticket_number_next', '1000000', 'number', 'Next ticket number sequence'),
 ('enable_sla_monitoring', 'true', 'boolean', 'Enable automatic SLA monitoring'),
 ('enable_email_notifications', 'false', 'boolean', 'Enable email notifications'),
-('company_name', 'Connect IT', 'string', 'Company name displayed in portal'),
+('company_name', 'Manage My Desk', 'string', 'Company name displayed in portal'),
+('branding', '{"companyName":"Manage My Desk","logoBase64":"/manage_my_desk_logo.jpg","logoType":"image/jpeg"}', 'json', 'Branding logo and company name'),
 ('maintenance_mode', 'false', 'boolean', 'Enable maintenance mode');
 
 -- ============================================================

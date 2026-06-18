@@ -33,7 +33,7 @@ export function GetStartedModal({ trigger }: GetStartedModalProps) {
         {!isSubmitted ? (
           <>
             <DialogHeader>
-              <DialogTitle className="text-2xl">Get started with Connect</DialogTitle>
+              <DialogTitle className="text-2xl">Get started with Manage My Desk</DialogTitle>
               <DialogDescription>
                 Experience the power of the intelligent platform for end-to-end digital transformation.
               </DialogDescription>
@@ -95,7 +95,7 @@ export function GetStartedModal({ trigger }: GetStartedModalProps) {
             </div>
             <h2 className="mb-2 text-2xl font-bold text-white">Thank you!</h2>
             <p className="mb-8 text-text-dim">
-              We've received your request. A Connect expert will contact you shortly to schedule your personalized demo.
+              We've received your request. A Manage My Desk expert will contact you shortly to schedule your personalized demo.
             </p>
             <Button 
               onClick={() => setIsSubmitted(false)}
