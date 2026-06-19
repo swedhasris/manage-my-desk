@@ -66,6 +66,7 @@ const CallLogs = lazy(() => import("./pages/calls/CallLogs").then(m => ({ defaul
 const CreateCall = lazy(() => import("./pages/calls/CreateCall").then(m => ({ default: m.CreateCall })));
 const CallDetail = lazy(() => import("./pages/calls/CallDetail").then(m => ({ default: m.CallDetail })));
 const AIAssistant = lazy(() => import("./pages/ai/AIAssistant").then(m => ({ default: m.AIAssistant })));
+const DatabaseViewer = lazy(() => import("./pages/DatabaseViewer").then(m => ({ default: m.DatabaseViewer })));
 
 function LoadingScreen() {
  return (
@@ -188,6 +189,7 @@ function AppBody() {
  <Route path="/calls/new" element={<CreateCall />} />
  <Route path="/calls/:id" element={<CallDetail />} />
  <Route path="/ai-assistant" element={<AIAssistant />} />
+ <Route path="/admin/database-viewer" element={<DatabaseViewer />} />
  </Route>
 
  <Route path="*" element={<Navigate to="/" />} />

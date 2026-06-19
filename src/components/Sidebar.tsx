@@ -251,6 +251,7 @@ export function Sidebar() {
  label:"System Administration",
  adminOnly: true,
  items: [
+ { icon: Database, label:"Database Viewer", path:"/admin/database-viewer", superAdminOnly: true },
  { icon: Users, label:"User Management", path:"/users", moduleKey:"users" },
  { icon: KeyRound, label:"Access Control", path:"/access-control", moduleKey:"access_control" },
  { icon: Users, label:"Group Management", path:"/groups?tab=teams" },

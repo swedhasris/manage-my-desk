@@ -32,7 +32,7 @@ public class EmailService {
     @Value("${app.mail.from:info@technosprint.net}")
     private String defaultFrom;
 
-    @Value("${app.mail.from-name:Manage My Desk Support}")
+    @Value("${app.mail.from-name:Manage My Desk}")
     private String defaultFromName;
 
     @Value("${spring.mail.host:smtp.office365.com}")
@@ -905,7 +905,7 @@ public class EmailService {
             "<div style='background:linear-gradient(135deg,#1e3a8a,#172554);padding:28px 32px;color:#fff'>" +
             "<img src='http://localhost:3000/manage_my_desk_logo.jpg' alt='Manage My Desk Logo' style='height:40px;margin-bottom:12px;display:block;' />" +
             "<h1 style='margin:0;font-size:20px'>🎫 " + title + "</h1>" +
-            "<div style='color:#94a3b8;font-size:13px;margin-top:4px'>Manage My Desk Support</div></div>" +
+            "<div style='color:#94a3b8;font-size:13px;margin-top:4px'>Manage My Desk</div></div>" +
             "<div style='padding:32px;color:#334155;line-height:1.6;font-size:14px;'>" + body + "</div>" +
             "<div style='padding:20px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center'>" +
             footer + "</div></div></body></html>";
