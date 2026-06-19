@@ -679,3 +679,38 @@ html:not(.dark) [style*="color: rgb(255,255,255)"]:not(.dark *) {
 .dark .bg-gray-100 {
   background-color: #1A2332 !important;
 }
+
+/* --- USER STRICT COLOR CONSTRAINTS --- */
+
+/* 1. Light mode: No letters should be white */
+html:not(.dark) .text-white {
+  color: #0f172a !important; /* Dark Slate / Foreground */
+}
+
+/* 2. Light mode: No black boxes should be visible */
+html:not(.dark) .bg-black,
+html:not(.dark) .bg-slate-900,
+html:not(.dark) .bg-gray-900 {
+  background-color: #ffffff !important; /* White / Card */
+  color: #0f172a !important; /* Ensure text is readable on white */
+}
+
+/* 3. Dark mode: No letters should be black */
+html.dark .text-black,
+html.dark .text-slate-900,
+html.dark .text-gray-900,
+html.dark .text-slate-800,
+html.dark .text-gray-800 {
+  color: #f1f5f9 !important; /* White / Foreground */
+}
+
+/* 4. Dark mode: No white boxes should be visible */
+html.dark .bg-white,
+html.dark .bg-slate-50,
+html.dark .bg-gray-50,
+html.dark .bg-slate-100,
+html.dark .bg-gray-100 {
+  background-color: #111827 !important; /* Dark / Card */
+  color: #f1f5f9 !important; /* Ensure text is readable on dark */
+  border-color: #2D3B55 !important;
+}
