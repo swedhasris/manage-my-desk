@@ -587,3 +587,179 @@ CREATE TABLE IF NOT EXISTS call_activities (
     FOREIGN KEY (call_id) REFERENCES call_logs(id) ON DELETE CASCADE,
     INDEX idx_activity_call (call_id)
 ) ENGINE=InnoDB;
+
+-- ============================================================
+-- SETTINGS GROUPS TABLE (Replaces Firebase settings_groups)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS settings_groups (
+    id VARCHAR(128) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    manager_uid VARCHAR(128),
+    manager_name VARCHAR(255),
+    assignment_email VARCHAR(255),
+    is_active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id VARCHAR(128)
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- SETTINGS GROUP MEMBERS TABLE (Replaces Firebase settings_group_members)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS settings_group_members (
+    id VARCHAR(128) PRIMARY KEY,
+    user_id VARCHAR(128),
+    user_name VARCHAR(255),
+    user_email VARCHAR(255),
+    group_id VARCHAR(128),
+    role_in_group VARCHAR(100),
+    is_primary TINYINT(1) DEFAULT 0,
+    availability_status VARCHAR(20) DEFAULT 'available',
+    current_workload INT DEFAULT 0,
+    skills TEXT,
+    status VARCHAR(20) DEFAULT 'active',
+    created_by VARCHAR(255) DEFAULT 'system',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    company_id VARCHAR(128),
+    FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- GROUPS KANBAN TASKS TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS groups_tasks (
+    id VARCHAR(128) PRIMARY KEY,
+    group_id VARCHAR(128) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    assignee_id VARCHAR(128),
+    assignee_name VARCHAR(255),
+    priority ENUM('Low', 'Medium', 'High', 'Critical') DEFAULT 'Medium',
+    status ENUM('To Do', 'In Progress', 'Review', 'Done') DEFAULT 'To Do',
+    story_points INT DEFAULT 0,
+    estimated_hours DOUBLE DEFAULT 0.0,
+    actual_hours DOUBLE DEFAULT 0.0,
+    due_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- GROUPS EVENTS TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS groups_events (
+    id VARCHAR(128) PRIMARY KEY,
+    group_id VARCHAR(128) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(50) DEFAULT 'Meeting',
+    start_date DATE NOT NULL,
+    end_date DATE,
+    estimated_hours DOUBLE DEFAULT 0.0,
+    priority ENUM('Low', 'Medium', 'High', 'Critical') DEFAULT 'Medium',
+    assignee_id VARCHAR(128),
+    status ENUM('Planned', 'Completed', 'Canceled') DEFAULT 'Planned',
+    dependencies VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- GROUPS PLANS TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS groups_plans (
+    id VARCHAR(128) PRIMARY KEY,
+    group_id VARCHAR(128) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    objective TEXT NOT NULL,
+    planned_work DOUBLE DEFAULT 0.0,
+    actual_work DOUBLE DEFAULT 0.0,
+    completion_rate DOUBLE DEFAULT 0.0,
+    delay_rate DOUBLE DEFAULT 0.0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- GROUPS STANDUPS TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS groups_standups (
+    id VARCHAR(128) PRIMARY KEY,
+    group_id VARCHAR(128) NOT NULL,
+    user_id VARCHAR(128) NOT NULL,
+    user_name VARCHAR(255) NOT NULL,
+    yesterday TEXT,
+    today TEXT,
+    blockers TEXT,
+    standup_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- GROUPS RATINGS TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS groups_ratings (
+    id VARCHAR(128) PRIMARY KEY,
+    group_id VARCHAR(128) NOT NULL,
+    user_id VARCHAR(128) NOT NULL,
+    user_name VARCHAR(255) NOT NULL,
+    productivity INT DEFAULT 5,
+    quality INT DEFAULT 5,
+    attendance INT DEFAULT 5,
+    communication INT DEFAULT 5,
+    collaboration INT DEFAULT 5,
+    ownership INT DEFAULT 5,
+    score DOUBLE DEFAULT 5.0,
+    frequency VARCHAR(50) DEFAULT 'Weekly',
+    rating_date DATE NOT NULL,
+    rated_by VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- GROUPS DISCUSSIONS TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS groups_discussions (
+    id VARCHAR(128) PRIMARY KEY,
+    group_id VARCHAR(128) NOT NULL,
+    type VARCHAR(50) DEFAULT 'discussion',
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    author_name VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- GROUPS KNOWLEDGE BASE TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS groups_kb (
+    id VARCHAR(128) PRIMARY KEY,
+    group_id VARCHAR(128) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    category VARCHAR(100),
+    author_name VARCHAR(255),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- GROUPS ESCALATIONS TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS groups_escalations (
+    id VARCHAR(128) PRIMARY KEY,
+    group_id VARCHAR(128) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    status VARCHAR(50),
+    priority VARCHAR(50),
+    assignee_name VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.time.LocalDate;
 import java.util.*;
 
 @RestController
@@ -880,5 +881,991 @@ public class SettingsController {
             log.error("[Groups] Failed to delete group: {}", e.getMessage(), e);
             return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
         }
+    }
+
+    // ── Helper method for double values ──
+    private Double getDouble(Map<String, Object> body, String... keys) {
+        for (String key : keys) {
+            Object val = body.get(key);
+            if (val != null) {
+                if (val instanceof Number) return ((Number) val).doubleValue();
+                try {
+                    return Double.parseDouble(val.toString().trim());
+                } catch (Exception ignored) {}
+            }
+        }
+        return null;
+    }
+
+    // ── 6. GROUPS KANBAN TASKS ────────────────────────────────────────────────
+    @GetMapping("/settings/groups/{groupId}/tasks")
+    public ResponseEntity<?> getGroupTasks(@PathVariable String groupId) {
+        log.info("[GroupTasks] Fetching tasks for groupId: {}", groupId);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT * FROM groups_tasks WHERE group_id = ? ORDER BY created_at DESC", groupId
+            );
+            return ResponseEntity.ok(rows.stream().map(this::mapGroupTask).toList());
+        } catch (Exception e) {
+            log.error("[GroupTasks] Failed to fetch tasks: {}", e.getMessage(), e);
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
+    @PostMapping("/settings/groups/{groupId}/tasks")
+    @Transactional
+    public ResponseEntity<?> createGroupTask(@PathVariable String groupId, @RequestBody Map<String, Object> body) {
+        log.info("[GroupTasks] Creating task for groupId: {}, body: {}", groupId, body);
+        try {
+            String id = getStr(body, "id");
+            if (id == null) {
+                id = "gt_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+            }
+            String title = getStr(body, "title");
+            String description = getStr(body, "description");
+            String assigneeId = getStr(body, "assigneeId", "assignee_id");
+            String assigneeName = getStr(body, "assigneeName", "assignee_name");
+            String priority = getStr(body, "priority");
+            if (priority == null) priority = "Medium";
+            String status = getStr(body, "status");
+            if (status == null) status = "To Do";
+            Integer storyPoints = getInt(body, "storyPoints", "story_points");
+            if (storyPoints == null) storyPoints = 0;
+            Double estimatedHours = getDouble(body, "estimatedHours", "estimated_hours");
+            if (estimatedHours == null) estimatedHours = 0.0;
+            Double actualHours = getDouble(body, "actualHours", "actual_hours");
+            if (actualHours == null) actualHours = 0.0;
+            String dueDate = getStr(body, "dueDate", "due_date");
+
+            jdbcTemplate.update(
+                "INSERT INTO groups_tasks (id, group_id, title, description, assignee_id, assignee_name, priority, status, story_points, estimated_hours, actual_hours, due_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                id, groupId, title, description, assigneeId, assigneeName, priority, status, storyPoints, estimatedHours, actualHours, dueDate
+            );
+
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_tasks WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupTask(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupTasks] Failed to create task: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/settings/groups/{groupId}/tasks/{id}")
+    @Transactional
+    public ResponseEntity<?> updateGroupTask(@PathVariable String groupId, @PathVariable String id, @RequestBody Map<String, Object> body) {
+        log.info("[GroupTasks] Updating task {} for groupId: {}, body: {}", id, groupId, body);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_tasks WHERE id = ?", id);
+            if (rows.isEmpty()) return ResponseEntity.notFound().build();
+            Map<String, Object> existing = rows.get(0);
+
+            String title = getStr(body, "title");
+            if (title == null) title = (String) existing.get("title");
+            String description = getStr(body, "description");
+            if (description == null) description = (String) existing.get("description");
+            String assigneeId = getStr(body, "assigneeId", "assignee_id");
+            if (assigneeId == null) assigneeId = (String) existing.get("assignee_id");
+            String assigneeName = getStr(body, "assigneeName", "assignee_name");
+            if (assigneeName == null) assigneeName = (String) existing.get("assignee_name");
+            String priority = getStr(body, "priority");
+            if (priority == null) priority = (String) existing.get("priority");
+            String status = getStr(body, "status");
+            if (status == null) status = (String) existing.get("status");
+            Integer storyPoints = getInt(body, "storyPoints", "story_points");
+            if (storyPoints == null) storyPoints = (Integer) existing.get("story_points");
+            Double estimatedHours = getDouble(body, "estimatedHours", "estimated_hours");
+            if (estimatedHours == null) {
+                Object val = existing.get("estimated_hours");
+                estimatedHours = val != null ? ((Number) val).doubleValue() : 0.0;
+            }
+            Double actualHours = getDouble(body, "actualHours", "actual_hours");
+            if (actualHours == null) {
+                Object val = existing.get("actual_hours");
+                actualHours = val != null ? ((Number) val).doubleValue() : 0.0;
+            }
+            String dueDate = getStr(body, "dueDate", "due_date");
+            if (dueDate == null && existing.get("due_date") != null) dueDate = String.valueOf(existing.get("due_date"));
+
+            jdbcTemplate.update(
+                "UPDATE groups_tasks SET title = ?, description = ?, assignee_id = ?, assignee_name = ?, priority = ?, status = ?, story_points = ?, estimated_hours = ?, actual_hours = ?, due_date = ? WHERE id = ?",
+                title, description, assigneeId, assigneeName, priority, status, storyPoints, estimatedHours, actualHours, dueDate, id
+            );
+
+            rows = jdbcTemplate.queryForList("SELECT * FROM groups_tasks WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupTask(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupTasks] Failed to update task: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/settings/groups/{groupId}/tasks/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteGroupTask(@PathVariable String groupId, @PathVariable String id) {
+        log.info("[GroupTasks] Deleting task {} for groupId: {}", id, groupId);
+        try {
+            jdbcTemplate.update("DELETE FROM groups_tasks WHERE id = ?", id);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            log.error("[GroupTasks] Failed to delete task: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    private Map<String, Object> mapGroupTask(Map<String, Object> row) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", String.valueOf(row.get("id")));
+        m.put("groupId", row.get("group_id"));
+        m.put("group_id", row.get("group_id"));
+        m.put("title", row.get("title"));
+        m.put("description", row.get("description"));
+        m.put("assigneeId", row.get("assignee_id"));
+        m.put("assignee_id", row.get("assignee_id"));
+        m.put("assigneeName", row.get("assignee_name"));
+        m.put("assignee_name", row.get("assignee_name"));
+        m.put("priority", row.get("priority"));
+        m.put("status", row.get("status"));
+        m.put("storyPoints", row.get("story_points"));
+        m.put("story_points", row.get("story_points"));
+        m.put("estimatedHours", row.get("estimated_hours"));
+        m.put("estimated_hours", row.get("estimated_hours"));
+        m.put("actualHours", row.get("actual_hours"));
+        m.put("actual_hours", row.get("actual_hours"));
+        m.put("dueDate", row.get("due_date"));
+        m.put("due_date", row.get("due_date"));
+        m.put("createdAt", row.get("created_at"));
+        m.put("created_at", row.get("created_at"));
+        m.put("updatedAt", row.get("updated_at"));
+        m.put("updated_at", row.get("updated_at"));
+        return m;
+    }
+
+    // ── 7. GROUPS EVENTS ──────────────────────────────────────────────────────
+    @GetMapping("/settings/groups/{groupId}/events")
+    public ResponseEntity<?> getGroupEvents(@PathVariable String groupId) {
+        log.info("[GroupEvents] Fetching events for groupId: {}", groupId);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT * FROM groups_events WHERE group_id = ? ORDER BY start_date ASC", groupId
+            );
+            return ResponseEntity.ok(rows.stream().map(this::mapGroupEvent).toList());
+        } catch (Exception e) {
+            log.error("[GroupEvents] Failed to fetch events: {}", e.getMessage(), e);
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
+    @PostMapping("/settings/groups/{groupId}/events")
+    @Transactional
+    public ResponseEntity<?> createGroupEvent(@PathVariable String groupId, @RequestBody Map<String, Object> body) {
+        log.info("[GroupEvents] Creating event for groupId: {}, body: {}", groupId, body);
+        try {
+            String id = getStr(body, "id");
+            if (id == null) {
+                id = "evt_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+            }
+            String title = getStr(body, "title");
+            String description = getStr(body, "description");
+            String type = getStr(body, "type");
+            if (type == null) type = "Meeting";
+            String startDate = getStr(body, "startDate", "start_date");
+            String endDate = getStr(body, "endDate", "end_date");
+            Double estimatedHours = getDouble(body, "estimatedHours", "estimated_hours");
+            if (estimatedHours == null) estimatedHours = 0.0;
+            String priority = getStr(body, "priority");
+            String assigneeId = getStr(body, "assigneeId", "assignee_id");
+            String status = getStr(body, "status");
+            if (status == null) status = "Planned";
+            String dependencies = getStr(body, "dependencies");
+
+            jdbcTemplate.update(
+                "INSERT INTO groups_events (id, group_id, title, description, type, start_date, end_date, estimated_hours, priority, assignee_id, status, dependencies) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                id, groupId, title, description, type, startDate, endDate, estimatedHours, priority, assigneeId, status, dependencies
+            );
+
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_events WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupEvent(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupEvents] Failed to create event: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/settings/groups/{groupId}/events/{id}")
+    @Transactional
+    public ResponseEntity<?> updateGroupEvent(@PathVariable String groupId, @PathVariable String id, @RequestBody Map<String, Object> body) {
+        log.info("[GroupEvents] Updating event {} for groupId: {}, body: {}", id, groupId, body);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_events WHERE id = ?", id);
+            if (rows.isEmpty()) return ResponseEntity.notFound().build();
+            Map<String, Object> existing = rows.get(0);
+
+            String title = getStr(body, "title");
+            if (title == null) title = (String) existing.get("title");
+            String description = getStr(body, "description");
+            if (description == null) description = (String) existing.get("description");
+            String type = getStr(body, "type");
+            if (type == null) type = (String) existing.get("type");
+            String startDate = getStr(body, "startDate", "start_date");
+            if (startDate == null && existing.get("start_date") != null) startDate = String.valueOf(existing.get("start_date"));
+            String endDate = getStr(body, "endDate", "end_date");
+            if (endDate == null && existing.get("end_date") != null) endDate = String.valueOf(existing.get("end_date"));
+            Double estimatedHours = getDouble(body, "estimatedHours", "estimated_hours");
+            if (estimatedHours == null) {
+                Object val = existing.get("estimated_hours");
+                estimatedHours = val != null ? ((Number) val).doubleValue() : 0.0;
+            }
+            String priority = getStr(body, "priority");
+            if (priority == null) priority = (String) existing.get("priority");
+            String assigneeId = getStr(body, "assigneeId", "assignee_id");
+            if (assigneeId == null) assigneeId = (String) existing.get("assignee_id");
+            String status = getStr(body, "status");
+            if (status == null) status = (String) existing.get("status");
+            String dependencies = getStr(body, "dependencies");
+            if (dependencies == null) dependencies = (String) existing.get("dependencies");
+
+            jdbcTemplate.update(
+                "UPDATE groups_events SET title = ?, description = ?, type = ?, start_date = ?, end_date = ?, estimated_hours = ?, priority = ?, assignee_id = ?, status = ?, dependencies = ? WHERE id = ?",
+                title, description, type, startDate, endDate, estimatedHours, priority, assigneeId, status, dependencies, id
+            );
+
+            rows = jdbcTemplate.queryForList("SELECT * FROM groups_events WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupEvent(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupEvents] Failed to update event: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/settings/groups/{groupId}/events/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteGroupEvent(@PathVariable String groupId, @PathVariable String id) {
+        log.info("[GroupEvents] Deleting event {} for groupId: {}", id, groupId);
+        try {
+            jdbcTemplate.update("DELETE FROM groups_events WHERE id = ?", id);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            log.error("[GroupEvents] Failed to delete event: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    private Map<String, Object> mapGroupEvent(Map<String, Object> row) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", String.valueOf(row.get("id")));
+        m.put("groupId", row.get("group_id"));
+        m.put("group_id", row.get("group_id"));
+        m.put("title", row.get("title"));
+        m.put("description", row.get("description"));
+        m.put("type", row.get("type"));
+        m.put("startDate", row.get("start_date"));
+        m.put("start_date", row.get("start_date"));
+        m.put("endDate", row.get("end_date"));
+        m.put("end_date", row.get("end_date"));
+        m.put("estimatedHours", row.get("estimated_hours"));
+        m.put("estimated_hours", row.get("estimated_hours"));
+        m.put("priority", row.get("priority"));
+        m.put("assigneeId", row.get("assignee_id"));
+        m.put("assignee_id", row.get("assignee_id"));
+        m.put("status", row.get("status"));
+        m.put("dependencies", row.get("dependencies"));
+        m.put("createdAt", row.get("created_at"));
+        m.put("created_at", row.get("created_at"));
+        return m;
+    }
+
+    // ── 8. GROUPS PLANS ───────────────────────────────────────────────────────
+    @GetMapping("/settings/groups/{groupId}/plans")
+    public ResponseEntity<?> getGroupPlans(@PathVariable String groupId) {
+        log.info("[GroupPlans] Fetching plans for groupId: {}", groupId);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT * FROM groups_plans WHERE group_id = ? ORDER BY created_at DESC", groupId
+            );
+            return ResponseEntity.ok(rows.stream().map(this::mapGroupPlan).toList());
+        } catch (Exception e) {
+            log.error("[GroupPlans] Failed to fetch plans: {}", e.getMessage(), e);
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
+    @PostMapping("/settings/groups/{groupId}/plans")
+    @Transactional
+    public ResponseEntity<?> createGroupPlan(@PathVariable String groupId, @RequestBody Map<String, Object> body) {
+        log.info("[GroupPlans] Creating plan for groupId: {}, body: {}", groupId, body);
+        try {
+            String id = getStr(body, "id");
+            if (id == null) {
+                id = "pln_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+            }
+            String type = getStr(body, "type");
+            String objective = getStr(body, "objective");
+            Double plannedWork = getDouble(body, "plannedWork", "planned_work");
+            if (plannedWork == null) plannedWork = 0.0;
+            Double actualWork = getDouble(body, "actualWork", "actual_work");
+            if (actualWork == null) actualWork = 0.0;
+            Double completionRate = getDouble(body, "completionRate", "completion_rate");
+            if (completionRate == null) completionRate = 0.0;
+            Double delayRate = getDouble(body, "delayRate", "delay_rate");
+            if (delayRate == null) delayRate = 0.0;
+
+            jdbcTemplate.update(
+                "INSERT INTO groups_plans (id, group_id, type, objective, planned_work, actual_work, completion_rate, delay_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                id, groupId, type, objective, plannedWork, actualWork, completionRate, delayRate
+            );
+
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_plans WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupPlan(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupPlans] Failed to create plan: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/settings/groups/{groupId}/plans/{id}")
+    @Transactional
+    public ResponseEntity<?> updateGroupPlan(@PathVariable String groupId, @PathVariable String id, @RequestBody Map<String, Object> body) {
+        log.info("[GroupPlans] Updating plan {} for groupId: {}, body: {}", id, groupId, body);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_plans WHERE id = ?", id);
+            if (rows.isEmpty()) return ResponseEntity.notFound().build();
+            Map<String, Object> existing = rows.get(0);
+
+            String type = getStr(body, "type");
+            if (type == null) type = (String) existing.get("type");
+            String objective = getStr(body, "objective");
+            if (objective == null) objective = (String) existing.get("objective");
+            Double plannedWork = getDouble(body, "plannedWork", "planned_work");
+            if (plannedWork == null) {
+                Object val = existing.get("planned_work");
+                plannedWork = val != null ? ((Number) val).doubleValue() : 0.0;
+            }
+            Double actualWork = getDouble(body, "actualWork", "actual_work");
+            if (actualWork == null) {
+                Object val = existing.get("actual_work");
+                actualWork = val != null ? ((Number) val).doubleValue() : 0.0;
+            }
+            Double completionRate = getDouble(body, "completionRate", "completion_rate");
+            if (completionRate == null) {
+                Object val = existing.get("completion_rate");
+                completionRate = val != null ? ((Number) val).doubleValue() : 0.0;
+            }
+            Double delayRate = getDouble(body, "delayRate", "delay_rate");
+            if (delayRate == null) {
+                Object val = existing.get("delay_rate");
+                delayRate = val != null ? ((Number) val).doubleValue() : 0.0;
+            }
+
+            jdbcTemplate.update(
+                "UPDATE groups_plans SET type = ?, objective = ?, planned_work = ?, actual_work = ?, completion_rate = ?, delay_rate = ? WHERE id = ?",
+                type, objective, plannedWork, actualWork, completionRate, delayRate, id
+            );
+
+            rows = jdbcTemplate.queryForList("SELECT * FROM groups_plans WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupPlan(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupPlans] Failed to update plan: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/settings/groups/{groupId}/plans/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteGroupPlan(@PathVariable String groupId, @PathVariable String id) {
+        log.info("[GroupPlans] Deleting plan {} for groupId: {}", id, groupId);
+        try {
+            jdbcTemplate.update("DELETE FROM groups_plans WHERE id = ?", id);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            log.error("[GroupPlans] Failed to delete plan: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    private Map<String, Object> mapGroupPlan(Map<String, Object> row) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", String.valueOf(row.get("id")));
+        m.put("groupId", row.get("group_id"));
+        m.put("group_id", row.get("group_id"));
+        m.put("type", row.get("type"));
+        m.put("objective", row.get("objective"));
+        m.put("plannedWork", row.get("planned_work"));
+        m.put("planned_work", row.get("planned_work"));
+        m.put("actualWork", row.get("actual_work"));
+        m.put("actual_work", row.get("actual_work"));
+        m.put("completionRate", row.get("completion_rate"));
+        m.put("completion_rate", row.get("completion_rate"));
+        m.put("delayRate", row.get("delay_rate"));
+        m.put("delay_rate", row.get("delay_rate"));
+        m.put("createdAt", row.get("created_at"));
+        m.put("created_at", row.get("created_at"));
+        return m;
+    }
+
+    // ── 9. GROUPS STANDUPS ────────────────────────────────────────────────────
+    @GetMapping("/settings/groups/{groupId}/standups")
+    public ResponseEntity<?> getGroupStandups(@PathVariable String groupId) {
+        log.info("[GroupStandups] Fetching standups for groupId: {}", groupId);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT * FROM groups_standups WHERE group_id = ? ORDER BY standup_date DESC, created_at DESC", groupId
+            );
+            return ResponseEntity.ok(rows.stream().map(this::mapGroupStandup).toList());
+        } catch (Exception e) {
+            log.error("[GroupStandups] Failed to fetch standups: {}", e.getMessage(), e);
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
+    @PostMapping("/settings/groups/{groupId}/standups")
+    @Transactional
+    public ResponseEntity<?> createGroupStandup(@PathVariable String groupId, @RequestBody Map<String, Object> body) {
+        log.info("[GroupStandups] Creating standup for groupId: {}, body: {}", groupId, body);
+        try {
+            String id = getStr(body, "id");
+            if (id == null) {
+                id = "std_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+            }
+            String userId = getStr(body, "userId", "user_id");
+            String userName = getStr(body, "userName", "user_name");
+            String yesterday = getStr(body, "yesterday");
+            String today = getStr(body, "today");
+            String blockers = getStr(body, "blockers");
+            String date = getStr(body, "date", "standup_date");
+            if (date == null) {
+                date = LocalDate.now().toString();
+            }
+
+            jdbcTemplate.update(
+                "INSERT INTO groups_standups (id, group_id, user_id, user_name, yesterday, today, blockers, standup_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                id, groupId, userId, userName, yesterday, today, blockers, date
+            );
+
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_standups WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupStandup(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupStandups] Failed to create standup: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/settings/groups/{groupId}/standups/{id}")
+    @Transactional
+    public ResponseEntity<?> updateGroupStandup(@PathVariable String groupId, @PathVariable String id, @RequestBody Map<String, Object> body) {
+        log.info("[GroupStandups] Updating standup {} for groupId: {}, body: {}", id, groupId, body);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_standups WHERE id = ?", id);
+            if (rows.isEmpty()) return ResponseEntity.notFound().build();
+            Map<String, Object> existing = rows.get(0);
+
+            String yesterday = getStr(body, "yesterday");
+            if (yesterday == null) yesterday = (String) existing.get("yesterday");
+            String today = getStr(body, "today");
+            if (today == null) today = (String) existing.get("today");
+            String blockers = getStr(body, "blockers");
+            if (blockers == null) blockers = (String) existing.get("blockers");
+            String date = getStr(body, "date", "standup_date");
+            if (date == null && existing.get("standup_date") != null) date = String.valueOf(existing.get("standup_date"));
+
+            jdbcTemplate.update(
+                "UPDATE groups_standups SET yesterday = ?, today = ?, blockers = ?, standup_date = ? WHERE id = ?",
+                yesterday, today, blockers, date, id
+            );
+
+            rows = jdbcTemplate.queryForList("SELECT * FROM groups_standups WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupStandup(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupStandups] Failed to update standup: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/settings/groups/{groupId}/standups/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteGroupStandup(@PathVariable String groupId, @PathVariable String id) {
+        log.info("[GroupStandups] Deleting standup {} for groupId: {}", id, groupId);
+        try {
+            jdbcTemplate.update("DELETE FROM groups_standups WHERE id = ?", id);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            log.error("[GroupStandups] Failed to delete standup: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    private Map<String, Object> mapGroupStandup(Map<String, Object> row) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", String.valueOf(row.get("id")));
+        m.put("groupId", row.get("group_id"));
+        m.put("group_id", row.get("group_id"));
+        m.put("userId", row.get("user_id"));
+        m.put("user_id", row.get("user_id"));
+        m.put("userName", row.get("user_name"));
+        m.put("user_name", row.get("user_name"));
+        m.put("yesterday", row.get("yesterday"));
+        m.put("today", row.get("today"));
+        m.put("blockers", row.get("blockers"));
+        m.put("date", row.get("standup_date"));
+        m.put("standup_date", row.get("standup_date"));
+        m.put("createdAt", row.get("created_at"));
+        m.put("created_at", row.get("created_at"));
+        return m;
+    }
+
+    // ── 10. GROUPS RATINGS ────────────────────────────────────────────────────
+    @GetMapping("/settings/groups/{groupId}/ratings")
+    public ResponseEntity<?> getGroupRatings(@PathVariable String groupId) {
+        log.info("[GroupRatings] Fetching ratings for groupId: {}", groupId);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT * FROM groups_ratings WHERE group_id = ? ORDER BY rating_date DESC, created_at DESC", groupId
+            );
+            return ResponseEntity.ok(rows.stream().map(this::mapGroupRating).toList());
+        } catch (Exception e) {
+            log.error("[GroupRatings] Failed to fetch ratings: {}", e.getMessage(), e);
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
+    @PostMapping("/settings/groups/{groupId}/ratings")
+    @Transactional
+    public ResponseEntity<?> createGroupRating(@PathVariable String groupId, @RequestBody Map<String, Object> body) {
+        log.info("[GroupRatings] Creating rating for groupId: {}, body: {}", groupId, body);
+        try {
+            String id = getStr(body, "id");
+            if (id == null) {
+                id = "rtg_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+            }
+            String userId = getStr(body, "userId", "user_id");
+            String userName = getStr(body, "userName", "user_name");
+            Integer productivity = getInt(body, "productivity");
+            if (productivity == null) productivity = 5;
+            Integer quality = getInt(body, "quality");
+            if (quality == null) quality = 5;
+            Integer attendance = getInt(body, "attendance");
+            if (attendance == null) attendance = 5;
+            Integer communication = getInt(body, "communication");
+            if (communication == null) communication = 5;
+            Integer collaboration = getInt(body, "collaboration");
+            if (collaboration == null) collaboration = 5;
+            Integer ownership = getInt(body, "ownership");
+            if (ownership == null) ownership = 5;
+            Double score = getDouble(body, "score");
+            if (score == null) {
+                score = (productivity + quality + attendance + communication + collaboration + ownership) / 6.0;
+                score = Math.round(score * 10.0) / 10.0;
+            }
+            String frequency = getStr(body, "frequency");
+            if (frequency == null) frequency = "Weekly";
+            String date = getStr(body, "date", "rating_date");
+            if (date == null) {
+                date = LocalDate.now().toString();
+            }
+            String ratedBy = getStr(body, "ratedBy", "rated_by");
+
+            jdbcTemplate.update(
+                "INSERT INTO groups_ratings (id, group_id, user_id, user_name, productivity, quality, attendance, communication, collaboration, ownership, score, frequency, rating_date, rated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                id, groupId, userId, userName, productivity, quality, attendance, communication, collaboration, ownership, score, frequency, date, ratedBy
+            );
+
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_ratings WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupRating(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupRatings] Failed to create rating: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/settings/groups/{groupId}/ratings/{id}")
+    @Transactional
+    public ResponseEntity<?> updateGroupRating(@PathVariable String groupId, @PathVariable String id, @RequestBody Map<String, Object> body) {
+        log.info("[GroupRatings] Updating rating {} for groupId: {}, body: {}", id, groupId, body);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_ratings WHERE id = ?", id);
+            if (rows.isEmpty()) return ResponseEntity.notFound().build();
+            Map<String, Object> existing = rows.get(0);
+
+            Integer productivity = getInt(body, "productivity");
+            if (productivity == null) productivity = (Integer) existing.get("productivity");
+            Integer quality = getInt(body, "quality");
+            if (quality == null) quality = (Integer) existing.get("quality");
+            Integer attendance = getInt(body, "attendance");
+            if (attendance == null) attendance = (Integer) existing.get("attendance");
+            Integer communication = getInt(body, "communication");
+            if (communication == null) communication = (Integer) existing.get("communication");
+            Integer collaboration = getInt(body, "collaboration");
+            if (collaboration == null) collaboration = (Integer) existing.get("collaboration");
+            Integer ownership = getInt(body, "ownership");
+            if (ownership == null) ownership = (Integer) existing.get("ownership");
+            Double score = getDouble(body, "score");
+            if (score == null) {
+                score = (productivity + quality + attendance + communication + collaboration + ownership) / 6.0;
+                score = Math.round(score * 10.0) / 10.0;
+            }
+            String frequency = getStr(body, "frequency");
+            if (frequency == null) frequency = (String) existing.get("frequency");
+            String date = getStr(body, "date", "rating_date");
+            if (date == null && existing.get("rating_date") != null) date = String.valueOf(existing.get("rating_date"));
+            String ratedBy = getStr(body, "ratedBy", "rated_by");
+            if (ratedBy == null) ratedBy = (String) existing.get("rated_by");
+
+            jdbcTemplate.update(
+                "UPDATE groups_ratings SET productivity = ?, quality = ?, attendance = ?, communication = ?, collaboration = ?, ownership = ?, score = ?, frequency = ?, rating_date = ?, rated_by = ? WHERE id = ?",
+                productivity, quality, attendance, communication, collaboration, ownership, score, frequency, date, ratedBy, id
+            );
+
+            rows = jdbcTemplate.queryForList("SELECT * FROM groups_ratings WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupRating(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupRatings] Failed to update rating: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/settings/groups/{groupId}/ratings/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteGroupRating(@PathVariable String groupId, @PathVariable String id) {
+        log.info("[GroupRatings] Deleting rating {} for groupId: {}", id, groupId);
+        try {
+            jdbcTemplate.update("DELETE FROM groups_ratings WHERE id = ?", id);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            log.error("[GroupRatings] Failed to delete rating: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    private Map<String, Object> mapGroupRating(Map<String, Object> row) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", String.valueOf(row.get("id")));
+        m.put("groupId", row.get("group_id"));
+        m.put("group_id", row.get("group_id"));
+        m.put("userId", row.get("user_id"));
+        m.put("user_id", row.get("user_id"));
+        m.put("userName", row.get("user_name"));
+        m.put("user_name", row.get("user_name"));
+        m.put("productivity", row.get("productivity"));
+        m.put("quality", row.get("quality"));
+        m.put("attendance", row.get("attendance"));
+        m.put("communication", row.get("communication"));
+        m.put("collaboration", row.get("collaboration"));
+        m.put("ownership", row.get("ownership"));
+        m.put("score", row.get("score"));
+        m.put("frequency", row.get("frequency"));
+        m.put("date", row.get("rating_date"));
+        m.put("rating_date", row.get("rating_date"));
+        m.put("ratedBy", row.get("rated_by"));
+        m.put("rated_by", row.get("rated_by"));
+        m.put("createdAt", row.get("created_at"));
+        m.put("created_at", row.get("created_at"));
+        return m;
+    }
+
+    // ── 11. GROUPS DISCUSSIONS ────────────────────────────────────────────────
+    @GetMapping("/settings/groups/{groupId}/discussions")
+    public ResponseEntity<?> getGroupDiscussions(@PathVariable String groupId) {
+        log.info("[GroupDiscussions] Fetching discussions for groupId: {}", groupId);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT * FROM groups_discussions WHERE group_id = ? ORDER BY created_at DESC", groupId
+            );
+            return ResponseEntity.ok(rows.stream().map(this::mapGroupDiscussion).toList());
+        } catch (Exception e) {
+            log.error("[GroupDiscussions] Failed to fetch discussions: {}", e.getMessage(), e);
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
+    @PostMapping("/settings/groups/{groupId}/discussions")
+    @Transactional
+    public ResponseEntity<?> createGroupDiscussion(@PathVariable String groupId, @RequestBody Map<String, Object> body) {
+        log.info("[GroupDiscussions] Creating discussion for groupId: {}, body: {}", groupId, body);
+        try {
+            String id = getStr(body, "id");
+            if (id == null) {
+                id = "dsc_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+            }
+            String type = getStr(body, "type");
+            if (type == null) type = "discussion";
+            String title = getStr(body, "title");
+            String content = getStr(body, "content");
+            String authorName = getStr(body, "authorName", "author_name");
+
+            jdbcTemplate.update(
+                "INSERT INTO groups_discussions (id, group_id, type, title, content, author_name) VALUES (?, ?, ?, ?, ?, ?)",
+                id, groupId, type, title, content, authorName
+            );
+
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_discussions WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupDiscussion(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupDiscussions] Failed to create discussion: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/settings/groups/{groupId}/discussions/{id}")
+    @Transactional
+    public ResponseEntity<?> updateGroupDiscussion(@PathVariable String groupId, @PathVariable String id, @RequestBody Map<String, Object> body) {
+        log.info("[GroupDiscussions] Updating discussion {} for groupId: {}, body: {}", id, groupId, body);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_discussions WHERE id = ?", id);
+            if (rows.isEmpty()) return ResponseEntity.notFound().build();
+            Map<String, Object> existing = rows.get(0);
+
+            String type = getStr(body, "type");
+            if (type == null) type = (String) existing.get("type");
+            String title = getStr(body, "title");
+            if (title == null) title = (String) existing.get("title");
+            String content = getStr(body, "content");
+            if (content == null) content = (String) existing.get("content");
+            String authorName = getStr(body, "authorName", "author_name");
+            if (authorName == null) authorName = (String) existing.get("author_name");
+
+            jdbcTemplate.update(
+                "UPDATE groups_discussions SET type = ?, title = ?, content = ?, author_name = ? WHERE id = ?",
+                type, title, content, authorName, id
+            );
+
+            rows = jdbcTemplate.queryForList("SELECT * FROM groups_discussions WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupDiscussion(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupDiscussions] Failed to update discussion: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/settings/groups/{groupId}/discussions/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteGroupDiscussion(@PathVariable String groupId, @PathVariable String id) {
+        log.info("[GroupDiscussions] Deleting discussion {} for groupId: {}", id, groupId);
+        try {
+            jdbcTemplate.update("DELETE FROM groups_discussions WHERE id = ?", id);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            log.error("[GroupDiscussions] Failed to delete discussion: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    private Map<String, Object> mapGroupDiscussion(Map<String, Object> row) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", String.valueOf(row.get("id")));
+        m.put("groupId", row.get("group_id"));
+        m.put("group_id", row.get("group_id"));
+        m.put("type", row.get("type"));
+        m.put("title", row.get("title"));
+        m.put("content", row.get("content"));
+        m.put("authorName", row.get("author_name"));
+        m.put("author_name", row.get("author_name"));
+        m.put("createdAt", row.get("created_at"));
+        m.put("created_at", row.get("created_at"));
+        return m;
+    }
+
+    // ── 12. GROUPS KNOWLEDGE BASE ─────────────────────────────────────────────
+    @GetMapping("/settings/groups/{groupId}/kb")
+    public ResponseEntity<?> getGroupKB(@PathVariable String groupId) {
+        log.info("[GroupKB] Fetching articles for groupId: {}", groupId);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT * FROM groups_kb WHERE group_id = ? ORDER BY updated_at DESC", groupId
+            );
+            return ResponseEntity.ok(rows.stream().map(this::mapGroupKB).toList());
+        } catch (Exception e) {
+            log.error("[GroupKB] Failed to fetch articles: {}", e.getMessage(), e);
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
+    @PostMapping("/settings/groups/{groupId}/kb")
+    @Transactional
+    public ResponseEntity<?> createGroupKB(@PathVariable String groupId, @RequestBody Map<String, Object> body) {
+        log.info("[GroupKB] Creating article for groupId: {}, body: {}", groupId, body);
+        try {
+            String id = getStr(body, "id");
+            if (id == null) {
+                id = "kb_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+            }
+            String title = getStr(body, "title");
+            String content = getStr(body, "content");
+            String category = getStr(body, "category");
+            String authorName = getStr(body, "authorName", "author_name");
+
+            jdbcTemplate.update(
+                "INSERT INTO groups_kb (id, group_id, title, content, category, author_name) VALUES (?, ?, ?, ?, ?, ?)",
+                id, groupId, title, content, category, authorName
+            );
+
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_kb WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupKB(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupKB] Failed to create article: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/settings/groups/{groupId}/kb/{id}")
+    @Transactional
+    public ResponseEntity<?> updateGroupKB(@PathVariable String groupId, @PathVariable String id, @RequestBody Map<String, Object> body) {
+        log.info("[GroupKB] Updating article {} for groupId: {}, body: {}", id, groupId, body);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_kb WHERE id = ?", id);
+            if (rows.isEmpty()) return ResponseEntity.notFound().build();
+            Map<String, Object> existing = rows.get(0);
+
+            String title = getStr(body, "title");
+            if (title == null) title = (String) existing.get("title");
+            String content = getStr(body, "content");
+            if (content == null) content = (String) existing.get("content");
+            String category = getStr(body, "category");
+            if (category == null) category = (String) existing.get("category");
+            String authorName = getStr(body, "authorName", "author_name");
+            if (authorName == null) authorName = (String) existing.get("author_name");
+
+            jdbcTemplate.update(
+                "UPDATE groups_kb SET title = ?, content = ?, category = ?, author_name = ? WHERE id = ?",
+                title, content, category, authorName, id
+            );
+
+            rows = jdbcTemplate.queryForList("SELECT * FROM groups_kb WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupKB(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupKB] Failed to update article: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/settings/groups/{groupId}/kb/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteGroupKB(@PathVariable String groupId, @PathVariable String id) {
+        log.info("[GroupKB] Deleting article {} for groupId: {}", id, groupId);
+        try {
+            jdbcTemplate.update("DELETE FROM groups_kb WHERE id = ?", id);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            log.error("[GroupKB] Failed to delete article: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    private Map<String, Object> mapGroupKB(Map<String, Object> row) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", String.valueOf(row.get("id")));
+        m.put("groupId", row.get("group_id"));
+        m.put("group_id", row.get("group_id"));
+        m.put("title", row.get("title"));
+        m.put("content", row.get("content"));
+        m.put("category", row.get("category"));
+        m.put("authorName", row.get("author_name"));
+        m.put("author_name", row.get("author_name"));
+        m.put("updatedAt", row.get("updated_at"));
+        m.put("updated_at", row.get("updated_at"));
+        return m;
+    }
+
+    // ── 13. GROUPS ESCALATIONS ────────────────────────────────────────────────
+    @GetMapping("/settings/groups/{groupId}/escalations")
+    public ResponseEntity<?> getGroupEscalations(@PathVariable String groupId) {
+        log.info("[GroupEscalations] Fetching escalations for groupId: {}", groupId);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT * FROM groups_escalations WHERE group_id = ? ORDER BY created_at DESC", groupId
+            );
+            return ResponseEntity.ok(rows.stream().map(this::mapGroupEscalation).toList());
+        } catch (Exception e) {
+            log.error("[GroupEscalations] Failed to fetch escalations: {}", e.getMessage(), e);
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
+    @PostMapping("/settings/groups/{groupId}/escalations")
+    @Transactional
+    public ResponseEntity<?> createGroupEscalation(@PathVariable String groupId, @RequestBody Map<String, Object> body) {
+        log.info("[GroupEscalations] Creating escalation for groupId: {}, body: {}", groupId, body);
+        try {
+            String id = getStr(body, "id");
+            if (id == null) {
+                id = "esc_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+            }
+            String title = getStr(body, "title");
+            String description = getStr(body, "description");
+            String status = getStr(body, "status");
+            String priority = getStr(body, "priority");
+            String assigneeName = getStr(body, "assigneeName", "assignee_name");
+
+            jdbcTemplate.update(
+                "INSERT INTO groups_escalations (id, group_id, title, description, status, priority, assignee_name) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                id, groupId, title, description, status, priority, assigneeName
+            );
+
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_escalations WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupEscalation(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupEscalations] Failed to create escalation: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/settings/groups/{groupId}/escalations/{id}")
+    @Transactional
+    public ResponseEntity<?> updateGroupEscalation(@PathVariable String groupId, @PathVariable String id, @RequestBody Map<String, Object> body) {
+        log.info("[GroupEscalations] Updating escalation {} for groupId: {}, body: {}", id, groupId, body);
+        try {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM groups_escalations WHERE id = ?", id);
+            if (rows.isEmpty()) return ResponseEntity.notFound().build();
+            Map<String, Object> existing = rows.get(0);
+
+            String title = getStr(body, "title");
+            if (title == null) title = (String) existing.get("title");
+            String description = getStr(body, "description");
+            if (description == null) description = (String) existing.get("description");
+            String status = getStr(body, "status");
+            if (status == null) status = (String) existing.get("status");
+            String priority = getStr(body, "priority");
+            if (priority == null) priority = (String) existing.get("priority");
+            String assigneeName = getStr(body, "assigneeName", "assignee_name");
+            if (assigneeName == null) assigneeName = (String) existing.get("assignee_name");
+
+            jdbcTemplate.update(
+                "UPDATE groups_escalations SET title = ?, description = ?, status = ?, priority = ?, assignee_name = ? WHERE id = ?",
+                title, description, status, priority, assigneeName, id
+            );
+
+            rows = jdbcTemplate.queryForList("SELECT * FROM groups_escalations WHERE id = ?", id);
+            return ResponseEntity.ok(mapGroupEscalation(rows.get(0)));
+        } catch (Exception e) {
+            log.error("[GroupEscalations] Failed to update escalation: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/settings/groups/{groupId}/escalations/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteGroupEscalation(@PathVariable String groupId, @PathVariable String id) {
+        log.info("[GroupEscalations] Deleting escalation {} for groupId: {}", id, groupId);
+        try {
+            jdbcTemplate.update("DELETE FROM groups_escalations WHERE id = ?", id);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            log.error("[GroupEscalations] Failed to delete escalation: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    private Map<String, Object> mapGroupEscalation(Map<String, Object> row) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", String.valueOf(row.get("id")));
+        m.put("groupId", row.get("group_id"));
+        m.put("group_id", row.get("group_id"));
+        m.put("title", row.get("title"));
+        m.put("description", row.get("description"));
+        m.put("status", row.get("status"));
+        m.put("priority", row.get("priority"));
+        m.put("assigneeName", row.get("assignee_name"));
+        m.put("assignee_name", row.get("assignee_name"));
+        m.put("createdAt", row.get("created_at"));
+        m.put("created_at", row.get("created_at"));
+        return m;
     }
 }

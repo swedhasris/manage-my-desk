@@ -1,9 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  collection, onSnapshot, doc, writeBatch, arrayUnion, arrayRemove, setDoc, updateDoc, deleteDoc, query, where, addDoc
-} from "firebase/firestore";
-import { db } from "../lib/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { cn } from "../lib/utils";
 import {
@@ -36,6 +32,7 @@ export function Groups() {
   const [searchParams] = useSearchParams();
   const [groups, setGroups] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [groupMembers, setGroupMembers] = useState<any[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<string>("dashboard");
 
@@ -169,74 +166,98 @@ export function Groups() {
     category: "SOPs"
   });
 
-  // Load Groups and Users
-  useEffect(() => {
-    const unsubGroups = onSnapshot(collection(db, "settings_groups"), snap => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setGroups(data);
-    });
-    const unsubUsers = onSnapshot(collection(db, "users"), snap => {
-      setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    return () => { unsubGroups(); unsubUsers(); };
+  const refreshGroupsAndUsers = useCallback(async () => {
+    try {
+      const resGroups = await fetch("/api/settings_groups");
+      if (resGroups.ok) {
+        const data = await resGroups.json();
+        setGroups(data);
+      }
+      const resUsers = await fetch("/api/users");
+      if (resUsers.ok) {
+        const data = await resUsers.json();
+        setUsers(data);
+      }
+      const resMembers = await fetch("/api/settings_group_members");
+      if (resMembers.ok) {
+        const data = await resMembers.json();
+        setGroupMembers(data);
+      }
+    } catch (err) {
+      console.error("Error loading group/user lists:", err);
+    }
   }, []);
+
+  const refreshGroupDetails = useCallback(async (groupId: string) => {
+    if (!groupId) return;
+    try {
+      const fetchJson = async (url: string) => {
+        const res = await fetch(url);
+        return res.ok ? res.json() : [];
+      };
+
+      const [
+        tasksData,
+        eventsData,
+        plansData,
+        standupsData,
+        ratingsData,
+        discussionsData,
+        kbData,
+        escalationsData
+      ] = await Promise.all([
+        fetchJson(`/api/settings/groups/${groupId}/tasks`),
+        fetchJson(`/api/settings/groups/${groupId}/events`),
+        fetchJson(`/api/settings/groups/${groupId}/plans`),
+        fetchJson(`/api/settings/groups/${groupId}/standups`),
+        fetchJson(`/api/settings/groups/${groupId}/ratings`),
+        fetchJson(`/api/settings/groups/${groupId}/discussions`),
+        fetchJson(`/api/settings/groups/${groupId}/kb`),
+        fetchJson(`/api/settings/groups/${groupId}/escalations`)
+      ]);
+
+      setTasks(tasksData);
+      setEvents(eventsData);
+      setPlans(plansData);
+      setStandups(standupsData);
+      setRatings(ratingsData);
+      setDiscussions(discussionsData);
+      setArticles(kbData);
+      setEscalations(escalationsData);
+    } catch (err) {
+      console.error("Error loading group details:", err);
+    }
+  }, []);
+
+  // Load Groups, Users, and Members on mount
+  useEffect(() => {
+    refreshGroupsAndUsers();
+  }, [refreshGroupsAndUsers]);
 
   // Set default group selection
   useEffect(() => {
     if (groups.length > 0 && !selectedGroupId) {
-      const userGroup = groups.find(g =>
-        (g.memberIds || []).includes(user?.uid) ||
-        g.managerId === user?.uid ||
-        g.leaderId === user?.uid
-      );
+      const userGroup = groups.find(g => {
+        const members = groupMembers.filter((m: any) => m.groupId === g.id);
+        const memberIds = members.map((m: any) => m.userId);
+        return memberIds.includes(user?.uid) ||
+               g.managerId === user?.uid ||
+               g.leaderId === user?.uid;
+      });
       if (userGroup) {
         setSelectedGroupId(userGroup.id);
       } else {
         setSelectedGroupId(groups[0].id);
       }
     }
-  }, [groups, user, selectedGroupId]);
+  }, [groups, user, selectedGroupId, groupMembers]);
 
   // Subscribe to selected group data
   useEffect(() => {
-    if (!selectedGroupId) return;
-
-    const unsubTasks = onSnapshot(query(collection(db, "groups_tasks"), where("groupId", "==", selectedGroupId)), snap => {
-      setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    const unsubEvents = onSnapshot(query(collection(db, "groups_events"), where("groupId", "==", selectedGroupId)), snap => {
-      setEvents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    const unsubPlans = onSnapshot(query(collection(db, "groups_plans"), where("groupId", "==", selectedGroupId)), snap => {
-      setPlans(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    const unsubStandups = onSnapshot(query(collection(db, "groups_standups"), where("groupId", "==", selectedGroupId)), snap => {
-      setStandups(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    const unsubRatings = onSnapshot(query(collection(db, "groups_ratings"), where("groupId", "==", selectedGroupId)), snap => {
-      setRatings(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    const unsubDiscussions = onSnapshot(query(collection(db, "groups_discussions"), where("groupId", "==", selectedGroupId)), snap => {
-      setDiscussions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    const unsubKB = onSnapshot(query(collection(db, "groups_kb"), where("groupId", "==", selectedGroupId)), snap => {
-      setArticles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    const unsubEscalations = onSnapshot(query(collection(db, "groups_escalations"), where("groupId", "==", selectedGroupId)), snap => {
-      setEscalations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    return () => {
-      unsubTasks();
-      unsubEvents();
-      unsubPlans();
-      unsubStandups();
-      unsubRatings();
-      unsubDiscussions();
-      unsubKB();
-      unsubEscalations();
-    };
-  }, [selectedGroupId]);
+    if (selectedGroupId) {
+      refreshGroupDetails(selectedGroupId);
+    }
+  }, [selectedGroupId, refreshGroupDetails]);
 
   // Seeder for empty groups
   useEffect(() => {
@@ -245,7 +266,14 @@ export function Groups() {
     }
   }, [selectedGroupId, tasks.length, events.length, groups]);
 
-  const activeGroup = groups.find(g => g.id === selectedGroupId) || null;
+  const activeGroupMembers = groupMembers.filter((m: any) => m.groupId === selectedGroupId);
+  const activeGroupMemberIds = activeGroupMembers.map((m: any) => m.userId);
+
+  const activeGroup = groups.find(g => g.id === selectedGroupId) ? {
+    ...groups.find(g => g.id === selectedGroupId),
+    memberIds: activeGroupMemberIds,
+    memberCount: activeGroupMemberIds.length
+  } : null;
 
   // Resolve Permissions
   const isAdmin = profile?.role === "admin" || profile?.role === "super_admin" || profile?.role === "ultra_super_admin";
@@ -259,7 +287,13 @@ export function Groups() {
   // Seed default data for Groups
   const seedGroupData = async (groupId: string) => {
     try {
-      const batch = writeBatch(db);
+      const postData = async (url: string, payload: any) => {
+        await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      };
 
       // Seed tasks
       const defaultTasks = [
@@ -268,71 +302,64 @@ export function Groups() {
         { title: "Design Sprint Dashboard Mock", description: "Create premium glassmorphic layout mockups", assigneeId: user?.uid || "", assigneeName: profile?.name || "Support", priority: "Low", status: "Done", storyPoints: 3, estimatedHours: 6, actualHours: 6 },
         { title: "SLA Monitoring Cron Job", description: "Schedule automatic ticket escalations", assigneeId: "user_swedhasri", assigneeName: "Swedhasri", priority: "High", status: "To Do", storyPoints: 5, estimatedHours: 12, actualHours: 0 }
       ];
-      defaultTasks.forEach(t => {
-        const ref = doc(collection(db, "groups_tasks"));
-        batch.set(ref, { ...t, groupId, createdAt: new Date().toISOString() });
-      });
+      for (const t of defaultTasks) {
+        await postData(`/api/settings/groups/${groupId}/tasks`, t);
+      }
 
       // Seed calendar events
       const defaultEvents = [
         { title: "Sprint 1 Kickoff", description: "Discuss objectives and plan tasks", type: "Meeting", startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0], estimatedHours: 1, priority: "Medium", assigneeId: user?.uid || "", status: "Completed", dependencies: "" },
         { title: "Production Deployment", description: "Deploy core-service microservice to Render", type: "Deployment", startDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], endDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], estimatedHours: 2, priority: "Critical", assigneeId: "user_arun", status: "Planned", dependencies: "" }
       ];
-      defaultEvents.forEach(e => {
-        const ref = doc(collection(db, "groups_events"));
-        batch.set(ref, { ...e, groupId });
-      });
+      for (const e of defaultEvents) {
+        await postData(`/api/settings/groups/${groupId}/events`, e);
+      }
 
       // Seed wiki articles
       const defaultArticles = [
         { title: "Release Management SOP", content: "Instructions for building and deploying microservices on Render.", category: "SOPs", authorName: "PM System", updatedAt: new Date().toISOString() },
         { title: "SMTP Configuration FAQs", content: "Common connection errors and auth fallback rules.", category: "FAQ", authorName: "TL System", updatedAt: new Date().toISOString() }
       ];
-      defaultArticles.forEach(a => {
-        const ref = doc(collection(db, "groups_kb"));
-        batch.set(ref, { ...a, groupId });
-      });
+      for (const a of defaultArticles) {
+        await postData(`/api/settings/groups/${groupId}/kb`, a);
+      }
 
       // Seed plans
       const defaultPlans = [
         { type: "Weekly", objective: "Resolve open priority tickets and prepare release", plannedWork: 40, actualWork: 38, completionRate: 95, delayRate: 5 },
         { type: "Daily", objective: "Daily standup and core features review", plannedWork: 8, actualWork: 8, completionRate: 100, delayRate: 0 }
       ];
-      defaultPlans.forEach(p => {
-        const ref = doc(collection(db, "groups_plans"));
-        batch.set(ref, { ...p, groupId });
-      });
+      for (const p of defaultPlans) {
+        await postData(`/api/settings/groups/${groupId}/plans`, p);
+      }
 
       // Seed standups
       const defaultStandups = [
         { userName: "Arun G", yesterday: "Completed the Email controller fixes", today: "Testing SLA policy escalations", blockers: "Waiting for SMTP server logs access", date: new Date().toISOString().split('T')[0] },
         { userName: "Swedhasri", yesterday: "Wrote UI test scenarios", today: "Implementing Groups dashboard components", blockers: "None", date: new Date().toISOString().split('T')[0] }
       ];
-      defaultStandups.forEach(s => {
-        const ref = doc(collection(db, "groups_standups"));
-        batch.set(ref, { ...s, groupId });
-      });
+      for (const s of defaultStandups) {
+        await postData(`/api/settings/groups/${groupId}/standups`, s);
+      }
 
       // Seed ratings
       const defaultRatings = [
         { userName: profile?.name || "Support", productivity: 5, quality: 4, attendance: 5, communication: 4, collaboration: 5, ownership: 5, score: 4.6, frequency: "Weekly", date: new Date().toISOString().split('T')[0], ratedBy: "System Manager" }
       ];
-      defaultRatings.forEach(r => {
-        const ref = doc(collection(db, "groups_ratings"));
-        batch.set(ref, { ...r, groupId });
-      });
+      for (const r of defaultRatings) {
+        await postData(`/api/settings/groups/${groupId}/ratings`, r);
+      }
 
       // Seed discussions
       const defaultDiscs = [
         { type: "announcement", title: "New Team Dashboard Released!", content: "Welcome to the Groups workspace. Please log your daily standups in the discussions center.", authorName: "System", createdAt: new Date().toISOString() },
         { type: "discussion", title: "Sprint Goal 1 Discussion", content: "What story points allocation is realistic for the CMDB fixes?", authorName: "Arun G", createdAt: new Date().toISOString() }
       ];
-      defaultDiscs.forEach(d => {
-        const ref = doc(collection(db, "groups_discussions"));
-        batch.set(ref, { ...d, groupId });
-      });
+      for (const d of defaultDiscs) {
+        await postData(`/api/settings/groups/${groupId}/discussions`, d);
+      }
 
-      await batch.commit();
+      refreshGroupDetails(groupId);
     } catch (err) {
       console.error("Error seeding group details: ", err);
     }
@@ -372,22 +399,27 @@ export function Groups() {
         updatedBy: profile?.name || 'System'
       };
 
-      if (selectedGroup) {
-        await updateDoc(doc(db, "settings_groups", selectedGroup.id), data);
-      } else {
-        const ref = doc(collection(db, "settings_groups"));
-        await setDoc(ref, {
+      const method = selectedGroup ? "PUT" : "POST";
+      const url = selectedGroup ? `/api/settings_groups/${selectedGroup.id}` : "/api/settings_groups";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           ...data,
-          memberIds: [],
-          memberCount: 0,
-          openTickets: 0,
-          slaCompliance: 100,
-          createdAt: new Date().toISOString(),
-          createdBy: profile?.name || 'System'
-        });
-        setSelectedGroupId(ref.id);
+          managerUid: groupForm.managerId,
+          managerName: pmName,
+          assignmentEmail: groupForm.email,
+          isActive: groupForm.status === 'active',
+          companyId: profile?.companyId || null
+        })
+      });
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+      const savedGroup = await res.json();
+      if (!selectedGroup && savedGroup?.id) {
+        setSelectedGroupId(savedGroup.id);
       }
       setIsGroupModalOpen(false);
+      refreshGroupsAndUsers();
     } catch (e: any) {
       alert("Error saving group: " + e.message);
     }
@@ -396,8 +428,10 @@ export function Groups() {
   const handleDeleteGroup = async (group: any) => {
     if (!confirm(`Delete group ${group.name}?`)) return;
     try {
-      await deleteDoc(doc(db, "settings_groups", group.id));
+      const res = await fetch(`/api/settings_groups/${group.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("HTTP error " + res.status);
       setSelectedGroupId("");
+      refreshGroupsAndUsers();
     } catch (e: any) {
       alert("Error deleting group: " + e.message);
     }
@@ -406,11 +440,26 @@ export function Groups() {
   const handleAddMember = async (userId: string) => {
     if (!selectedGroupId) return;
     try {
-      const updatedIds = [...(activeGroup?.memberIds || []), userId];
-      await updateDoc(doc(db, "settings_groups", selectedGroupId), {
-        memberIds: updatedIds,
-        memberCount: updatedIds.length
+      const u = users.find(usr => usr.id === userId || usr.uid === userId);
+      const res = await fetch("/api/settings_group_members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: userId,
+          userName: u?.name || "Support Staff",
+          userEmail: u?.email || "",
+          groupId: selectedGroupId,
+          roleInGroup: "Support Engineer",
+          isPrimary: false,
+          availabilityStatus: u?.availabilityStatus || "available",
+          currentWorkload: 0,
+          skills: "",
+          status: "active",
+          createdBy: profile?.name || "System"
+        })
       });
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+      refreshGroupsAndUsers();
     } catch (e: any) {
       alert("Failed to add member: " + e.message);
     }
@@ -419,11 +468,14 @@ export function Groups() {
   const handleRemoveMember = async (userId: string) => {
     if (!selectedGroupId) return;
     try {
-      const updatedIds = (activeGroup?.memberIds || []).filter((id: string) => id !== userId);
-      await updateDoc(doc(db, "settings_groups", selectedGroupId), {
-        memberIds: updatedIds,
-        memberCount: updatedIds.length
-      });
+      const memRecord = groupMembers.find((m: any) => m.groupId === selectedGroupId && (m.userId === userId || m.user_id === userId));
+      if (!memRecord) {
+        alert("Member record not found in this group.");
+        return;
+      }
+      const res = await fetch(`/api/settings_group_members/${memRecord.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+      refreshGroupsAndUsers();
     } catch (e: any) {
       alert("Failed to remove member: " + e.message);
     }
@@ -448,16 +500,21 @@ export function Groups() {
         groupId: selectedGroupId
       };
 
-      if (selectedTask) {
-        await updateDoc(doc(db, "groups_tasks", selectedTask.id), data);
-      } else {
-        await addDoc(collection(db, "groups_tasks"), {
-          ...data,
-          createdAt: new Date().toISOString()
-        });
-      }
+      const method = selectedTask ? "PUT" : "POST";
+      const url = selectedTask 
+        ? `/api/settings/groups/${selectedGroupId}/tasks/${selectedTask.id}`
+        : `/api/settings/groups/${selectedGroupId}/tasks`;
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+
       setIsTaskModalOpen(false);
       setSelectedTask(null);
+      refreshGroupDetails(selectedGroupId);
     } catch (e: any) {
       alert("Error saving task: " + e.message);
     }
@@ -466,7 +523,13 @@ export function Groups() {
   // Drag and drop or simple movement simulation for Kanban board
   const moveTaskStatus = async (taskId: string, newStatus: string) => {
     try {
-      await updateDoc(doc(db, "groups_tasks", taskId), { status: newStatus });
+      const res = await fetch(`/api/settings/groups/${selectedGroupId}/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+      refreshGroupDetails(selectedGroupId);
     } catch (e: any) {
       console.error("Failed to move task: ", e.message);
     }
@@ -482,13 +545,21 @@ export function Groups() {
         groupId: selectedGroupId
       };
 
-      if (selectedEvent) {
-        await updateDoc(doc(db, "groups_events", selectedEvent.id), data);
-      } else {
-        await addDoc(collection(db, "groups_events"), data);
-      }
+      const method = selectedEvent ? "PUT" : "POST";
+      const url = selectedEvent 
+        ? `/api/settings/groups/${selectedGroupId}/events/${selectedEvent.id}`
+        : `/api/settings/groups/${selectedGroupId}/events`;
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+
       setIsEventModalOpen(false);
       setSelectedEvent(null);
+      refreshGroupDetails(selectedGroupId);
     } catch (e: any) {
       alert("Error saving calendar event: " + e.message);
     }
@@ -499,16 +570,24 @@ export function Groups() {
     if (!planForm.objective || !selectedGroupId) return;
     try {
       const accuracy = planForm.actualWork > 0 ? Math.round((planForm.plannedWork / planForm.actualWork) * 100) : 0;
-      await addDoc(collection(db, "groups_plans"), {
+      const data = {
         ...planForm,
         plannedWork: Number(planForm.plannedWork),
         actualWork: Number(planForm.actualWork),
         completionRate: planForm.completionRate,
         delayRate: planForm.delayRate,
-        groupId: selectedGroupId,
-        createdAt: new Date().toISOString()
+        groupId: selectedGroupId
+      };
+
+      const res = await fetch(`/api/settings/groups/${selectedGroupId}/plans`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
       });
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+
       setIsPlanModalOpen(false);
+      refreshGroupDetails(selectedGroupId);
     } catch (e: any) {
       alert("Error saving plan: " + e.message);
     }
@@ -518,15 +597,24 @@ export function Groups() {
   const handleSaveStandup = async () => {
     if (!selectedGroupId || !user) return;
     try {
-      await addDoc(collection(db, "groups_standups"), {
+      const data = {
         ...standupForm,
         userId: user.uid,
         userName: profile?.name || user.email || "Support",
         date: new Date().toISOString().split('T')[0],
         groupId: selectedGroupId
+      };
+
+      const res = await fetch(`/api/settings/groups/${selectedGroupId}/standups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
       });
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+
       setStandupForm({ yesterday: "", today: "", blockers: "" });
       setIsStandupModalOpen(false);
+      refreshGroupDetails(selectedGroupId);
     } catch (e: any) {
       alert("Error submitting standup: " + e.message);
     }
@@ -539,15 +627,24 @@ export function Groups() {
       const targetUser = users.find(u => u.id === ratingForm.userId || u.uid === ratingForm.userId);
       const score = Number(((ratingForm.productivity + ratingForm.quality + ratingForm.attendance + ratingForm.communication + ratingForm.collaboration + ratingForm.ownership) / 6).toFixed(1));
 
-      await addDoc(collection(db, "groups_ratings"), {
+      const data = {
         ...ratingForm,
         score,
         userName: targetUser?.name || targetUser?.email || "Support",
         date: new Date().toISOString().split('T')[0],
         ratedBy: profile?.name || "System Manager",
         groupId: selectedGroupId
+      };
+
+      const res = await fetch(`/api/settings/groups/${selectedGroupId}/ratings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
       });
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+
       setIsRatingModalOpen(false);
+      refreshGroupDetails(selectedGroupId);
     } catch (e: any) {
       alert("Error saving rating: " + e.message);
     }
@@ -564,13 +661,21 @@ export function Groups() {
         updatedAt: new Date().toISOString()
       };
 
-      if (selectedArticle) {
-        await updateDoc(doc(db, "groups_kb", selectedArticle.id), data);
-      } else {
-        await addDoc(collection(db, "groups_kb"), data);
-      }
+      const method = selectedArticle ? "PUT" : "POST";
+      const url = selectedArticle 
+        ? `/api/settings/groups/${selectedGroupId}/kb/${selectedArticle.id}`
+        : `/api/settings/groups/${selectedGroupId}/kb`;
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+
       setIsKBModalOpen(false);
       setSelectedArticle(null);
+      refreshGroupDetails(selectedGroupId);
     } catch (e: any) {
       alert("Error saving KB article: " + e.message);
     }
@@ -580,14 +685,23 @@ export function Groups() {
   const handleSaveDisc = async () => {
     if (!discForm.title || !selectedGroupId) return;
     try {
-      await addDoc(collection(db, "groups_discussions"), {
+      const data = {
         ...discForm,
         groupId: selectedGroupId,
         authorName: profile?.name || "Support",
         createdAt: new Date().toISOString()
+      };
+
+      const res = await fetch(`/api/settings/groups/${selectedGroupId}/discussions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
       });
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+
       setIsDiscModalOpen(false);
       setDiscForm({ type: "discussion", title: "", content: "" });
+      refreshGroupDetails(selectedGroupId);
     } catch (e: any) {
       alert("Error posting discussion: " + e.message);
     }

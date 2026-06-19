@@ -262,6 +262,120 @@ public class DatabaseSeeder implements CommandLineRunner {
                     "details TEXT, " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 
+            // Groups Kanban Tasks
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS groups_tasks (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "group_id VARCHAR(128) NOT NULL, " +
+                    "title VARCHAR(255) NOT NULL, " +
+                    "description TEXT, " +
+                    "assignee_id VARCHAR(128), " +
+                    "assignee_name VARCHAR(255), " +
+                    "priority VARCHAR(50) DEFAULT 'Medium', " +
+                    "status VARCHAR(50) DEFAULT 'To Do', " +
+                    "story_points INT DEFAULT 0, " +
+                    "estimated_hours DOUBLE DEFAULT 0.0, " +
+                    "actual_hours DOUBLE DEFAULT 0.0, " +
+                    "due_date DATE, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE)");
+
+            // Groups Sprint Events
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS groups_events (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "group_id VARCHAR(128) NOT NULL, " +
+                    "title VARCHAR(255) NOT NULL, " +
+                    "description TEXT, " +
+                    "type VARCHAR(50) DEFAULT 'Meeting', " +
+                    "start_date DATE NOT NULL, " +
+                    "end_date DATE, " +
+                    "estimated_hours DOUBLE DEFAULT 0.0, " +
+                    "priority VARCHAR(50) DEFAULT 'Medium', " +
+                    "assignee_id VARCHAR(128), " +
+                    "status VARCHAR(50) DEFAULT 'Planned', " +
+                    "dependencies VARCHAR(255), " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE)");
+
+            // Groups Objectives / Plans
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS groups_plans (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "group_id VARCHAR(128) NOT NULL, " +
+                    "type VARCHAR(50) NOT NULL, " +
+                    "objective TEXT NOT NULL, " +
+                    "planned_work DOUBLE DEFAULT 0.0, " +
+                    "actual_work DOUBLE DEFAULT 0.0, " +
+                    "completion_rate DOUBLE DEFAULT 0.0, " +
+                    "delay_rate DOUBLE DEFAULT 0.0, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE)");
+
+            // Groups Daily Standups
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS groups_standups (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "group_id VARCHAR(128) NOT NULL, " +
+                    "user_id VARCHAR(128) NOT NULL, " +
+                    "user_name VARCHAR(255) NOT NULL, " +
+                    "yesterday TEXT, " +
+                    "today TEXT, " +
+                    "blockers TEXT, " +
+                    "standup_date DATE NOT NULL, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE)");
+
+            // Groups Member Performance Ratings
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS groups_ratings (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "group_id VARCHAR(128) NOT NULL, " +
+                    "user_id VARCHAR(128) NOT NULL, " +
+                    "user_name VARCHAR(255) NOT NULL, " +
+                    "productivity INT DEFAULT 5, " +
+                    "quality INT DEFAULT 5, " +
+                    "attendance INT DEFAULT 5, " +
+                    "communication INT DEFAULT 5, " +
+                    "collaboration INT DEFAULT 5, " +
+                    "ownership INT DEFAULT 5, " +
+                    "score DOUBLE DEFAULT 5.0, " +
+                    "frequency VARCHAR(50) DEFAULT 'Weekly', " +
+                    "rating_date DATE NOT NULL, " +
+                    "rated_by VARCHAR(255), " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE)");
+
+            // Groups Discussions
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS groups_discussions (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "group_id VARCHAR(128) NOT NULL, " +
+                    "type VARCHAR(50) DEFAULT 'discussion', " +
+                    "title VARCHAR(255) NOT NULL, " +
+                    "content TEXT NOT NULL, " +
+                    "author_name VARCHAR(255), " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE)");
+
+            // Groups KB Articles
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS groups_kb (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "group_id VARCHAR(128) NOT NULL, " +
+                    "title VARCHAR(255) NOT NULL, " +
+                    "content TEXT NOT NULL, " +
+                    "category VARCHAR(100), " +
+                    "author_name VARCHAR(255), " +
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE)");
+
+            // Groups Escalations
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS groups_escalations (" +
+                    "id VARCHAR(128) PRIMARY KEY, " +
+                    "group_id VARCHAR(128) NOT NULL, " +
+                    "title VARCHAR(255) NOT NULL, " +
+                    "description TEXT, " +
+                    "status VARCHAR(50), " +
+                    "priority VARCHAR(50), " +
+                    "assignee_name VARCHAR(255), " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE)");
+
             log.info("[DatabaseSeeder] DDL initialization of settings tables checked/applied.");
         } catch (Exception e) {
             log.error("[DatabaseSeeder] DDL initialization failed: {}", e.getMessage(), e);
