@@ -742,9 +742,9 @@ export function EmailIntegrations() {
  <label htmlFor="smtp_pass" className="text-sm font-semibold text-slate-700 block mb-2">Password / App Password</label>
  <div className="relative">
  <Lock className="absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
- <input id="smtp_pass" required type={showSmtpPass ?"text" :"password"} placeholder="••••••••••••" value={form.smtpPass} onChange={e => setForm(f => ({ ...f, smtpPass: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-12 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-sn-green/30 focus:border-sn-green transition-all" />
- <button type="button" onClick={() => setShowSmtpPass(!showSmtpPass)} className="absolute right-4 top-3 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none">
- {showSmtpPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+ <input id="smtp_pass" required type={showSmtpPass2 ?"text" :"password"} placeholder="••••••••••••" value={form.smtpPass} onChange={e => setForm(f => ({ ...f, smtpPass: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-12 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-sn-green/30 focus:border-sn-green transition-all" />
+ <button type="button" onClick={() => setShowSmtpPass2(!showSmtpPass2)} className="absolute right-4 top-3 text-slate-400 hover:text-slate-600 transition-colors focus:outline-none">
+ {showSmtpPass2 ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
  </button>
  </div>
  <p className="text-xs text-slate-500 mt-2">Authentication credentials or service key.</p>

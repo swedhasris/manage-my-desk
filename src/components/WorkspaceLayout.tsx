@@ -417,6 +417,11 @@ export function TabWorkspaceProvider({ children }: { children: React.ReactNode }
  }
  };
 
+ const tabsRef = useRef(tabs);
+ const activeTabIdRef = useRef(activeTabId);
+ useEffect(() => { tabsRef.current = tabs; }, [tabs]);
+ useEffect(() => { activeTabIdRef.current = activeTabId; }, [activeTabId]);
+
  // Sync URL changes from browser location (e.g. sidebar navigation, back button)
  useEffect(() => {
  if (!isTabsEnabled) return;
@@ -430,10 +435,10 @@ export function TabWorkspaceProvider({ children }: { children: React.ReactNode }
  }
 
  // Normal navigation: update active tab path
- const activeTab = tabs.find(t => t.id === activeTabId);
+ const activeTab = tabsRef.current.find(t => t.id === activeTabIdRef.current);
  if (activeTab) {
  if (activeTab.path !== currentPath) {
- setTabs(prev => prev.map(t => t.id === activeTabId ? {
+ setTabs(prev => prev.map(t => t.id === activeTabIdRef.current ? {
  ...t,
  path: currentPath,
  title: getTabTitleFromPath(currentPath)
@@ -443,7 +448,7 @@ export function TabWorkspaceProvider({ children }: { children: React.ReactNode }
  // Create a new tab if no active tab found
  openTab(currentPath);
  }
- }, [location, isTabsEnabled, activeTabId, tabs]);
+ }, [location, isTabsEnabled]);
 
  // Intercept Middle Click and Ctrl+Click on all internal links to open in a new tab
  useEffect(() => {

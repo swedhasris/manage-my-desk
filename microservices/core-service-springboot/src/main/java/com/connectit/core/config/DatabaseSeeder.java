@@ -376,6 +376,29 @@ public class DatabaseSeeder implements CommandLineRunner {
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
                     "FOREIGN KEY (group_id) REFERENCES settings_groups(id) ON DELETE CASCADE)");
 
+            // Company Feature Permissions
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS company_feature_permissions (" +
+                    "id BIGINT AUTO_INCREMENT PRIMARY KEY, " +
+                    "company_id VARCHAR(128) NOT NULL, " +
+                    "feature_id VARCHAR(128) NOT NULL, " +
+                    "can_view TINYINT(1) DEFAULT 1, " +
+                    "can_use TINYINT(1) DEFAULT 1, " +
+                    "can_edit TINYINT(1) DEFAULT 1, " +
+                    "is_mandatory TINYINT(1) DEFAULT 0, " +
+                    "status VARCHAR(50) DEFAULT 'enabled', " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "UNIQUE (company_id, feature_id))");
+
+            // Generic Firestore-like Documents Table
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS generic_documents (" +
+                    "id VARCHAR(128) NOT NULL, " +
+                    "collection_name VARCHAR(128) NOT NULL, " +
+                    "document_json TEXT NOT NULL, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "PRIMARY KEY (collection_name, id))");
+
             log.info("[DatabaseSeeder] DDL initialization of settings tables checked/applied.");
         } catch (Exception e) {
             log.error("[DatabaseSeeder] DDL initialization failed: {}", e.getMessage(), e);

@@ -1868,4 +1868,75 @@ public class SettingsController {
         m.put("created_at", row.get("created_at"));
         return m;
     }
+
+    // ── 14. GLOBAL SYSTEM SETTINGS ─────────────────────────────────────────────
+    @GetMapping("/settings_global/{id}")
+    public ResponseEntity<?> getGlobalSetting(@PathVariable String id) {
+        log.info("[GlobalSettings] Fetching settings for key: {}", id);
+        try {
+            String dbKey = "settings_global_" + id;
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT setting_value FROM system_settings WHERE setting_key = ?", dbKey
+            );
+            if (!rows.isEmpty()) {
+                String settingVal = (String) rows.get(0).get("setting_value");
+                if (settingVal != null && !settingVal.isBlank()) {
+                    try {
+                        Map<?, ?> parsed = objectMapper.readValue(settingVal, Map.class);
+                        return ResponseEntity.ok(parsed);
+                    } catch (Exception e) {
+                        log.warn("[GlobalSettings] Failed to parse setting JSON for key {}", dbKey, e);
+                    }
+                }
+            }
+            return ResponseEntity.ok(Map.of());
+        } catch (Exception e) {
+            log.error("[GlobalSettings] Error fetching settings for key {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.ok(Map.of());
+        }
+    }
+
+    @PutMapping("/settings_global/{id}")
+    @Transactional
+    public ResponseEntity<?> updateGlobalSetting(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        log.info("[GlobalSettings] Updating settings for key: {} with body: {}", id, body);
+        return saveGlobalSetting(id, body);
+    }
+
+    @PostMapping("/settings_global/{id}")
+    @Transactional
+    public ResponseEntity<?> createGlobalSetting(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        log.info("[GlobalSettings] Creating settings for key: {} with body: {}", id, body);
+        return saveGlobalSetting(id, body);
+    }
+
+    private ResponseEntity<?> saveGlobalSetting(String id, Map<String, Object> body) {
+        try {
+            String dbKey = "settings_global_" + id;
+            String jsonVal = objectMapper.writeValueAsString(body);
+            String updatedBy = getStr(body, "updatedBy", "updated_by");
+            if (updatedBy == null) updatedBy = "System";
+
+            List<Map<String, Object>> existing = jdbcTemplate.queryForList(
+                "SELECT id FROM system_settings WHERE setting_key = ?", dbKey
+            );
+
+            if (!existing.isEmpty()) {
+                jdbcTemplate.update(
+                    "UPDATE system_settings SET setting_value = ?, updated_by = ? WHERE setting_key = ?",
+                    jsonVal, updatedBy, dbKey
+                );
+            } else {
+                jdbcTemplate.update(
+                    "INSERT INTO system_settings (setting_key, setting_value, setting_type, description, updated_by) VALUES (?, ?, ?, ?, ?)",
+                    dbKey, jsonVal, "json", "Global system settings for " + id, updatedBy
+                );
+            }
+
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            log.error("[GlobalSettings] Error saving settings for key {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
 }

@@ -701,10 +701,18 @@ public class AiActivityController {
     }
 
     private Map<String, Object> stringifyId(Map<String, Object> row) {
-        if (row != null && row.containsKey("id")) {
-            row.put("id", String.valueOf(row.get("id")));
+        if (row == null) {
+            return null;
         }
-        return row;
+        Map<String, Object> lowerRow = new HashMap<>();
+        for (Map.Entry<String, Object> entry : row.entrySet()) {
+            lowerRow.put(entry.getKey().toLowerCase(), entry.getValue());
+        }
+        Object idVal = lowerRow.get("id");
+        if (idVal != null) {
+            lowerRow.put("id", String.valueOf(idVal));
+        }
+        return lowerRow;
     }
 
 

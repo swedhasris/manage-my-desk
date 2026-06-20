@@ -399,11 +399,11 @@ async function fetchFallbackData(path: string, queryObj?: any): Promise<any[]> {
  if (!res.ok) return [];
  result = await res.json();
  } else {
- // Generic: try REST endpoint
- try {
- const res = await fetch(`/api/${path}`);
- if (res.ok) result = await res.json();
- } catch {}
+  // Generic: try REST endpoint
+  try {
+      const res = await fetch(`/api/documents/${path}`);
+      if (res.ok) result = await res.json();
+  } catch {}
  }
 
  setCachedResponse(cacheKey, result);
@@ -634,18 +634,18 @@ export async function addDoc(collectionRef: any, data: any): Promise<any> {
  }
  }
 
- // Generic collections — persist to any supported API endpoint
- try {
- const res = await fetch(`/api/${path}`, {
- method:"POST",
- headers: {"Content-Type":"application/json" },
- body: JSON.stringify(data),
- });
- if (res.ok) {
- const created = await res.json();
- return { id: String(created.id || Date.now()) };
- }
- } catch {}
+  // Generic collections — persist to any supported API endpoint
+  try {
+      const res = await fetch(`/api/documents/${path}`, {
+          method:"POST",
+          headers: {"Content-Type":"application/json" },
+          body: JSON.stringify(data),
+      });
+      if (res.ok) {
+          const created = await res.json();
+          return { id: String(created.id || Date.now()) };
+      }
+  } catch {}
 
  return { id:"local_" + Date.now() };
 }
@@ -735,15 +735,15 @@ export async function updateDoc(docRef: any, data: any): Promise<void> {
  return;
  }
 
- // Generic update
- const res = await fetch(`/api/${path}/${id}`, {
- method:"PUT",
- headers: {"Content-Type":"application/json" },
- body: JSON.stringify(data),
- });
- if (!res.ok) {
- throw new Error(`Failed to update ${path} (HTTP ${res.status})`);
- }
+  // Generic update
+  const res = await fetch(`/api/documents/${path}/${id}`, {
+      method:"PUT",
+      headers: {"Content-Type":"application/json" },
+      body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+      throw new Error(`Failed to update ${path} (HTTP ${res.status})`);
+  }
 }
 
 export async function setDoc(docRef: any, data: any, options?: any): Promise<void> {
@@ -832,21 +832,21 @@ export async function setDoc(docRef: any, data: any, options?: any): Promise<voi
  return;
  }
 
- // Generic setDoc
- let res;
- if (id) {
- res = await fetch(`/api/${path}/${id}`, {
- method:"PUT",
- headers: {"Content-Type":"application/json" },
- body: JSON.stringify(data),
- });
- } else {
- res = await fetch(`/api/${path}`, {
- method:"POST",
- headers: {"Content-Type":"application/json" },
- body: JSON.stringify({ id, ...data }),
- });
- }
+  // Generic setDoc
+  let res;
+  if (id) {
+      res = await fetch(`/api/documents/${path}/${id}`, {
+          method:"PUT",
+          headers: {"Content-Type":"application/json" },
+          body: JSON.stringify(data),
+      });
+  } else {
+      res = await fetch(`/api/documents/${path}`, {
+          method:"POST",
+          headers: {"Content-Type":"application/json" },
+          body: JSON.stringify({ id, ...data }),
+      });
+  }
  if (!res.ok) {
  throw new Error(`Failed to set ${path} (HTTP ${res.status})`);
  }
@@ -885,10 +885,10 @@ export async function deleteDoc(docRef: any): Promise<void> {
  return;
  }
 
- // Generic delete
- try {
- await fetch(`/api/${path}/${id}`, { method:"DELETE" });
- } catch {}
+  // Generic delete
+  try {
+      await fetch(`/api/documents/${path}/${id}`, { method:"DELETE" });
+  } catch {}
 }
 
 export function serverTimestamp(): string {
