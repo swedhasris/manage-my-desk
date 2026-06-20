@@ -621,13 +621,13 @@ export function WorkspaceLayout() {
  }
  }}
  className={cn(
-"group relative flex items-center gap-2 px-3 py-1 rounded-lg text-xs transition-all cursor-pointer border max-w-[180px] min-w-[50px]",
+ "group relative flex items-center gap-2 px-3 py-1 rounded-lg text-xs transition-all cursor-pointer border max-w-[180px] min-w-[50px]",
  isActive
- ?"bg-[#131b3d]/90 text-cyan-400 border-cyan-500/30 shadow-[inset_0_0_10px_rgba(6,182,212,0.15)] font-bold"
- :"bg-white/10 dark:bg-[#0d1127]/40 text-slate-500 dark:text-slate-400 border-transparent hover:bg-white/20 dark:hover:bg-[#121836]/60 hover:text-slate-800 dark:hover:text-white"
+ ? "bg-blue-50 dark:bg-[#131b3d]/90 text-blue-600 dark:text-cyan-400 border-blue-200/60 dark:border-cyan-500/30 shadow-sm dark:shadow-[inset_0_0_10px_rgba(6,182,212,0.15)] font-bold"
+ : "bg-white/10 dark:bg-[#0d1127]/40 text-slate-500 dark:text-slate-400 border-transparent hover:bg-white/20 dark:hover:bg-[#121836]/60 hover:text-slate-800 dark:hover:text-white"
  )}
  >
- <IconComponent className={cn("w-3.5 h-3.5 shrink-0", isActive ?"text-cyan-400" :"text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-white")} />
+ <IconComponent className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-blue-600 dark:text-cyan-400" : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-white")} />
  
  {(!tab.pinned || tab.title.length > 0) && (
  <span className="truncate max-w-[100px] select-none">{tab.title}</span>
@@ -668,7 +668,7 @@ export function WorkspaceLayout() {
  {/* Floating Tab Context Menu */}
  {contextMenu.show && contextMenu.tab && (
  <div
- className="fixed bg-[#0c101f]/95 border border-white/10 backdrop-blur-xl rounded-xl shadow-2xl py-1.5 z-[9999] text-[11px] text-white min-w-[170px] animate-in fade-in zoom-in-95 duration-100 shadow-[0_10px_25px_rgba(0,0,0,0.5)]"
+ className="fixed bg-white dark:bg-[#0c101f]/95 border border-slate-200 dark:border-white/10 backdrop-blur-xl rounded-xl shadow-2xl py-1.5 z-[9999] text-[11px] text-slate-700 dark:text-white min-w-[170px] animate-in fade-in zoom-in-95 duration-100 shadow-[0_10px_25px_rgba(0,0,0,0.5)]"
  style={{ top: contextMenu.y, left: contextMenu.x }}
  >
  <button

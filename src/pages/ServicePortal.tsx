@@ -183,7 +183,7 @@ export function ServicePortal() {
  placeholder="Search KB articles, troubleshooting guides, FAQs..."
  value={searchQuery}
  onChange={(e) => setSearchQuery(e.target.value)}
- className="w-full bg-sn-dark/60 border border-white/10 rounded-2xl py-4 pl-14 pr-6 text-sm outline-none shadow-2xl focus:border-sn-green/50 focus:ring-1 focus:ring-sn-green/20 transition-all text-foreground placeholder:text-muted-foreground/60"
+ className="w-full bg-slate-50 dark:bg-sn-dark/60 border border-slate-200 dark:border-white/10 rounded-2xl py-4 pl-14 pr-6 text-sm outline-none shadow-sm dark:shadow-2xl focus:border-blue-500 dark:focus:border-sn-green/50 focus:ring-1 focus:ring-blue-200 dark:focus:ring-sn-green/20 transition-all text-slate-800 dark:text-foreground placeholder:text-muted-foreground/60"
  />
  </div>
  </div>

@@ -422,13 +422,13 @@ export function AppNavbar() {
 
  {/* Advanced Search Filters Popup */}
  {showAdvanced && (
- <div className="absolute top-full left-0 mt-2 w-full max-w-[500px] bg-[#090a15]/95 backdrop-blur-xl border border-cyan-500/20 rounded-2xl shadow-2xl p-5 z-50 text-white animate-in fade-in slide-in-from-top-1 duration-200">
+ <div className="absolute top-full left-0 mt-2 w-full max-w-[500px] bg-white dark:bg-[#090a15]/95 backdrop-blur-xl border border-slate-200 dark:border-cyan-500/20 rounded-2xl shadow-2xl p-5 z-50 text-slate-800 dark:text-white animate-in fade-in slide-in-from-top-1 duration-200">
  <div className="flex items-center justify-between mb-4">
- <h3 className="text-xs font-semibold uppercase tracking-widest text-cyan-400">Advanced Query Filters</h3>
+ <h3 className="text-xs font-semibold uppercase tracking-widest text-blue-600 dark:text-cyan-400">Advanced Query Filters</h3>
  <button
  type="button"
  onClick={() => setShowAdvanced(false)}
- className="text-white/60 hover:text-white cursor-pointer"
+ className="text-slate-400 dark:text-white/60 hover:text-slate-600 dark:hover:text-white cursor-pointer"
  >
  <X className="w-4 h-4" />
  </button>
@@ -437,11 +437,11 @@ export function AppNavbar() {
  <div className="grid grid-cols-2 gap-3 text-[10px]">
  {/* Row 1 */}
  <div className="space-y-1">
- <label className="text-white/50 font-bold uppercase tracking-wider text-[8px]">Search In</label>
+ <label className="text-slate-500 dark:text-white/50 font-bold uppercase tracking-wider text-[8px]">Search In</label>
  <select
  value={advFilters.searchIn}
  onChange={e => handleAdvFilterChange("searchIn", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none focus:border-cyan-500/50 text-[11px]"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px]"
  >
  <option value="all">All Tickets</option>
  <option value="tickets">Tickets (All)</option>
@@ -457,11 +457,11 @@ export function AppNavbar() {
  </div>
 
  <div className="space-y-1">
- <label className="text-white/50 font-bold uppercase tracking-wider text-[8px]">Category</label>
+ <label className="text-slate-500 dark:text-white/50 font-bold uppercase tracking-wider text-[8px]">Category</label>
  <select
  value={advFilters.category}
  onChange={e => handleAdvFilterChange("category", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none focus:border-cyan-500/50 text-[11px]"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px]"
  >
  <option value="">All Categories</option>
  <option value="Hardware">Hardware</option>
@@ -478,57 +478,57 @@ export function AppNavbar() {
 
  {/* Row 2 */}
  <div className="space-y-1">
- <label className="text-white/50 font-bold uppercase tracking-wider text-[8px]">From (Caller)</label>
+ <label className="text-slate-500 dark:text-white/50 font-bold uppercase tracking-wider text-[8px]">From (Caller)</label>
  <input
  type="text"
  placeholder="e.g. John Doe"
  value={advFilters.caller}
  onChange={e => handleAdvFilterChange("caller", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none focus:border-cyan-500/50 text-[11px] placeholder:text-white/20"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px] placeholder:text-slate-400/50 dark:placeholder:text-white/20"
  />
  </div>
 
  <div className="space-y-1">
- <label className="text-white/50 font-bold uppercase tracking-wider text-[8px]">To (Assigned To)</label>
+ <label className="text-slate-500 dark:text-white/50 font-bold uppercase tracking-wider text-[8px]">To (Assigned To)</label>
  <input
  type="text"
  placeholder="e.g. Agent Smith"
  value={advFilters.assignee}
  onChange={e => handleAdvFilterChange("assignee", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none focus:border-cyan-500/50 text-[11px] placeholder:text-white/20"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px] placeholder:text-slate-400/50 dark:placeholder:text-white/20"
  />
  </div>
 
  {/* Row 3 - Subject */}
  <div className="col-span-2 space-y-1">
- <label className="text-white/50 font-bold uppercase tracking-wider text-[8px]">Subject (Short Description)</label>
+ <label className="text-slate-500 dark:text-white/50 font-bold uppercase tracking-wider text-[8px]">Subject (Short Description)</label>
  <input
  type="text"
  placeholder="e.g. Printer issue"
  value={advFilters.subject}
  onChange={e => handleAdvFilterChange("subject", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none focus:border-cyan-500/50 text-[11px] placeholder:text-white/20"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px] placeholder:text-slate-400/50 dark:placeholder:text-white/20"
  />
  </div>
 
  {/* Row 4 */}
  <div className="space-y-1">
- <label className="text-white/50 font-bold uppercase tracking-wider text-[8px]">CC (Watch List)</label>
+ <label className="text-slate-500 dark:text-white/50 font-bold uppercase tracking-wider text-[8px]">CC (Watch List)</label>
  <input
  type="text"
  placeholder="e.g. manager@org.com"
  value={advFilters.watchList}
  onChange={e => handleAdvFilterChange("watchList", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none focus:border-cyan-500/50 text-[11px] placeholder:text-white/20"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px] placeholder:text-slate-400/50 dark:placeholder:text-white/20"
  />
  </div>
 
  <div className="space-y-1">
- <label className="text-white/50 font-bold uppercase tracking-wider text-[8px]">Priority</label>
+ <label className="text-slate-500 dark:text-white/50 font-bold uppercase tracking-wider text-[8px]">Priority</label>
  <select
  value={advFilters.priority}
  onChange={e => handleAdvFilterChange("priority", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none focus:border-cyan-500/50 text-[11px]"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px]"
  >
  <option value="">All Priorities</option>
  <option value="1 - Critical">1 - Critical</option>
@@ -540,11 +540,11 @@ export function AppNavbar() {
 
  {/* Row 5 */}
  <div className="space-y-1">
- <label className="text-white/50 font-bold uppercase tracking-wider text-[8px]">State (Status)</label>
+ <label className="text-slate-500 dark:text-white/50 font-bold uppercase tracking-wider text-[8px]">State (Status)</label>
  <select
  value={advFilters.status}
  onChange={e => handleAdvFilterChange("status", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none focus:border-cyan-500/50 text-[11px]"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px]"
  >
  <option value="">All States</option>
  <option value="New">New</option>
@@ -556,11 +556,11 @@ export function AppNavbar() {
  </div>
 
  <div className="space-y-1">
- <label className="text-white/50 font-bold uppercase tracking-wider text-[8px]">Date Range Field</label>
+ <label className="text-slate-500 dark:text-white/50 font-bold uppercase tracking-wider text-[8px]">Date Range Field</label>
  <select
  value={advFilters.dateField}
  onChange={e => handleAdvFilterChange("dateField", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none focus:border-cyan-500/50 text-[11px]"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px]"
  >
  <option value="created">Created Date</option>
  <option value="updated">Updated Date</option>
@@ -570,12 +570,12 @@ export function AppNavbar() {
  {/* Row 6 - Start Date & Time */}
  <div className="col-span-2 grid grid-cols-2 gap-2">
  <div className="space-y-1">
- <label className="text-white/50 font-bold uppercase tracking-wider text-[8px]">Start Date & Time</label>
+ <label className="text-slate-500 dark:text-white/50 font-bold uppercase tracking-wider text-[8px]">Start Date & Time</label>
  <input
  type="date"
  value={advFilters.startDate}
  onChange={e => handleAdvFilterChange("startDate", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none text-[11px]"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px]"
  />
  </div>
  <div className="space-y-1 self-end">
@@ -583,7 +583,7 @@ export function AppNavbar() {
  type="time"
  value={advFilters.startTime}
  onChange={e => handleAdvFilterChange("startTime", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none text-[11px]"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px]"
  />
  </div>
  </div>
@@ -591,12 +591,12 @@ export function AppNavbar() {
  {/* Row 7 - End Date & Time */}
  <div className="col-span-2 grid grid-cols-2 gap-2">
  <div className="space-y-1">
- <label className="text-white/50 font-bold uppercase tracking-wider text-[8px]">End Date & Time</label>
+ <label className="text-slate-500 dark:text-white/50 font-bold uppercase tracking-wider text-[8px]">End Date & Time</label>
  <input
  type="date"
  value={advFilters.endDate}
  onChange={e => handleAdvFilterChange("endDate", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none text-[11px]"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px]"
  />
  </div>
  <div className="space-y-1 self-end">
@@ -604,19 +604,19 @@ export function AppNavbar() {
  type="time"
  value={advFilters.endTime}
  onChange={e => handleAdvFilterChange("endTime", e.target.value)}
- className="w-full bg-black/40 border border-white/10 rounded-xl p-2 text-white outline-none text-[11px]"
+ className="w-full bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-xl p-2 text-slate-800 dark:text-white outline-none focus:border-blue-500 dark:focus:border-cyan-500/50 text-[11px]"
  />
  </div>
  </div>
 
  {/* Checkbox */}
  <div className="col-span-2 pt-1">
- <label className="flex items-center gap-2 text-[10px] text-white/70 cursor-pointer select-none">
+ <label className="flex items-center gap-2 text-[10px] text-slate-600 dark:text-white/70 cursor-pointer select-none">
  <input
  type="checkbox"
  checked={advFilters.hasAttachment}
  onChange={e => handleAdvFilterChange("hasAttachment", e.target.checked)}
- className="rounded border-white/15 bg-black/40 text-cyan-400 focus:ring-cyan-400 w-3.5 h-3.5"
+ className="rounded border-slate-200 dark:border-white/15 bg-slate-50 dark:bg-black/40 text-blue-600 dark:text-cyan-400 focus:ring-blue-500 dark:focus:ring-cyan-400 w-3.5 h-3.5"
  />
  <span>HAS ATTACHMENT / AUDIT HISTORY</span>
  </label>
@@ -624,11 +624,11 @@ export function AppNavbar() {
  </div>
 
  {/* Footer */}
- <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-4 text-xs">
+ <div className="flex items-center justify-between border-t border-slate-100 dark:border-white/10 pt-4 mt-4 text-xs">
  <button
  type="button"
  onClick={clearAdvFilters}
- className="text-white/60 hover:text-white hover:underline transition-colors cursor-pointer"
+ className="text-slate-500 dark:text-white/60 hover:text-slate-700 dark:hover:text-white hover:underline transition-colors cursor-pointer"
  >
  Clear filters
  </button>

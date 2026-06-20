@@ -1,220 +1,373 @@
 // EmailIntegrations page copied from tis version
-import React, { useState, useEffect } from"react";
+import React, { useState, useEffect } from "react";
 import {
- Mail,
- Plus,
- Trash2,
- Edit,
- CheckCircle,
- XCircle,
- Settings,
- Shield,
- Send,
- RefreshCw,
- MoreVertical,
- Check,
- Building2,
- Lock,
- Globe,
- Eye,
- EyeOff,
- ChevronLeft,
- ChevronRight
-} from"lucide-react";
-import { Button } from"@/components/ui/button";
-import { useAuth } from"../contexts/AuthContext";
+  Mail,
+  Plus,
+  Trash2,
+  Edit,
+  CheckCircle,
+  XCircle,
+  Settings,
+  Shield,
+  Send,
+  RefreshCw,
+  MoreVertical,
+  Check,
+  Building2,
+  Lock,
+  Globe,
+  Eye,
+  EyeOff,
+  ChevronLeft,
+  ChevronRight,
+  Zap,
+  AlertTriangle,
+  ExternalLink,
+  Key
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "../contexts/AuthContext";
 
 interface EmailConfig {
- id: string;
- companyName: string;
- emailAddress: string;
- smtpHost: string;
- smtpPort: number;
- smtpUser: string;
- smtpPass: string;
- imapHost: string;
- imapPort: number;
- imapUser: string;
- imapPass: string;
- encryption: string;
- isActive: boolean;
- isDefault: boolean;
- createdAt: string;
+  id: string;
+  companyName: string;
+  emailAddress: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpPass: string;
+  imapHost: string;
+  imapPort: number;
+  imapUser: string;
+  imapPass: string;
+  encryption: string;
+  isActive: boolean;
+  isDefault: boolean;
+  createdAt: string;
 }
 
 export function EmailIntegrations() {
- const { profile } = useAuth();
- const [configs, setConfigs] = useState<EmailConfig[]>([]);
- const [loading, setLoading] = useState(true);
- const [showModal, setShowModal] = useState(false);
- const [testing, setTesting] = useState(false);
- const [saving, setSaving] = useState(false);
- const [testResult, setTestResult] = useState<{ success: boolean, message: string } | null>(null);
+  const { profile } = useAuth();
+  const [configs, setConfigs] = useState<EmailConfig[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean, message: string } | null>(null);
 
- // Premium Wizard States
- const [currentStep, setCurrentStep] = useState(1);
- const [showSmtpPass, setShowSmtpPass] = useState(false);
- const [showImapPass, setShowImapPass] = useState(false);
+  // ── Quick SMTP Fix panel ──
+  const [smtpHost, setSmtpHost]       = useState("smtp-relay.brevo.com");
+  const [smtpPort, setSmtpPort]       = useState("587");
+  const [smtpUser, setSmtpUser]       = useState("");
+  const [smtpPass, setSmtpPass]       = useState("");
+  const [showSmtpKey, setShowSmtpKey] = useState(false);
+  const [smtpTesting, setSmtpTesting] = useState(false);
+  const [smtpResult, setSmtpResult]   = useState<{success:boolean; message:string} | null>(null);
+  const [smtpApplied, setSmtpApplied] = useState(false);
 
- // Reset wizard states when opening the modal
- useEffect(() => {
- if (showModal) {
- setCurrentStep(1);
- setShowSmtpPass(false);
- setShowImapPass(false);
- setTestResult(null);
- }
- }, [showModal]);
+  const handleSmtpTest = async () => {
+    setSmtpTesting(true);
+    setSmtpResult(null);
+    try {
+      const res = await fetch("/api/email/smtp-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass })
+      });
+      const data = await res.json();
+      setSmtpResult({ success: data.success, message: data.message || data.error });
+    } catch (e: any) {
+      setSmtpResult({ success: false, message: e.message });
+    }
+    setSmtpTesting(false);
+  };
 
- const [form, setForm] = useState<Partial<EmailConfig>>({
- companyName:"",
- emailAddress:"",
- smtpHost:"smtp.gmail.com",
- smtpPort: 587,
- smtpUser:"",
- smtpPass:"",
- imapHost:"imap.gmail.com",
- imapPort: 993,
- imapUser:"",
- imapPass:"",
- encryption:"TLS",
- isActive: true,
- isDefault: false
- });
+  const handleSmtpApply = async () => {
+    setSmtpTesting(true);
+    setSmtpResult(null);
+    try {
+      const res = await fetch("/api/email/smtp-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ host: smtpHost, port: smtpPort, username: smtpUser, password: smtpPass, fromName: "Manage My Desk" })
+      });
+      const data = await res.json();
+      setSmtpResult({ success: data.success, message: data.message || data.error });
+      if (data.success) setSmtpApplied(true);
+    } catch (e: any) {
+      setSmtpResult({ success: false, message: e.message });
+    }
+    setSmtpTesting(false);
+  };
 
- const [editingId, setEditingId] = useState<string | null>(null);
+  // Premium Wizard States
+  const [currentStep, setCurrentStep] = useState(1);
+  const [showSmtpPass2, setShowSmtpPass2] = useState(false);
+  const [showImapPass, setShowImapPass] = useState(false);
 
- const [health, setHealth] = useState<any>(null);
- const [logs, setLogs] = useState<any[]>([]);
- const [refreshing, setRefreshing] = useState(false);
- const [syncingQueue, setSyncingQueue] = useState(false);
+  // Reset wizard states when opening the modal
+  useEffect(() => {
+    if (showModal) {
+      setCurrentStep(1);
+      setShowSmtpPass2(false);
+      setShowImapPass(false);
+      setTestResult(null);
+    }
+  }, [showModal]);
 
- useEffect(() => {
- fetchConfigs();
- fetchDashboardData();
- }, []);
+  const [form, setForm] = useState<Partial<EmailConfig>>({
+    companyName: "",
+    emailAddress: "",
+    smtpHost: "smtp.gmail.com",
+    smtpPort: 587,
+    smtpUser: "",
+    smtpPass: "",
+    imapHost: "imap.gmail.com",
+    imapPort: 993,
+    imapUser: "",
+    imapPass: "",
+    encryption: "TLS",
+    isActive: true,
+    isDefault: false
+  });
 
- const fetchDashboardData = async () => {
- setRefreshing(true);
- try {
- const hRes = await fetch("/api/email/health");
- if (hRes.ok) {
- const hData = await hRes.json();
- setHealth(hData);
- }
- const lRes = await fetch("/api/email/logs?limit=20");
- if (lRes.ok) {
- const lData = await lRes.json();
- setLogs(lData);
- }
- } catch (e) {
- console.error("Error fetching email dashboard data:", e);
- }
- setRefreshing(false);
- };
+  const [editingId, setEditingId] = useState<string | null>(null);
 
- const fetchConfigs = async () => {
- setLoading(true);
- try {
- const res = await fetch("/api/email-configs");
- const data = await res.json();
- if (Array.isArray(data)) {
- setConfigs(data);
- } else {
- console.error("Failed to fetch email configs:", data);
- setConfigs([]);
- }
- } catch (e) { console.error(e); }
- setLoading(false);
- };
+  const [health, setHealth] = useState<any>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [syncingQueue, setSyncingQueue] = useState(false);
 
- const handleSave = async (e: React.FormEvent) => {
- e.preventDefault();
- setSaving(true);
- try {
- const method = editingId ?"PUT" :"POST";
- const url = editingId ? `/api/email-configs/${editingId}` :"/api/email-configs";
+  useEffect(() => {
+    fetchConfigs();
+    fetchDashboardData();
+  }, []);
 
- const res = await fetch(url, {
- method,
- headers: {"Content-Type":"application/json" },
- body: JSON.stringify(form)
- });
+  const fetchDashboardData = async () => {
+    setRefreshing(true);
+    try {
+      const hRes = await fetch("/api/email/health");
+      if (hRes.ok) {
+        const hData = await hRes.json();
+        setHealth(hData);
+      }
+      const lRes = await fetch("/api/email/logs?limit=20");
+      if (lRes.ok) {
+        const lData = await lRes.json();
+        setLogs(lData);
+      }
+    } catch (e) {
+      console.error("Error fetching email dashboard data:", e);
+    }
+    setRefreshing(false);
+  };
 
- if (res.ok) {
- setShowModal(false);
- fetchConfigs();
- fetchDashboardData();
- setForm({
- companyName:"",
- emailAddress:"",
- smtpHost:"smtp.gmail.com",
- smtpPort: 587,
- smtpUser:"",
- smtpPass:"",
- imapHost:"imap.gmail.com",
- imapPort: 993,
- imapUser:"",
- imapPass:"",
- encryption:"TLS",
- isActive: true,
- isDefault: false
- });
- setEditingId(null);
- }
- } catch (e) { console.error(e); }
- setSaving(false);
- };
+  const fetchConfigs = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/email-configs");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setConfigs(data);
+      } else {
+        console.error("Failed to fetch email configs:", data);
+        setConfigs([]);
+      }
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
 
- const handleTest = async () => {
- setTesting(true);
- setTestResult(null);
- try {
- const res = await fetch("/api/email-configs/test", {
- method:"POST",
- headers: {"Content-Type":"application/json" },
- body: JSON.stringify(form)
- });
- const data = await res.json();
- setTestResult({ success: data.success, message: data.detail || data.message || data.error });
- } catch (e: any) {
- setTestResult({ success: false, message: e.message });
- }
- setTesting(false);
- };
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const method = editingId ? "PUT" : "POST";
+      const url = editingId ? `/api/email-configs/${editingId}` : "/api/email-configs";
 
- const handleDelete = async (id: string) => {
- if (!confirm("Are you sure you want to delete this configuration?")) return;
- try {
- await fetch(`/api/email-configs/${id}`, { method:"DELETE" });
- fetchConfigs();
- fetchDashboardData();
- } catch (e) { console.error(e); }
- };
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form)
+      });
 
- if (profile?.role !== 'ultra_super_admin') {
- return (
- <div className="flex items-center justify-center h-[60vh]">
- <div className="text-center space-y-4">
- <Shield className="w-16 h-16 text-muted-foreground mx-auto" />
- <h2 className="text-2xl font-bold">Access Denied</h2>
- <p className="text-muted-foreground">Only Ultra Super Admins can manage email integrations.</p>
- </div>
- </div>
- );
- }
+      if (res.ok) {
+        setShowModal(false);
+        fetchConfigs();
+        fetchDashboardData();
+        setForm({
+          companyName: "",
+          emailAddress: "",
+          smtpHost: "smtp.gmail.com",
+          smtpPort: 587,
+          smtpUser: "",
+          smtpPass: "",
+          imapHost: "imap.gmail.com",
+          imapPort: 993,
+          imapUser: "",
+          imapPass: "",
+          encryption: "TLS",
+          isActive: true,
+          isDefault: false
+        });
+        setEditingId(null);
+      }
+    } catch (e) { console.error(e); }
+    setSaving(false);
+  };
 
- return (
- <div className="space-y-8 max-w-7xl mx-auto">
- <div className="flex items-center justify-between">
- <div className="space-y-1">
- <h1 className="text-3xl font-bold tracking-tight">Email Integration Management</h1>
- <p className="text-muted-foreground">Manage multi-company SMTP and IMAP configurations for automated support ticketing.</p>
- </div>
- <Button onClick={() => { setEditingId(null); setShowModal(true); }} className="bg-sn-green text-sn-dark font-bold gap-2">
- <Plus className="w-4 h-4" /> Add Integration
- </Button>
- </div>
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/email-configs/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form)
+      });
+      const data = await res.json();
+      setTestResult({ success: data.success, message: data.detail || data.message || data.error });
+    } catch (e: any) {
+      setTestResult({ success: false, message: e.message });
+    }
+    setTesting(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this configuration?")) return;
+    try {
+      await fetch(`/api/email-configs/${id}`, { method: "DELETE" });
+      fetchConfigs();
+      fetchDashboardData();
+    } catch (e) { console.error(e); }
+  };
+
+  if (profile?.role !== 'ultra_super_admin') {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="text-center space-y-4">
+          <Shield className="w-16 h-16 text-muted-foreground mx-auto" />
+          <h2 className="text-2xl font-bold">Access Denied</h2>
+          <p className="text-muted-foreground">Only Ultra Super Admins can manage email integrations.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 max-w-7xl mx-auto">
+
+      {/* ── Quick SMTP Fix Banner ────────────────────────────────────── */}
+      <div className={`rounded-2xl border-2 p-6 space-y-5 ${smtpApplied ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-amber-50'}`}>
+        <div className="flex items-start gap-4">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${smtpApplied ? 'bg-green-100' : 'bg-amber-100'}`}>
+            {smtpApplied ? <CheckCircle className="w-5 h-5 text-green-600" /> : <Zap className="w-5 h-5 text-amber-600" />}
+          </div>
+          <div className="flex-1">
+            <h2 className={`text-base font-bold ${smtpApplied ? 'text-green-800' : 'text-amber-800'}`}>
+              {smtpApplied ? '✅ SMTP Email Sending is Now Active!' : '⚡ Quick SMTP Setup — Fix Email Sending'}
+            </h2>
+            <p className={`text-sm mt-1 ${smtpApplied ? 'text-green-700' : 'text-amber-700'}`}>
+              {smtpApplied
+                ? 'Emails will now be sent from info@technosprint.net via the configured SMTP relay. This is active until the server restarts.'
+                : 'Microsoft 365 has disabled basic SMTP AUTH. Use Brevo free SMTP relay to fix email sending permanently. Emails will still display as "Manage My Desk <info@technosprint.net>".'}
+            </p>
+          </div>
+        </div>
+
+        {!smtpApplied && (
+          <div className="bg-white rounded-xl border border-amber-200 p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-2">
+              <Key className="w-4 h-4 text-blue-500" />
+              Step 1: Get Free Brevo SMTP Credentials (2 min)
+            </div>
+            <ol className="text-xs text-slate-600 space-y-1 ml-4 list-decimal">
+              <li>Go to <a href="https://app.brevo.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-semibold inline-flex items-center gap-1">app.brevo.com <ExternalLink className="w-3 h-3" /></a> and create a free account</li>
+              <li>In Brevo dashboard → click <strong>"SMTP & API"</strong> in the left sidebar</li>
+              <li>Click <strong>"SMTP"</strong> tab → you'll see your login and SMTP Key</li>
+              <li>Copy the <strong>Login</strong> (your email) and <strong>Key</strong> (the password)</li>
+              <li>Paste them below and click <strong>"Test & Apply"</strong></li>
+            </ol>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1 block">SMTP Host</label>
+            <input value={smtpHost} onChange={e => setSmtpHost(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+              placeholder="smtp-relay.brevo.com" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1 block">Port</label>
+            <input value={smtpPort} onChange={e => setSmtpPort(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+              placeholder="587" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1 block">Brevo Login (your email)</label>
+            <input value={smtpUser} onChange={e => setSmtpUser(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+              placeholder="your@email.com" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1 block">Brevo SMTP Key (password)</label>
+            <div className="relative">
+              <input type={showSmtpKey ? "text" : "password"} value={smtpPass} onChange={e => setSmtpPass(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 pr-9 text-sm outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                placeholder="xsmtp-xxxxxxxx..." />
+              <button type="button" onClick={() => setShowSmtpKey(!showSmtpKey)} className="absolute right-3 top-2.5 text-slate-400">
+                {showSmtpKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button onClick={handleSmtpTest} disabled={smtpTesting || !smtpUser || !smtpPass}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors border border-slate-200">
+            <RefreshCw className={`w-4 h-4 ${smtpTesting ? 'animate-spin' : ''}`} />
+            Test Connection
+          </button>
+          <button onClick={handleSmtpApply} disabled={smtpTesting || !smtpUser || !smtpPass}
+            className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors shadow-sm">
+            <Zap className="w-4 h-4" />
+            Test & Apply to Server
+          </button>
+          {smtpResult && (
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold ${smtpResult.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {smtpResult.success ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+              {smtpResult.message}
+            </div>
+          )}
+        </div>
+
+        {smtpApplied && (
+          <div className="flex gap-3 pt-2">
+            <button onClick={async () => {
+              const res = await fetch("/api/email/send-test", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "info@technosprint.net" })
+              });
+              const data = await res.json();
+              alert(data.success ? "✅ Test email sent! Check the inbox." : "❌ Failed: " + data.error);
+            }} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors">
+              <Send className="w-4 h-4" /> Send Test Email
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Email Integration Management</h1>
+          <p className="text-muted-foreground">Manage multi-company SMTP and IMAP configurations for automated support ticketing.</p>
+        </div>
+        <Button onClick={() => { setEditingId(null); setShowModal(true); }} className="bg-sn-green text-sn-dark font-bold gap-2">
+          <Plus className="w-4 h-4" /> Add Integration
+        </Button>
+      </div>
+
 
  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
  {configs.map(config => (

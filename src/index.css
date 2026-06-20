@@ -395,23 +395,51 @@
   opacity: 0.6;
 }
 
-/* Glassmorphic Dark Modal Form Elements */
+/* Glassmorphic Modal Form Elements */
+/* Light Mode (default) */
 .dark-form-container label {
-  @apply text-[10px] text-right font-bold uppercase tracking-wider text-white/50 leading-tight;
+  @apply text-[10px] text-right font-bold uppercase tracking-wider text-slate-700 leading-tight;
 }
 
 .dark-form-container input,
 .dark-form-container select,
 .dark-form-container textarea {
-  @apply bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/10 outline-none h-8 px-3 transition-all duration-200 placeholder:text-white/20;
+  @apply bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 outline-none h-8 px-3 transition-all duration-200 placeholder:text-slate-400;
 }
 
 .dark-form-container select option {
-  @apply bg-[#0b0c16] text-white;
+  @apply bg-white text-slate-900;
 }
 
 .dark-form-container textarea {
   @apply h-auto py-2;
+}
+
+.dark-form-container input:disabled,
+.dark-form-container select:disabled,
+.dark-form-container textarea:disabled {
+  @apply bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed;
+}
+
+/* Dark Mode */
+.dark .dark-form-container label {
+  @apply text-white/55;
+}
+
+.dark .dark-form-container input,
+.dark .dark-form-container select,
+.dark .dark-form-container textarea {
+  @apply bg-black/40 border border-white/10 text-white focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/10 placeholder:text-white/20;
+}
+
+.dark .dark-form-container select option {
+  @apply bg-[#0b0c16] text-white;
+}
+
+.dark .dark-form-container input:disabled,
+.dark .dark-form-container select:disabled,
+.dark .dark-form-container textarea:disabled {
+  @apply bg-white/5 text-white/40 border-white/5;
 }
 
 /* Text Visibility and Readability Rules */

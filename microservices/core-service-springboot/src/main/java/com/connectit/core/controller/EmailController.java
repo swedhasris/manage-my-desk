@@ -4,8 +4,11 @@ import com.connectit.core.model.*;
 import com.connectit.core.repository.*;
 import com.connectit.core.service.EmailService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -13,12 +16,20 @@ import java.util.*;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@Slf4j
 public class EmailController {
 
     private final EmailService                 emailService;
     private final EmailLogRepository           emailLogRepo;
     private final NotificationQueueRepository  queueRepo;
     private final CompanyEmailConfigRepository configRepo;
+    private final org.springframework.mail.javamail.JavaMailSender mailSender;
+
+    @Value("${app.mail.from:info@technosprint.net}")
+    private String defaultFrom;
+
+    @Value("${app.mail.from-name:Manage My Desk}")
+    private String defaultFromName;
 
     @GetMapping("/email/health")
     public ResponseEntity<?> health() {
@@ -61,10 +72,11 @@ public class EmailController {
     public ResponseEntity<?> sendTest(@RequestBody Map<String,String> body) {
         String to = body.getOrDefault("to", "info@technosprint.net");
         emailService.sendAsync(to,
-            "[TEST] Ticklora Spring Boot Email Test",
-            "<div style='font-family:sans-serif;padding:20px'><h2 style='color:#2563eb'>✅ Spring Boot Email Working</h2>" +
-            "<p>This confirms the Spring Boot email integration is operational.</p>" +
-            "<p>Sent: " + java.time.LocalDateTime.now() + "</p></div>"
+            "[TEST] Manage My Desk Email Test",
+            "<div style='font-family:sans-serif;padding:20px'><h2 style='color:#2563eb'>&#x2705; Email Integration Working</h2>" +
+            "<p>This confirms the Manage My Desk email integration is operational.</p>" +
+            "<p>Sent from: " + defaultFrom + " (" + defaultFromName + ")</p>" +
+            "<p>Sent at: " + java.time.LocalDateTime.now() + "</p></div>"
         );
         return ResponseEntity.ok(Map.of("success", true, "message", "Test email sent to " + to));
     }
@@ -73,6 +85,137 @@ public class EmailController {
     public ResponseEntity<?> sendNote(@RequestBody Map<String,String> body) {
         emailService.sendAsync(body.get("to"), body.get("subject"), body.get("body"));
         return ResponseEntity.ok(Map.of("message", "Email queued"));
+    }
+
+    /**
+     * Test SMTP credentials — either the current app config or custom credentials.
+     * Body (optional): { "host": "smtp-relay.brevo.com", "port": "587", "username": "...", "password": "..." }
+     */
+    @PostMapping("/email/smtp-test")
+    public ResponseEntity<?> testCurrentSmtp(@RequestBody(required = false) Map<String,String> body) {
+        String host, username, password;
+        int port;
+
+        if (body != null && body.containsKey("host")) {
+            host     = body.getOrDefault("host", "smtp-relay.brevo.com");
+            port     = Integer.parseInt(body.getOrDefault("port", "587"));
+            username = body.getOrDefault("username", "");
+            password = body.getOrDefault("password", "");
+        } else {
+            JavaMailSenderImpl impl = (JavaMailSenderImpl) mailSender;
+            host     = impl.getHost();
+            port     = impl.getPort();
+            username = impl.getUsername();
+            password = impl.getPassword();
+        }
+
+        log.info("[SMTP-TEST] Testing SMTP: host={}, port={}, user={}", host, port, username);
+
+        try {
+            var props = new java.util.Properties();
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.starttls.required", "true");
+            props.put("mail.smtp.ssl.trust", "*");
+            props.put("mail.smtp.connectiontimeout", "8000");
+            props.put("mail.smtp.timeout", "8000");
+
+            final String u = username;
+            final String p = password;
+            var session = jakarta.mail.Session.getInstance(props, new jakarta.mail.Authenticator() {
+                protected jakarta.mail.PasswordAuthentication getPasswordAuthentication() {
+                    return new jakarta.mail.PasswordAuthentication(u, p);
+                }
+            });
+            var transport = session.getTransport("smtp");
+            transport.connect(host, port, username, password);
+            transport.close();
+
+            log.info("[SMTP-TEST] SUCCESS for {}", host);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "SMTP connection successful! Host: " + host + ":" + port + " | User: " + username
+            ));
+        } catch (Exception e) {
+            log.error("[SMTP-TEST] FAILED: {}", e.getMessage());
+            String err = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+            String hint = "";
+            if (err.contains("Authentication") || err.contains("535") || err.contains("534")) {
+                hint = " | HINT: For Brevo: use login email as username and SMTP Key as password. For M365: enable SMTP AUTH in M365 Admin Center per mailbox.";
+            } else if (err.toLowerCase().contains("connect")) {
+                hint = " | HINT: Cannot connect. Verify host/port or check firewall.";
+            }
+            return ResponseEntity.status(400).body(Map.of(
+                "success", false,
+                "error", err + hint
+            ));
+        }
+    }
+
+    /**
+     * Update the live JavaMailSender SMTP credentials at runtime (no server restart needed).
+     * Body: { "host": "smtp-relay.brevo.com", "port": "587", "username": "...", "password": "..." }
+     */
+    @PostMapping("/email/smtp-update")
+    public ResponseEntity<?> updateSmtpConfig(@RequestBody Map<String,String> body) {
+        try {
+            String host     = body.getOrDefault("host", "smtp-relay.brevo.com");
+            int    port     = Integer.parseInt(body.getOrDefault("port", "587"));
+            String username = body.get("username");
+            String password = body.get("password");
+
+            if (username == null || username.isBlank() || password == null || password.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "username and password are required"));
+            }
+
+            // Test before applying
+            var props = new java.util.Properties();
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.ssl.trust", "*");
+            props.put("mail.smtp.connectiontimeout", "8000");
+            props.put("mail.smtp.timeout", "8000");
+
+            final String u = username;
+            final String p = password;
+            var session = jakarta.mail.Session.getInstance(props, new jakarta.mail.Authenticator() {
+                protected jakarta.mail.PasswordAuthentication getPasswordAuthentication() {
+                    return new jakarta.mail.PasswordAuthentication(u, p);
+                }
+            });
+            var transport = session.getTransport("smtp");
+            transport.connect(host, port, username, password);
+            transport.close();
+
+            // Apply to live mail sender
+            JavaMailSenderImpl impl = (JavaMailSenderImpl) mailSender;
+            impl.setHost(host);
+            impl.setPort(port);
+            impl.setUsername(username);
+            impl.setPassword(password);
+
+            Properties smtpProps = impl.getJavaMailProperties();
+            smtpProps.put("mail.transport.protocol", "smtp");
+            smtpProps.put("mail.smtp.auth", "true");
+            smtpProps.put("mail.smtp.starttls.enable", "true");
+            smtpProps.put("mail.smtp.starttls.required", "true");
+            smtpProps.put("mail.smtp.ssl.trust", "*");
+            smtpProps.put("mail.smtp.connectiontimeout", "10000");
+            smtpProps.put("mail.smtp.timeout", "10000");
+
+            log.info("[SMTP-UPDATE] Live SMTP updated: host={}, port={}, user={}", host, port, username);
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "SMTP credentials updated and verified! Emails will now be sent from " + defaultFrom + " (" + defaultFromName + ") via " + host
+            ));
+        } catch (Exception e) {
+            log.error("[SMTP-UPDATE] Failed: {}", e.getMessage());
+            return ResponseEntity.status(400).body(Map.of(
+                "success", false,
+                "error", "SMTP test failed: " + e.getMessage()
+            ));
+        }
     }
 
     // ── Email Configs ──────────────────────────────────────────────────────────

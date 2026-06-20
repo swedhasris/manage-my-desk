@@ -15,7 +15,7 @@ export interface ActivityTimelineProps {
 type FilterType ="all" |"work_notes" |"comments" |"system" |"emails";
 
 const FILTER_TABS: { key: FilterType; label: string; icon: React.ReactNode; color: string; activeColor: string }[] = [
- { key:"all", label:"All", icon: <History className="w-3 h-3" />, color:"bg-muted/50 text-muted-foreground hover:bg-muted", activeColor:"bg-sn-dark text-white" },
+ { key: "all", label: "All", icon: <History className="w-3 h-3" />, color: "bg-muted/50 text-muted-foreground hover:bg-muted", activeColor: "bg-slate-800 text-white dark:bg-sn-dark dark:text-white" },
  { key:"work_notes", label:"Internal Notes", icon: <Lock className="w-3 h-3" />, color:"bg-muted/50 text-muted-foreground hover:bg-muted", activeColor:"bg-amber-500 text-white" },
  { key:"comments", label:"Customer Comments", icon: <Globe className="w-3 h-3" />, color:"bg-muted/50 text-muted-foreground hover:bg-muted", activeColor:"bg-blue-600 text-white" },
  { key:"system", label:"System", icon: <Settings className="w-3 h-3" />, color:"bg-muted/50 text-muted-foreground hover:bg-muted", activeColor:"bg-gray-500 text-white" },

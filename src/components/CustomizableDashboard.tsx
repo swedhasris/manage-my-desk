@@ -375,7 +375,7 @@ export function CustomizableDashboard({ data, userUid, role, validBreaches }: Cu
  <button
  key={widgetName}
  onClick={() => addWidget(widgetName)}
- className="p-3 bg-sn-dark border border-white/5 hover:border-sn-green/30 hover:bg-sn-green/5 rounded-xl text-left transition-all duration-200 group flex items-center justify-between"
+ className="p-3 bg-white dark:bg-sn-dark border border-slate-200 dark:border-white/5 hover:border-sn-green/30 hover:bg-sn-green/5 rounded-xl text-left transition-all duration-200 group flex items-center justify-between"
  >
  <span className="text-[11px] font-semibold text-text-dim group-hover:text-foreground">{widgetName}</span>
  <Plus size={12} className="text-muted-foreground group-hover:text-sn-green transition-colors" />
@@ -436,7 +436,7 @@ export function CustomizableDashboard({ data, userUid, role, validBreaches }: Cu
  </select>
  </div>
 
- <div className="flex items-center justify-between p-3 bg-black/20 rounded-xl">
+ <div className="flex items-center justify-between p-3 bg-slate-100 dark:bg-black/20 rounded-xl">
  <div>
  <div className="text-xs font-semibold">Lock Layout Configuration</div>
  <div className="text-[9px] text-muted-foreground">Users of this role cannot override locked widgets.</div>

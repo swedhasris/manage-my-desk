@@ -368,7 +368,7 @@ export function Settings() {
  <h2 className="text-2xl font-semibold">System Audit Trail</h2>
  </div>
  <div className="flex items-center gap-4">
- <div className="px-4 py-2 bg-sn-dark rounded-xl text-white text-[10px] font-semibold uppercase tracking-widest">{auditLogs.length} Records</div>
+ <div className="px-4 py-2 bg-slate-100 dark:bg-sn-dark rounded-xl text-slate-700 dark:text-white text-[10px] font-semibold uppercase tracking-widest">{auditLogs.length} Records</div>
  </div>
  </div>
  <div className="p-0 overflow-x-auto">
@@ -397,7 +397,7 @@ export function Settings() {
  </div>
  </td>
  <td className="px-8 py-5">
- <span className="px-3 py-1 bg-sn-dark text-white rounded-lg text-[9px] font-semibold uppercase">{log.moduleName}</span>
+ <span className="px-3 py-1 bg-slate-100 dark:bg-sn-dark text-slate-700 dark:text-white rounded-lg text-[9px] font-semibold uppercase">{log.moduleName}</span>
  </td>
  <td className="px-8 py-5">
  <span className={cn(
@@ -461,7 +461,7 @@ export function Settings() {
 
  <div className="mt-6 pt-6 border-t border-border dark:border-white/5 flex items-center justify-between">
  <div className="flex items-center gap-2">
- <label className="cursor-pointer p-2 bg-sn-dark text-sn-green rounded-xl hover:scale-105 transition-all inline-flex items-center gap-2">
+ <label className="cursor-pointer p-2 bg-slate-100 dark:bg-sn-dark text-slate-700 dark:text-sn-green rounded-xl hover:scale-105 transition-all inline-flex items-center gap-2 border border-slate-200 dark:border-transparent">
  <HardDrive size={14} />
  <span className="text-[9px] font-semibold uppercase tracking-widest">Upload Script</span>
  <input type="file" className="hidden" onChange={(e) => handleFileUpload(wf.id, e)} />
@@ -580,7 +580,7 @@ export function Settings() {
 
  {/* ── Advanced Form Modal ── */}
  {isModalOpen && editingItem && (
- <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-sn-dark/80 backdrop-blur-md">
+ <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-sn-dark/80 backdrop-blur-md">
  <motion.div
  initial={{ scale: 0.9, opacity: 0 }}
  animate={{ scale: 1, opacity: 1 }}
@@ -770,7 +770,7 @@ function MasterColumn({ title, icon: Icon, items, selectedId, onSelect, onAdd, o
  <span className="font-semibold text-[11px] uppercase tracking-[0.2em] flex items-center gap-2">
  <Icon size={14} className="text-sn-green" /> {title}
  </span>
- <span className="text-[10px] font-semibold bg-sn-dark text-white px-3 py-1 rounded-full">{filteredItems.length}</span>
+ <span className="text-[10px] font-semibold bg-slate-100 dark:bg-sn-dark text-slate-700 dark:text-white px-3 py-1 rounded-full">{filteredItems.length}</span>
  </div>
  <div className="relative">
  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={12} />
@@ -866,7 +866,7 @@ function MasterColumn({ title, icon: Icon, items, selectedId, onSelect, onAdd, o
  ) : (
  <Button
  onClick={onAdd}
- className="w-full bg-sn-dark text-sn-green h-12 rounded-xl flex items-center justify-center gap-2 font-semibold text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all"
+ className="w-full bg-slate-100 dark:bg-sn-dark text-slate-700 dark:text-sn-green h-12 rounded-xl flex items-center justify-center gap-2 font-semibold text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all border border-slate-200 dark:border-transparent"
  >
  <Plus size={16} /> New {newLabel}
  </Button>

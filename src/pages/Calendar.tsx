@@ -653,7 +653,11 @@ export function Calendar() {
  <button
  key={v}
  onClick={() => setViewMode(v)}
- className={`px-3 py-1 text-xs font-medium rounded transition-colors ${viewMode === v ?"bg-sn-dark text-white" :"bg-muted hover:bg-muted/80 text-foreground"}`}
+ className={`px-3 py-1 text-xs font-medium rounded border transition-colors cursor-pointer ${
+ viewMode === v
+ ? "bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/30 font-semibold"
+ : "bg-slate-50 dark:bg-muted border-slate-200 dark:border-border text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-muted/80"
+ }`}
  >
  {v.charAt(0).toUpperCase() + v.slice(1)}
  </button>
@@ -792,7 +796,7 @@ export function Calendar() {
  </span>
  
  {/* Hover Tooltip */}
- <div className="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block bg-sn-dark text-white text-[10px] p-2 rounded shadow-lg z-50 whitespace-nowrap min-w-max">
+ <div className="absolute bottom-full left-0 mb-1 hidden group-hover/tooltip:block bg-slate-900 dark:bg-sn-dark text-white text-[10px] p-2 rounded shadow-lg z-50 whitespace-nowrap min-w-max">
  {(() => {
  const incidentMatch = (card.ticket_number || card.short_description || card.description ||"").match(/INC\d{5,}/i);
  const incNum = incidentMatch ? incidentMatch[0].toUpperCase() : null;
@@ -956,7 +960,7 @@ export function Calendar() {
  <Trash2 className="w-3.5 h-3.5" /> Delete
  </button>
  {editPanel && (editPanel.is_system_generated === 1 || !!(editPanel.ticket_number || editPanel.short_description || editPanel.description ||"").match(/INC\d{5,}/i)) && (
- <div className="absolute bottom-full left-0 mb-1 hidden group-hover:block bg-sn-dark text-white text-[10px] p-1.5 rounded shadow whitespace-nowrap z-50">
+ <div className="absolute bottom-full left-0 mb-1 hidden group-hover:block bg-slate-900 dark:bg-sn-dark text-white text-[10px] p-1.5 rounded shadow whitespace-nowrap z-50">
  Incident-linked entries cannot be deleted manually.
  </div>
  )}

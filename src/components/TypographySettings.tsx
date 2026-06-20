@@ -110,7 +110,7 @@ export function TypographySettings() {
  </p>
  </div>
  <div className="flex items-center gap-3">
- <label className="cursor-pointer px-4 py-2.5 bg-sn-dark text-sn-green rounded-xl hover:scale-105 transition-all inline-flex items-center gap-2 border border-sn-green/20">
+  <label className="cursor-pointer px-4 py-2.5 bg-slate-100 dark:bg-sn-dark text-blue-600 dark:text-sn-green rounded-xl hover:scale-105 transition-all inline-flex items-center gap-2 border border-blue-300 dark:border-sn-green/20">
  <Upload size={14} />
  <span className="text-[10px] font-semibold uppercase tracking-widest">
  {uploading ?"Uploading..." :"Upload WOFF2/TTF"}

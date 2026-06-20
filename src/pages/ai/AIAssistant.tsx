@@ -69,7 +69,7 @@ function StatCard({
  color?: string;
 }) {
  return (
- <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-start gap-4">
+ <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 flex items-start gap-4 shadow-sm">
  <div
  className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
  style={{ backgroundColor: color +"22" }}
@@ -77,11 +77,11 @@ function StatCard({
  <Icon className="w-5 h-5" style={{ color }} />
  </div>
  <div className="min-w-0">
- <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+ <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
  {label}
  </p>
- <p className="text-2xl font-semibold text-white">{value}</p>
- {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
+ <p className="text-2xl font-semibold text-slate-900 dark:text-white">{value}</p>
+ {sub && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{sub}</p>}
  </div>
  </div>
  );
@@ -102,15 +102,15 @@ function MiniBar({
  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
  return (
  <div className="flex items-center gap-3">
- <div className="w-32 text-xs text-slate-300 truncate font-medium">{label}</div>
- <div className="flex-grow bg-white/5 rounded-full h-2 overflow-hidden">
+ <div className="w-32 text-xs text-slate-700 dark:text-slate-300 truncate font-medium">{label}</div>
+ <div className="flex-grow bg-slate-100 dark:bg-white/5 rounded-full h-2 overflow-hidden">
  <div
  className="h-2 rounded-full transition-all duration-700"
  style={{ width: `${pct}%`, backgroundColor: color }}
  />
  </div>
  <div className="w-16 text-right">
- <span className="text-xs font-bold text-white">{count}</span>
+ <span className="text-xs font-bold text-slate-900 dark:text-white">{count}</span>
  <span className="text-[10px] text-slate-500 ml-1">({pct}%)</span>
  </div>
  </div>
@@ -166,14 +166,14 @@ function TicketAnalyzer({ kbArticles }: { kbArticles: any[] }) {
  return (
  <div className="space-y-6">
  {/* Input Section */}
- <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+ <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-sm">
  <div className="flex items-center gap-3 mb-4">
  <div className="w-9 h-9 rounded-xl bg-indigo-500/20 flex items-center justify-center">
- <FileText className="w-4 h-4 text-indigo-400" />
+ <FileText className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
  </div>
  <div>
- <h3 className="text-sm font-bold text-white">Ticket Text Analyzer</h3>
- <p className="text-xs text-slate-400">
+ <h3 className="text-sm font-bold text-slate-900 dark:text-white">Ticket Text Analyzer</h3>
+ <p className="text-xs text-slate-500 dark:text-slate-400">
  Paste or type a ticket description to get AI recommendations
  </p>
  </div>
@@ -184,7 +184,7 @@ function TicketAnalyzer({ kbArticles }: { kbArticles: any[] }) {
  onChange={(e) => setTicketText(e.target.value)}
  placeholder="Example: I cannot access Outlook after changing my password..."
  rows={5}
- className="w-full bg-black/30 border border-white/10 rounded-xl p-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 resize-none transition-all"
+ className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl p-4 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 resize-none transition-all"
  />
 
  {/* Sample Buttons */}
@@ -197,7 +197,7 @@ function TicketAnalyzer({ kbArticles }: { kbArticles: any[] }) {
  <button
  key={i}
  onClick={() => setTicketText(sample)}
- className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[11px] text-slate-300 hover:bg-indigo-500/20 hover:border-indigo-500/40 hover:text-white transition-all cursor-pointer"
+ className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[11px] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-indigo-500/20 hover:border-indigo-500/40 hover:text-white transition-all cursor-pointer"
  >
  Sample {i + 1}
  </button>
@@ -212,7 +212,7 @@ function TicketAnalyzer({ kbArticles }: { kbArticles: any[] }) {
 "w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all",
  ticketText.trim() && !analyzing
  ?"bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-lg shadow-indigo-500/20 cursor-pointer"
- :"bg-white/5 text-slate-500 cursor-not-allowed"
+ :"bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed"
  )}
  >
  {analyzing ? (
@@ -233,16 +233,16 @@ function TicketAnalyzer({ kbArticles }: { kbArticles: any[] }) {
  {analysis && (
  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
  {/* Confidence Banner */}
- <div className="bg-gradient-to-r from-indigo-900/40 to-violet-900/40 border border-indigo-500/30 rounded-2xl p-4 flex items-center gap-4">
+ <div className="bg-gradient-to-r from-indigo-50 dark:from-indigo-900/40 to-violet-50 dark:to-violet-900/40 border border-indigo-100 dark:border-indigo-500/30 rounded-2xl p-4 flex items-center gap-4 shadow-sm">
  <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0">
- <Brain className="w-6 h-6 text-indigo-400" />
+ <Brain className="w-6 h-6 text-indigo-500 dark:text-indigo-400" />
  </div>
  <div className="flex-grow">
  <div className="flex items-center justify-between mb-1.5">
- <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
+ <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300 uppercase tracking-wider">
  AI Confidence Score
  </span>
- <span className="text-lg font-semibold text-white">{analysis.confidence}%</span>
+ <span className="text-lg font-semibold text-slate-900 dark:text-white">{analysis.confidence}%</span>
  </div>
  <ConfidenceBar value={analysis.confidence} />
  </div>
@@ -251,14 +251,14 @@ function TicketAnalyzer({ kbArticles }: { kbArticles: any[] }) {
  {/* 2-column grid of results */}
  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
  {/* Summary */}
- <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+ <div className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-sm">
  <div className="flex items-center gap-2 mb-3">
  <FileText className="w-4 h-4 text-cyan-400" />
  <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
  Ticket Summary
  </span>
  </div>
- <p className="text-sm text-white leading-relaxed font-medium">
+ <p className="text-sm text-slate-800 dark:text-white leading-relaxed font-medium">
  {analysis.summary}
  </p>
  </div>
@@ -346,11 +346,11 @@ function TicketAnalyzer({ kbArticles }: { kbArticles: any[] }) {
  {analysis.recommendedArticles.map((article) => (
  <div
  key={article.id}
- className="flex items-start gap-3 p-3 rounded-xl bg-black/20 border border-white/5 hover:border-orange-500/30 transition-all"
+ className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-100 dark:border-white/5 hover:border-orange-500/30 transition-all"
  >
  <BookOpen className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
  <div className="min-w-0">
- <p className="text-sm font-bold text-white truncate">{article.title}</p>
+ <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{article.title}</p>
  <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{article.snippet}</p>
  <span className="text-[10px] text-orange-400/70 font-bold uppercase mt-1 inline-block">
  {article.category}
@@ -402,7 +402,7 @@ function TicketAnalyzer({ kbArticles }: { kbArticles: any[] }) {
 "px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer",
  activeTemplate?.id === t.id
  ?"bg-pink-500/30 border border-pink-500/50 text-pink-200"
- :"bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10"
+ :"bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10"
  )}
  >
  {t.name}
@@ -411,11 +411,11 @@ function TicketAnalyzer({ kbArticles }: { kbArticles: any[] }) {
  </div>
  )}
 
- <div className="bg-black/30 rounded-xl p-4 border border-white/5">
+ <div className="bg-slate-50 dark:bg-black/30 rounded-xl p-4 border border-slate-100 dark:border-white/5">
  <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Subject</p>
  <p className="text-xs text-slate-300 font-semibold mb-3">{activeTemplate.subject}</p>
  <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Body</p>
- <pre className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
+ <pre className="text-xs text-slate-800 dark:text-slate-300 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
  {activeTemplate.body}
  </pre>
  </div>
@@ -467,14 +467,14 @@ function TrendAnalysis({
  {/* Header */}
  <div className="flex items-center justify-between">
  <div>
- <h3 className="text-base font-bold text-white">Trend Analysis</h3>
+ <h3 className="text-base font-bold text-slate-900 dark:text-white">Trend Analysis</h3>
  <p className="text-xs text-slate-400 mt-0.5">
  Analyzing {trends.totalAnalyzed} tickets from the system
  </p>
  </div>
  <button
  onClick={onRefresh}
- className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 transition-all cursor-pointer"
+ className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 transition-all cursor-pointer shadow-sm"
  >
  <RefreshCw className="w-3.5 h-3.5" />
  Refresh
@@ -513,7 +513,7 @@ function TrendAnalysis({
  <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
  <div className="flex items-center gap-2 mb-5">
  <Tag className="w-4 h-4 text-violet-400" />
- <h4 className="text-sm font-bold text-white">Most Common Categories</h4>
+ <h4 className="text-sm font-bold text-slate-900 dark:text-white">Most Common Categories</h4>
  </div>
  {trends.topCategories.length === 0 ? (
  <p className="text-xs text-slate-500 text-center py-6">No category data available yet.</p>
@@ -535,7 +535,7 @@ function TrendAnalysis({
  <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
  <div className="flex items-center gap-2 mb-5">
  <AlertTriangle className="w-4 h-4 text-amber-400" />
- <h4 className="text-sm font-bold text-white">Priority Distribution</h4>
+ <h4 className="text-sm font-bold text-slate-900 dark:text-white">Priority Distribution</h4>
  </div>
  {trends.topPriorities.length === 0 ? (
  <p className="text-xs text-slate-500 text-center py-6">No priority data available yet.</p>
@@ -557,7 +557,7 @@ function TrendAnalysis({
  <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
  <div className="flex items-center gap-2 mb-5">
  <Users className="w-4 h-4 text-emerald-400" />
- <h4 className="text-sm font-bold text-white">Top Assignment Groups</h4>
+ <h4 className="text-sm font-bold text-slate-900 dark:text-white">Top Assignment Groups</h4>
  </div>
  {trends.topTeams.length === 0 ? (
  <p className="text-xs text-slate-500 text-center py-6">No assignment data available yet.</p>
@@ -580,7 +580,7 @@ function TrendAnalysis({
  <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
  <div className="flex items-center gap-2 mb-5">
  <RefreshCw className="w-4 h-4 text-rose-400" />
- <h4 className="text-sm font-bold text-white">Recurring Issues</h4>
+ <h4 className="text-sm font-bold text-slate-900 dark:text-white">Recurring Issues</h4>
  <span className="text-[10px] bg-rose-500/20 text-rose-400 font-bold px-2 py-0.5 rounded-full border border-rose-500/30">
  Reported multiple times
  </span>
@@ -589,9 +589,9 @@ function TrendAnalysis({
  {trends.recurringIssues.map((issue, i) => (
  <div
  key={i}
- className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-black/20 border border-white/5"
+ className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-100 dark:border-white/5"
  >
- <span className="text-sm text-slate-300 truncate flex-grow">{issue.title}</span>
+ <span className="text-sm text-slate-700 dark:text-slate-300 truncate flex-grow">{issue.title}</span>
  <span className="shrink-0 ml-3 text-xs font-semibold text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-full border border-rose-500/20">
  ×{issue.count}
  </span>
@@ -606,7 +606,7 @@ function TrendAnalysis({
  <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
  <div className="flex items-center gap-2 mb-4">
  <Zap className="w-4 h-4 text-sky-400" />
- <h4 className="text-sm font-bold text-white">Most Frequent Issue Keywords</h4>
+ <h4 className="text-sm font-bold text-slate-900 dark:text-white">Most Frequent Issue Keywords</h4>
  </div>
  <div className="flex flex-wrap gap-2">
  {trends.avgResponseKeywords.map((kw) => (
@@ -621,16 +621,16 @@ function TrendAnalysis({
  <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
  <div className="flex items-center gap-2 mb-5">
  <Clock className="w-4 h-4 text-cyan-400" />
- <h4 className="text-sm font-bold text-white">Avg Resolution Time by Priority</h4>
+ <h4 className="text-sm font-bold text-slate-900 dark:text-white">Avg Resolution Time by Priority</h4>
  </div>
  <div className="space-y-3">
  {serverStats.avgResolutionByPriority.map((item: any) => (
- <div key={item.priority} className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-black/20 border border-white/5">
+ <div key={item.priority} className="flex items-center justify-between py-2.5 px-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-100 dark:border-white/5">
  <div className="flex items-center gap-2">
  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getPriorityColor(item.priority ||"") }} />
- <span className="text-sm text-slate-300">{item.priority ||"Unknown"}</span>
+ <span className="text-sm text-slate-700 dark:text-slate-300">{item.priority ||"Unknown"}</span>
  </div>
- <span className="text-sm font-bold text-white">
+ <span className="text-sm font-bold text-slate-900 dark:text-white">
  {item.avg_hours != null ? `${item.avg_hours}h` :"—"}
  </span>
  </div>
@@ -690,7 +690,7 @@ function AIDashboard({
  return (
  <div className="space-y-6">
  <div>
- <h3 className="text-base font-bold text-white">AI Intelligence Dashboard</h3>
+ <h3 className="text-base font-bold text-slate-900 dark:text-white">AI Intelligence Dashboard</h3>
  <p className="text-xs text-slate-400 mt-0.5">
  Real-time insights generated from your ticketing system data
  </p>
@@ -701,7 +701,7 @@ function AIDashboard({
  {insightCards.map((card, i) => (
  <div
  key={i}
- className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-start gap-4 hover:border-white/20 transition-all"
+ className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-5 flex items-start gap-4 hover:border-slate-300 dark:hover:border-white/20 transition-all shadow-sm"
  >
  <div
  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -713,7 +713,7 @@ function AIDashboard({
  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
  {card.title}
  </p>
- <p className="text-base font-semibold text-white truncate">{card.value}</p>
+ <p className="text-base font-semibold text-slate-900 dark:text-white truncate">{card.value}</p>
  <p className="text-[11px] text-slate-500 mt-0.5">{card.sub}</p>
  </div>
  </div>
@@ -734,20 +734,20 @@ function AIDashboard({
  <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
  <div className="flex items-center gap-2 mb-5">
  <Tag className="w-4 h-4 text-violet-400" />
- <h4 className="text-sm font-bold text-white">Suggested Categories Overview</h4>
+ <h4 className="text-sm font-bold text-slate-900 dark:text-white">Suggested Categories Overview</h4>
  </div>
  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
  {trends.topCategories.slice(0, 6).map((cat, i) => (
  <div
  key={cat.name}
- className="flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-white/5"
+ className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-100 dark:border-white/5"
  >
  <div
  className="w-2.5 h-2.5 rounded-full shrink-0"
  style={{ backgroundColor: getCategoryColor(i) }}
  />
  <div className="min-w-0">
- <p className="text-xs font-bold text-white truncate">{cat.name}</p>
+ <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{cat.name}</p>
  <p className="text-[10px] text-slate-500">{cat.count} tickets</p>
  </div>
  </div>
@@ -761,13 +761,13 @@ function AIDashboard({
  <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
  <div className="flex items-center gap-2 mb-5">
  <Users className="w-4 h-4 text-emerald-400" />
- <h4 className="text-sm font-bold text-white">Suggested Team Assignments</h4>
+ <h4 className="text-sm font-bold text-slate-900 dark:text-white">Suggested Team Assignments</h4>
  </div>
  <div className="space-y-2">
  {trends.topTeams.slice(0, 5).map((team, i) => (
  <div
  key={team.name}
- className="flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-white/5"
+ className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-100 dark:border-white/5"
  >
  <div
  className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-semibold text-white"
@@ -775,7 +775,7 @@ function AIDashboard({
  >
  {i + 1}
  </div>
- <span className="flex-grow text-sm text-slate-200 font-medium">{team.name}</span>
+ <span className="flex-grow text-sm text-slate-700 dark:text-slate-200 font-medium">{team.name}</span>
  <div className="text-right">
  <span className="text-xs font-semibold text-white">{team.count}</span>
  <span className="text-[10px] text-slate-500 ml-1">tickets</span>
@@ -790,7 +790,7 @@ function AIDashboard({
  <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
  <div className="flex items-center gap-2 mb-4">
  <BookOpen className="w-4 h-4 text-orange-400" />
- <h4 className="text-sm font-bold text-white">Knowledge Base Overview</h4>
+ <h4 className="text-sm font-bold text-slate-900 dark:text-white">Knowledge Base Overview</h4>
  </div>
  {kbArticles.length === 0 ? (
  <div className="text-center py-6">
@@ -802,11 +802,11 @@ function AIDashboard({
  {kbArticles.slice(0, 5).map((article) => (
  <div
  key={article.id}
- className="flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-white/5"
+ className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-100 dark:border-white/5"
  >
  <BookOpen className="w-3.5 h-3.5 text-orange-400 shrink-0" />
  <div className="min-w-0 flex-grow">
- <p className="text-xs font-semibold text-white truncate">{article.title}</p>
+ <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{article.title}</p>
  <p className="text-[10px] text-slate-500">{article.category}</p>
  </div>
  <div className="flex items-center gap-1 shrink-0">
@@ -906,15 +906,15 @@ export function AIAssistant() {
  ];
 
  return (
- <div className="min-h-full bg-gradient-to-br from-[#070b1a] via-[#0d1127] to-[#070b1a]">
+ <div className="min-h-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#070b1a] dark:via-[#0d1127] dark:to-[#070b1a]">
  {/* Page Header */}
- <div className="border-b border-white/10 bg-black/20 backdrop-blur-sm px-6 py-5">
+ <div className="border-b border-slate-200 dark:border-white/10 bg-white/50 dark:bg-black/20 backdrop-blur-sm px-6 py-5">
  <div className="max-w-6xl mx-auto flex items-center gap-4">
  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
  <Brain className="w-6 h-6 text-white" />
  </div>
  <div>
- <h1 className="text-xl font-semibold text-white flex items-center gap-2">
+ <h1 className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
  AI Assistant
  <span className="text-[10px] bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ml-1">
  No External APIs
@@ -936,7 +936,7 @@ export function AIAssistant() {
  </div>
 
  {/* Tab Navigation */}
- <div className="border-b border-white/10 bg-black/10 px-6">
+ <div className="border-b border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-black/10 px-6">
  <div className="max-w-6xl mx-auto flex items-center gap-1">
  {tabs.map((tab) => (
  <button

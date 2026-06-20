@@ -501,7 +501,7 @@ export function Sidebar() {
  {/* Floating Sidebar Link Context Menu */}
  {contextMenu.show && (
  <div
- className="fixed bg-[#0c101f]/95 border border-white/10 backdrop-blur-xl rounded-xl shadow-2xl py-1.5 z-[9999] text-[11px] text-white min-w-[150px] animate-in fade-in zoom-in-95 duration-100 shadow-[0_10px_25px_rgba(0,0,0,0.5)]"
+ className="fixed bg-white dark:bg-[#0c101f]/95 border border-slate-200 dark:border-white/10 backdrop-blur-xl rounded-xl shadow-2xl py-1.5 z-[9999] text-[11px] text-slate-700 dark:text-white min-w-[150px] animate-in fade-in zoom-in-95 duration-100 shadow-[0_10px_25px_rgba(0,0,0,0.5)]"
  style={{ top: contextMenu.y, left: contextMenu.x }}
  >
  <button

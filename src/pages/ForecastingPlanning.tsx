@@ -232,7 +232,7 @@ export function ForecastingPlanning() {
  </div>
 
  <div className="flex items-center gap-2.5 shrink-0">
- <Button onClick={handleExportCSV} className="bg-sn-dark text-white border border-white/10 hover:bg-white/5 h-11 px-5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+ <Button onClick={handleExportCSV} className="bg-slate-100 dark:bg-sn-dark text-slate-700 dark:text-white border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/5 h-11 px-5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2">
  <Download size={14} /> CSV
  </Button>
  <Button onClick={() => handleExportMock("excel")} className="bg-emerald-600 hover:bg-emerald-700 text-white h-11 px-5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2">
@@ -266,7 +266,7 @@ export function ForecastingPlanning() {
  const progress = Math.min(100, Math.round((tgt.actualValue / tgt.targetValue) * 100));
  const progressColor = progress >= 95 ?"bg-sn-green" : progress >= 80 ?"bg-blue-500" :"bg-red-500";
  return (
- <div key={tgt.id} className="p-4 bg-black/20 rounded-2xl border border-white/5 relative group/item">
+ <div key={tgt.id} className="p-4 bg-slate-50 dark:bg-black/20 rounded-2xl border border-slate-200 dark:border-white/5 relative group/item">
  {isAdmin && (
  <button onClick={() => handleDeleteTarget(tgt.id)} className="absolute top-4 right-4 opacity-0 group-hover/item:opacity-100 p-1 bg-red-500/10 text-red-500 rounded hover:scale-115 transition-all">
  <Trash2 size={12} />
@@ -279,7 +279,7 @@ export function ForecastingPlanning() {
  <span className="text-muted-foreground">Target: {tgt.targetValue}%</span>
  <span className="text-foreground">Actual: {tgt.actualValue}%</span>
  </div>
- <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden">
+ <div className="w-full h-2 bg-slate-200 dark:bg-black/40 rounded-full overflow-hidden">
  <div className={`h-full ${progressColor}`} style={{ width: `${progress}%` }} />
  </div>
  </div>
@@ -298,7 +298,7 @@ export function ForecastingPlanning() {
  </div>
 
  {forecasts.length > 0 ? (
- <div className="h-[320px] bg-black/20 rounded-2xl p-4 border border-white/5">
+ <div className="h-[320px] bg-slate-50 dark:bg-black/20 rounded-2xl p-4 border border-slate-200 dark:border-white/5">
  <ResponsiveContainer width="100%" height="100%">
  <AreaChart data={forecasts}>
  <defs>
@@ -345,7 +345,7 @@ export function ForecastingPlanning() {
 
  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
  {events.map((evt) => (
- <div key={evt.id} className="p-5 bg-black/20 rounded-[24px] border border-white/5 flex flex-col justify-between hover:border-purple-500/30 transition-all duration-300">
+ <div key={evt.id} className="p-5 bg-slate-50 dark:bg-black/20 rounded-[24px] border border-slate-200 dark:border-white/5 flex flex-col justify-between hover:border-purple-500/30 transition-all duration-300">
  <div className="space-y-2">
  <div className="flex items-center justify-between">
  <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 text-[9px] font-semibold uppercase border border-purple-500/20">{evt.eventType}</span>
@@ -354,7 +354,7 @@ export function ForecastingPlanning() {
  <h4 className="text-sm font-semibold text-foreground">{evt.title}</h4>
  <p className="text-xs text-muted-foreground font-medium leading-relaxed">{evt.details ||"No details provided."}</p>
  </div>
- <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between text-[10px] font-bold text-muted-foreground">
+ <div className="mt-4 pt-4 border-t border-slate-200 dark:border-white/5 flex items-center justify-between text-[10px] font-bold text-muted-foreground">
  <span>Milestone</span>
  <ChevronRight size={14} className="text-sn-green" />
  </div>
@@ -385,7 +385,7 @@ export function ForecastingPlanning() {
  <select
  value={newTarget.targetType}
  onChange={e => setNewTarget({ ...newTarget, targetType: e.target.value })}
- className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none"
+ className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none text-foreground"
  >
  <option value="Global">Global</option>
  <option value="Team">Team</option>
@@ -399,7 +399,7 @@ export function ForecastingPlanning() {
  type="text"
  value={newTarget.targetPeriod}
  onChange={e => setNewTarget({ ...newTarget, targetPeriod: e.target.value })}
- className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none"
+ className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none text-foreground"
  />
  </div>
  </div>
@@ -410,7 +410,7 @@ export function ForecastingPlanning() {
  type="text"
  value={newTarget.metricName}
  onChange={e => setNewTarget({ ...newTarget, metricName: e.target.value })}
- className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none"
+ className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none text-foreground"
  />
  </div>
 
@@ -422,7 +422,7 @@ export function ForecastingPlanning() {
  step="0.1"
  value={newTarget.targetValue}
  onChange={e => setNewTarget({ ...newTarget, targetValue: parseFloat(e.target.value) || 0 })}
- className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none"
+ className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none text-foreground"
  />
  </div>
 
@@ -433,7 +433,7 @@ export function ForecastingPlanning() {
  step="0.1"
  value={newTarget.actualValue}
  onChange={e => setNewTarget({ ...newTarget, actualValue: parseFloat(e.target.value) || 0 })}
- className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none"
+ className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none text-foreground"
  />
  </div>
  </div>
@@ -460,7 +460,7 @@ export function ForecastingPlanning() {
  type="text"
  value={newEvent.title}
  onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
- className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none"
+ className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none text-foreground"
  />
  </div>
 
@@ -470,7 +470,7 @@ export function ForecastingPlanning() {
  <select
  value={newEvent.eventType}
  onChange={e => setNewEvent({ ...newEvent, eventType: e.target.value })}
- className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none"
+ className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none text-foreground"
  >
  <option value="Release">Release Deployment</option>
  <option value="Training">Team Training</option>
@@ -485,7 +485,7 @@ export function ForecastingPlanning() {
  type="date"
  value={newEvent.eventDate}
  onChange={e => setNewEvent({ ...newEvent, eventDate: e.target.value })}
- className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none"
+ className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold outline-none text-foreground"
  />
  </div>
  </div>

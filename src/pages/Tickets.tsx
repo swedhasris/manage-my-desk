@@ -1171,10 +1171,10 @@ export function Tickets() {
  {/* Create Ticket Modal */}
  {isModalOpen && (
  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
- <div className="bg-[#090a15]/90 backdrop-blur-xl border border-blue-500/20 text-foreground bg-card rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in duration-200 shadow-[0_15px_50px_rgba(0,0,0,0.5)]">
- <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/20">
+ <div className="bg-white dark:bg-[#090a15]/90 backdrop-blur-xl border border-slate-200 dark:border-blue-500/20 text-foreground rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in duration-200 shadow-[0_15px_50px_rgba(0,0,0,0.5)]">
+ <div className="p-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-slate-50 dark:bg-black/20">
  <div className="flex items-center gap-2">
- <span className="text-[10px] font-semibold uppercase tracking-widest text-blue-500 dark:text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-full">New Incident Feed</span>
+ <span className="text-[10px] font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-full">New Incident Feed</span>
  </div>
  <div className="flex items-center gap-2">
  {isFeatureVisible("button.cancel") && (
@@ -1182,7 +1182,7 @@ export function Tickets() {
  variant="outline"
  size="sm"
  onClick={closeModal}
- className="border-white/10 text-white/80 hover:bg-white/5 hover:text-white rounded-xl cursor-pointer"
+ className="border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/80 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl cursor-pointer"
  disabled={isFeatureDisabled("button.cancel")}
  >
  Cancel
