@@ -2052,7 +2052,7 @@ export function Groups() {
  };
 
  return (
- <div className="flex flex-col w-full h-[calc(100vh-4.25rem)] overflow-hidden -m-8">
+ <div className="flex flex-col w-full h-[calc(100vh-4.25rem)] overflow-hidden">
  {/* Top Group Selector Bar */}
  <div className="bg-white dark:bg-slate-900 border-b border-border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0 shadow-sm z-10">
  <div className="flex items-center gap-3">
