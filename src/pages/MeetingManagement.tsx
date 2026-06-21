@@ -2295,11 +2295,11 @@ export function MeetingManagement() {
  {/* CREATE WIZARD MODAL */}
  {showCreateWizard && (
  <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
- <div className="bg-[#06070d] border border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+ <div className="bg-white dark:bg-[#06070d] border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
  {/* Modal Header */}
- <div className="p-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-black/40">
+ <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-black/40">
  <div>
- <h2 className="text-lg font-bold text-white">Create Minutes of Meeting (MOM)</h2>
+ <h2 className="text-lg font-bold text-slate-900 dark:text-white">Create Minutes of Meeting (MOM)</h2>
  {autoSaveStatus && (
  <span className="text-[10px] text-cyan-400 font-semibold flex items-center gap-1 animate-pulse">
  <Save className="w-3 h-3" /> {autoSaveStatus}
@@ -2315,7 +2315,7 @@ export function MeetingManagement() {
  setShowCreateWizard(false);
  }
  }}
- className="p-1.5 hover:bg-white/10 rounded-lg text-text-dim hover:text-white transition-colors cursor-pointer"
+ className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-text-dim hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
  >
  <X className="w-5 h-5" />
  </button>
@@ -2347,7 +2347,7 @@ export function MeetingManagement() {
  <UploadCloud className="w-8 h-8" />
  </div>
  <div>
- <h4 className="font-bold text-base text-white">Upload MOM Document</h4>
+ <h4 className="font-bold text-base text-slate-900 dark:text-white">Upload MOM Document</h4>
  <p className="text-xs text-text-dim mt-1.5 leading-relaxed">
  Upload existing reports as PDF, DOCX, or XLSX formats, with versions and audit tracking.
  </p>
@@ -2366,7 +2366,7 @@ export function MeetingManagement() {
  <FileText className="w-8 h-8" />
  </div>
  <div>
- <h4 className="font-bold text-base text-white">Create Using Template</h4>
+ <h4 className="font-bold text-base text-slate-900 dark:text-white">Create Using Template</h4>
  <p className="text-xs text-text-dim mt-1.5 leading-relaxed">
  Generate MOM metadata via 16 distinct operational fields inside our unified templates.
  </p>
@@ -2464,10 +2464,10 @@ export function MeetingManagement() {
 
  {/* Method specific fields */}
  {creationMethod ==="upload" ? (
- <div className="border border-white/10 rounded-2xl bg-black/40 p-6 space-y-4">
+ <div className="border border-slate-200 dark:border-white/10 rounded-2xl bg-slate-50 dark:bg-black/40 p-6 space-y-4">
  <h4 className="text-xs font-bold uppercase text-cyan-400">Document Upload</h4>
  
- <div className="border border-dashed border-white/20 rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-3 hover:border-cyan-500/50 transition-all bg-black/20 relative group">
+ <div className="border border-dashed border-slate-300 dark:border-white/20 rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-3 hover:border-cyan-500/50 transition-all bg-slate-100/50 dark:bg-black/20 relative group">
  <input
  type="file"
  accept=".pdf,.docx,.xlsx"
@@ -2487,7 +2487,7 @@ export function MeetingManagement() {
  <>
  <CheckCircle2 className="w-8 h-8 text-green-400" />
  <div>
- <span className="text-xs font-bold text-white block">{formData.fileName}</span>
+ <span className="text-xs font-bold text-slate-900 dark:text-white block">{formData.fileName}</span>
  <span className="text-[10px] text-text-dim block mt-0.5">
  Size: {(formData.fileSize / 1024).toFixed(1)} KB
  </span>
@@ -2510,7 +2510,7 @@ export function MeetingManagement() {
  </div>
  </div>
  ) : (
- <div className="space-y-4 border border-white/10 rounded-2xl bg-black/40 p-6">
+ <div className="space-y-4 border border-slate-200 dark:border-white/10 rounded-2xl bg-slate-50 dark:bg-black/40 p-6">
  <h4 className="text-xs font-bold uppercase text-purple-400">MOM Template Data</h4>
  
  <div className="space-y-4">
@@ -2534,7 +2534,7 @@ export function MeetingManagement() {
  onChange={(e) => setFormData(prev => ({ ...prev, shortDescription: e.target.value }))}
  />
  <div className="flex justify-between mt-1 text-[10px]">
- <span className={countLines(formData.shortDescription) > 9 ?"text-red-400 font-bold" :"text-white/40"}>
+ <span className={countLines(formData.shortDescription) > 9 ?"text-red-400 font-bold" :"text-slate-400 dark:text-white/40"}>
  {countLines(formData.shortDescription)} / 9 lines max
  </span>
  {countLines(formData.shortDescription) > 9 && (
@@ -2553,7 +2553,7 @@ export function MeetingManagement() {
  onChange={(e) => setFormData(prev => ({ ...prev, detailedDescription: e.target.value }))}
  />
  <div className="flex justify-between mt-1 text-[10px]">
- <span className={countLines(formData.detailedDescription) > 20 ?"text-red-400 font-bold" :"text-white/40"}>
+ <span className={countLines(formData.detailedDescription) > 20 ?"text-red-400 font-bold" :"text-slate-400 dark:text-white/40"}>
  {countLines(formData.detailedDescription)} / 20 lines max
  </span>
  {countLines(formData.detailedDescription) > 20 && (
@@ -2641,7 +2641,7 @@ export function MeetingManagement() {
 
  {/* Modal Footer */}
  {wizardStep === 2 && (
- <div className="p-5 border-t border-white/10 bg-black/40 flex items-center justify-between shrink-0 flex-wrap gap-2">
+ <div className="p-5 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/40 flex items-center justify-between shrink-0 flex-wrap gap-2">
  <span className="text-[10px] text-text-dim">
  * Fields are required to save/submit drafts.
  </span>
@@ -2651,7 +2651,7 @@ export function MeetingManagement() {
  type="button"
  onClick={() => handleSaveMeeting("Draft")}
  disabled={isSubmitting || uploading}
- className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 font-bold cursor-pointer text-xs"
+ className="bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-white border border-slate-200 dark:border-white/10 px-4 font-bold cursor-pointer text-xs"
  >
  Save as Draft
  </Button>
@@ -2673,11 +2673,11 @@ export function MeetingManagement() {
  {/* EDIT MODAL */}
  {showEditModal && (
  <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
- <div className="bg-[#06070d] border border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+ <div className="bg-white dark:bg-[#06070d] border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
  {/* Modal Header */}
- <div className="p-5 border-b border-white/10 flex items-center justify-between shrink-0 bg-black/40">
+ <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-black/40">
  <div>
- <h2 className="text-lg font-bold text-white">Edit Minutes of Meeting (MOM)</h2>
+ <h2 className="text-lg font-bold text-slate-900 dark:text-white">Edit Minutes of Meeting (MOM)</h2>
  {autoSaveStatus && (
  <span className="text-[10px] text-cyan-400 font-semibold flex items-center gap-1 animate-pulse">
  <Save className="w-3 h-3" /> {autoSaveStatus}
@@ -2686,7 +2686,7 @@ export function MeetingManagement() {
  </div>
  <button
  onClick={() => setShowEditModal(false)}
- className="p-1.5 hover:bg-white/10 rounded-lg text-text-dim hover:text-white transition-colors cursor-pointer"
+ className="p-1.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-text-dim hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
  >
  <X className="w-5 h-5" />
  </button>
@@ -2766,10 +2766,10 @@ export function MeetingManagement() {
 
  {/* Method specific fields */}
  {creationMethod ==="upload" ? (
- <div className="border border-white/10 rounded-2xl bg-black/40 p-6 space-y-4">
+ <div className="border border-slate-200 dark:border-white/10 rounded-2xl bg-slate-50 dark:bg-black/40 p-6 space-y-4">
  <h4 className="text-xs font-bold uppercase text-cyan-400">Document Upload</h4>
  
- <div className="border border-dashed border-white/20 rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-3 hover:border-cyan-500/50 transition-all bg-black/20 relative group">
+ <div className="border border-dashed border-slate-300 dark:border-white/20 rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-3 hover:border-cyan-500/50 transition-all bg-slate-100/50 dark:bg-black/20 relative group">
  <input
  type="file"
  accept=".pdf,.docx,.xlsx"
@@ -2789,7 +2789,7 @@ export function MeetingManagement() {
  <>
  <CheckCircle2 className="w-8 h-8 text-green-400" />
  <div>
- <span className="text-xs font-bold text-white block">{formData.fileName}</span>
+ <span className="text-xs font-bold text-slate-900 dark:text-white block">{formData.fileName}</span>
  <span className="text-[10px] text-text-dim block mt-0.5">
  Size: {(formData.fileSize / 1024).toFixed(1)} KB
  </span>
@@ -2812,7 +2812,7 @@ export function MeetingManagement() {
  </div>
  </div>
  ) : (
- <div className="space-y-4 border border-white/10 rounded-2xl bg-black/40 p-6">
+ <div className="space-y-4 border border-slate-200 dark:border-white/10 rounded-2xl bg-slate-50 dark:bg-black/40 p-6">
  <h4 className="text-xs font-bold uppercase text-purple-400">MOM Template Data</h4>
  
  <div className="space-y-4">
@@ -2836,7 +2836,7 @@ export function MeetingManagement() {
  onChange={(e) => setFormData(prev => ({ ...prev, shortDescription: e.target.value }))}
  />
  <div className="flex justify-between mt-1 text-[10px]">
- <span className={countLines(formData.shortDescription) > 9 ?"text-red-400 font-bold" :"text-white/40"}>
+ <span className={countLines(formData.shortDescription) > 9 ?"text-red-400 font-bold" :"text-slate-400 dark:text-white/40"}>
  {countLines(formData.shortDescription)} / 9 lines max
  </span>
  {countLines(formData.shortDescription) > 9 && (
@@ -2855,7 +2855,7 @@ export function MeetingManagement() {
  onChange={(e) => setFormData(prev => ({ ...prev, detailedDescription: e.target.value }))}
  />
  <div className="flex justify-between mt-1 text-[10px]">
- <span className={countLines(formData.detailedDescription) > 20 ?"text-red-400 font-bold" :"text-white/40"}>
+ <span className={countLines(formData.detailedDescription) > 20 ?"text-red-400 font-bold" :"text-slate-400 dark:text-white/40"}>
  {countLines(formData.detailedDescription)} / 20 lines max
  </span>
  {countLines(formData.detailedDescription) > 20 && (
@@ -2941,7 +2941,7 @@ export function MeetingManagement() {
  </div>
 
  {/* Modal Footer */}
- <div className="p-5 border-t border-white/10 bg-black/40 flex items-center justify-between shrink-0 flex-wrap gap-2">
+ <div className="p-5 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/40 flex items-center justify-between shrink-0 flex-wrap gap-2">
  <span className="text-[10px] text-text-dim">
  * Fields are required to save/submit updates.
  </span>
@@ -2951,7 +2951,7 @@ export function MeetingManagement() {
  type="button"
  onClick={() => handleSaveMeeting("Draft")}
  disabled={isSubmitting || uploading}
- className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 font-bold cursor-pointer text-xs"
+ className="bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-white border border-slate-200 dark:border-white/10 px-4 font-bold cursor-pointer text-xs"
  >
  Save as Draft
  </Button>

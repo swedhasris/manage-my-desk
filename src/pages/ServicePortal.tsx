@@ -73,36 +73,43 @@ export function ServicePortal() {
  return unsubscribe;
  }, []);
 
- // Fetch Portal general general settings (Preferences fallback)
- useEffect(() => {
- if (!user) return;
- onSnapshot(doc(db,"settings_global","general"), (snap) => {
- if (snap.exists()) {
- const d = snap.data();
- setPreferences(prev => ({
- ...prev,
- ccEmails: d.ccEmails ||""
- }));
- }
- });
- }, [user]);
+  // Fetch Portal general general settings (Preferences fallback)
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/settings_global/general")
+      .then(res => res.json())
+      .then(data => {
+        if (data) {
+          setPreferences(prev => ({
+            ...prev,
+            ccEmails: data.ccEmails || ""
+          }));
+        }
+      })
+      .catch(err => console.error("Error loading system settings:", err));
+  }, [user]);
 
- const handleSavePreferences = async () => {
- setSavingComment(true);
- try {
- await setDoc(doc(db,"settings_global","general"), {
- ccEmails: preferences.ccEmails,
- updatedAt: serverTimestamp(),
- updatedBy: user?.email
- }, { merge: true });
- setSaveSuccess("Preferences saved successfully!");
- setTimeout(() => setSaveSuccess(""), 4000);
- } catch (e) {
- console.error(e);
- } finally {
- setSavingComment(false);
- }
- };
+  const handleSavePreferences = async () => {
+    setSavingComment(true);
+    try {
+      const res = await fetch("/api/settings_global/general", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ccEmails: preferences.ccEmails,
+          updatedBy: user?.email || "System"
+        })
+      });
+      if (res.ok) {
+        setSaveSuccess("Preferences saved successfully!");
+        setTimeout(() => setSaveSuccess(""), 4000);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingComment(false);
+    }
+  };
 
  const handleAddComment = async (e: React.FormEvent) => {
  e.preventDefault();

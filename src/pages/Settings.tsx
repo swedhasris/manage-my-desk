@@ -70,10 +70,13 @@ export function Settings() {
  onSnapshot(query(collection(db,"settings_workflows"), orderBy("createdAt","desc")), snap => {
  setWorkflows(snap.docs.map(d => ({ id: d.id, ...d.data() })));
  });
- // Fetch system settings
- onSnapshot(doc(db,"settings_global","general"), snap => {
- if (snap.exists()) setSystemSettings(snap.data());
- });
+  // Fetch system settings via API
+  fetch("/api/settings_global/general")
+    .then(res => res.json())
+    .then(data => {
+      if (data) setSystemSettings(data);
+    })
+    .catch(err => console.error("Error loading system settings:", err));
  }
  }, [isAdmin]);
 
@@ -518,21 +521,28 @@ export function Settings() {
  </div>
  
  <Button 
- onClick={async () => {
- setLoading(true);
- try {
- await setDoc(doc(db,"settings_global","general"), {
- ...systemSettings,
- updatedAt: serverTimestamp(),
- updatedBy: user?.email
- }, { merge: true });
- setMessage({ text:"System settings saved successfully!", type:"success" });
- } catch (err: any) {
- setMessage({ text: err.message, type:"error" });
- }
- setLoading(false);
- setTimeout(() => setMessage(null), 5000);
- }}
+  onClick={async () => {
+  setLoading(true);
+  try {
+  const res = await fetch("/api/settings_global/general", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...systemSettings,
+      updatedBy: user?.email || "System"
+    })
+  });
+  if (res.ok) {
+    setMessage({ text:"System settings saved successfully!", type:"success" });
+  } else {
+    throw new Error("Failed to save system settings via API");
+  }
+  } catch (err: any) {
+  setMessage({ text: err.message, type:"error" });
+  }
+  setLoading(false);
+  setTimeout(() => setMessage(null), 5000);
+  }}
  disabled={loading}
  className="w-full bg-sn-green text-sn-dark h-14 rounded-2xl font-semibold uppercase tracking-widest text-xs mt-4 shadow-lg shadow-sn-green/20 hover:scale-[1.01] active:scale-[0.99] transition-all"
  >
