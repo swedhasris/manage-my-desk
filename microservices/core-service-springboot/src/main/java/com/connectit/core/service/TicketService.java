@@ -423,8 +423,24 @@ public class TicketService {
         }
         if (!breached) return;
 
-        @SuppressWarnings("unchecked")
-        Map<String,Object> meta = (Map<String,Object>) data.get("slaDelayMeta");
+        Object metaObj = data.get("slaDelayMeta");
+        if (metaObj == null) {
+            metaObj = data.get("sla_delay_meta_json");
+        }
+        if (metaObj == null) throw new RuntimeException(
+            "SLA Breach Root Cause Analysis (RCA) is mandatory before resolving a breached ticket.");
+
+        Map<String, Object> meta = null;
+        if (metaObj instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> casted = (Map<String, Object>) metaObj;
+            meta = casted;
+        } else if (metaObj instanceof String) {
+            try {
+                meta = new com.fasterxml.jackson.databind.ObjectMapper().readValue((String) metaObj, Map.class);
+            } catch (Exception ignored) {}
+        }
+
         if (meta == null) throw new RuntimeException(
             "SLA Breach Root Cause Analysis (RCA) is mandatory before resolving a breached ticket.");
         boolean hasRca = meta.get("rootCauseAnalysis") != null &&
@@ -475,13 +491,29 @@ public class TicketService {
         if (data.containsKey("closureReason"))     t.setClosureReason((String) data.get("closureReason"));
         if (data.containsKey("resolvedBy"))        t.setResolvedBy((String) data.get("resolvedBy"));
         // SLA delay metadata (JSON strings)
-        if (data.containsKey("slaDelayMeta")) {
-            Object meta = data.get("slaDelayMeta");
-            t.setSlaDelayMetaJson(meta != null ? meta.toString() : null);
+        if (data.containsKey("slaDelayMeta") || data.containsKey("sla_delay_meta_json")) {
+            Object meta = data.containsKey("slaDelayMeta") ? data.get("slaDelayMeta") : data.get("sla_delay_meta_json");
+            if (meta instanceof Map || meta instanceof List) {
+                try {
+                    t.setSlaDelayMetaJson(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(meta));
+                } catch (Exception e) {
+                    t.setSlaDelayMetaJson(meta.toString());
+                }
+            } else {
+                t.setSlaDelayMetaJson(meta != null ? meta.toString() : null);
+            }
         }
-        if (data.containsKey("slaDelayLogs")) {
-            Object logs = data.get("slaDelayLogs");
-            t.setSlaDelayLogsJson(logs != null ? logs.toString() : "[]");
+        if (data.containsKey("slaDelayLogs") || data.containsKey("sla_delay_logs_json")) {
+            Object logs = data.containsKey("slaDelayLogs") ? data.get("slaDelayLogs") : data.get("sla_delay_logs_json");
+            if (logs instanceof Map || logs instanceof List) {
+                try {
+                    t.setSlaDelayLogsJson(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(logs));
+                } catch (Exception e) {
+                    t.setSlaDelayLogsJson(logs.toString());
+                }
+            } else {
+                t.setSlaDelayLogsJson(logs != null ? logs.toString() : "[]");
+            }
         }
         // Paused time tracking
         if (data.containsKey("totalPausedTime") || data.containsKey("totalPausedTimeMs")) {
