@@ -268,8 +268,8 @@ export function EmailIntegrations() {
             </h2>
             <p className={`text-sm mt-1 ${smtpApplied ? 'text-green-700' : 'text-amber-700'}`}>
               {smtpApplied
-                ? 'Emails will now be sent from info@technosprint.net via the configured SMTP relay. This is active until the server restarts.'
-                : 'Microsoft 365 has disabled basic SMTP AUTH. Use Brevo free SMTP relay to fix email sending permanently. Emails will still display as "Manage My Desk <info@technosprint.net>".'}
+                ? 'Emails will now be sent from support@technosprint.net via the configured SMTP relay. This is active until the server restarts.'
+                : 'Microsoft 365 has disabled basic SMTP AUTH. Use Brevo free SMTP relay to fix email sending permanently. Emails will still display as "Manage My Desk <support@technosprint.net>".'}
             </p>
           </div>
         </div>
@@ -347,7 +347,7 @@ export function EmailIntegrations() {
               const res = await fetch("/api/email/send-test", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ to: "info@technosprint.net" })
+                body: JSON.stringify({ to: "support@technosprint.net" })
               });
               const data = await res.json();
               alert(data.success ? "✅ Test email sent! Check the inbox." : "❌ Failed: " + data.error);
@@ -464,7 +464,7 @@ export function EmailIntegrations() {
  <div className="space-y-3">
  <div className="flex justify-between items-center text-sm">
  <span className="text-muted-foreground font-semibold">Active Mailbox:</span>
- <span className="font-bold text-sn-dark">{health?.activeMailbox ||"info@technosprint.net"}</span>
+ <span className="font-bold text-sn-dark">{health?.activeMailbox ||"support@technosprint.net"}</span>
  </div>
  <div className="flex justify-between items-center text-sm">
  <span className="text-muted-foreground font-semibold">IMAP Poller:</span>
@@ -650,7 +650,7 @@ export function EmailIntegrations() {
  <label htmlFor="email_address" className="text-sm font-semibold text-slate-700 block mb-2">Support Email Address</label>
  <div className="relative">
  <Mail className="absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
- <input id="email_address" required type="email" placeholder="e.g. info@technosprint.net" value={form.emailAddress} onChange={e => setForm(f => ({ ...f, emailAddress: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-sn-green/30 focus:border-sn-green transition-all" />
+ <input id="email_address" required type="email" placeholder="e.g. support@technosprint.net" value={form.emailAddress} onChange={e => setForm(f => ({ ...f, emailAddress: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-sn-green/30 focus:border-sn-green transition-all" />
  </div>
  <p className="text-xs text-slate-500 mt-2">The primary inbox used for processing ticketing and support issues.</p>
  </div>

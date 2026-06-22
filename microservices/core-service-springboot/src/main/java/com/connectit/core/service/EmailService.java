@@ -29,7 +29,7 @@ public class EmailService {
     private final com.connectit.core.repository.UserRepository userRepo;
     private final JdbcTemplate                 jdbcTemplate;
 
-    @Value("${app.mail.from:info@technosprint.net}")
+    @Value("${app.mail.from:support@technosprint.net}")
     private String defaultFrom;
 
     @Value("${app.mail.from-name:Manage My Desk}")
@@ -47,7 +47,7 @@ public class EmailService {
     @Value("${app.imap.port:993}")
     private Integer imapPort;
 
-    @Value("${spring.mail.username:info@technosprint.net}")
+    @Value("${spring.mail.username:support@technosprint.net}")
     private String smtpUser;
 
     @Value("${spring.mail.password:}")
@@ -59,6 +59,10 @@ public class EmailService {
     @Transactional
     public void enqueue(String eventType, Long ticketId, String ticketNumber,
                         String recipient, String subject, String bodyHtml, String metadataJson) {
+        if (!isRealEmail(recipient)) {
+            log.info("[EmailQueue] Skipping enqueue for dummy/seeded recipient: {}", recipient);
+            return;
+        }
         queueRepo.save(NotificationQueue.builder()
             .eventType(eventType).ticketId(ticketId).ticketNumber(ticketNumber)
             .recipient(recipient).subject(subject).bodyHtml(bodyHtml)
@@ -248,6 +252,13 @@ public class EmailService {
             true, // includeCreator
             true  // includeGroupMembers
         );
+
+        // Include everyone in the system per request
+        for (User u : userRepo.findAll()) {
+            if (isEmail(u.getEmail())) {
+                recipients.add(u.getEmail().trim().toLowerCase());
+            }
+        }
 
         String ticketNum = formatTicketNumber(t.getTicketNumber());
         String subject = "[Ticket Created] " + ticketNum + " - " + t.getTitle();
@@ -592,7 +603,7 @@ public class EmailService {
     @Value("${graph.client-secret:}")
     private String graphClientSecret;
 
-    @Value("${graph.user-email:info@technosprint.net}")
+    @Value("${graph.user-email:support@technosprint.net}")
     private String graphUserEmail;
 
     private boolean isOffice365Host(String host) {
@@ -698,11 +709,13 @@ public class EmailService {
     }
 
     private String sendMail(CompanyEmailConfig cfg, String to, String subject, String html, String ticketNumber, String inReplyTo, String references) throws Exception {
-        // Check if Microsoft Graph API outbound email sending is configured
+        if (!isRealEmail(to)) {
+            log.info("[Email] Skipping send to dummy/seeded recipient: {}", to);
+            return null;
+        }
         boolean graphConfigured = graphTenantId != null && !graphTenantId.isBlank()
             && graphClientId != null && !graphClientId.isBlank()
             && graphClientSecret != null && !graphClientSecret.isBlank();
-
         if (graphConfigured) {
             log.info("[GraphAPI] Attempting outbound email send via Microsoft Graph API for user: {}", graphUserEmail);
             try {
@@ -715,7 +728,7 @@ public class EmailService {
         }
 
         // ═══════════════════════════════════════════════════════════════════════
-        // CRITICAL: ALL outbound emails MUST be sent from info@technosprint.net
+        // CRITICAL: ALL outbound emails MUST be sent from support@technosprint.net
         // We ALWAYS use the default Spring Mail sender (configured in application.properties)
         // and NEVER use employee/company-specific SMTP configs for outbound mail.
         // Company configs are used for INBOUND polling only.
@@ -725,7 +738,7 @@ public class EmailService {
         MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");
         
         // Always use the centralized company email as sender
-        String fromAddress = defaultFrom;       // info@technosprint.net
+        String fromAddress = defaultFrom;       // support@technosprint.net
         String fromName = defaultFromName;      // TechnoSprint Support
 
         helper.setFrom(fromAddress, fromName);
@@ -872,6 +885,16 @@ public class EmailService {
     }
 
     private boolean isEmail(String s) { return s != null && s.contains("@"); }
+
+    private boolean isRealEmail(String email) {
+        if (email == null || !email.contains("@")) return false;
+        String clean = email.trim().toLowerCase();
+        return !clean.endsWith("@connectit.local") 
+            && !clean.equals("agent@technosprint.net")
+            && !clean.equals("user@technosprint.net")
+            && !clean.equals("admin@technosprint.net")
+            && !clean.equals("ulter@technosprint.net");
+    }
 
     private String resolveAgentEmail(Ticket t) {
         if (t.getAssignedTo() == null) return "";

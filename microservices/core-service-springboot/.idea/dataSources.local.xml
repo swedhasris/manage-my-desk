@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="dataSourceStorageLocal" format="xml" multifile-model="true">
+    <data-source name="connectit_db" uuid="4d4817a3-cb20-410a-b501-c30a84d4db12">
+      <database-info product="MySQL" version="8.0.0" jdbc-version="4.2" driver-name="MySQL Connector/J" dbms="MYSQL" exact-version="0" />
+      <secret-storage>master_key</secret-storage>
+      <user-name>root</user-name>
+      <schema-mapping>
+        <schema-mappings />
+      </schema-mapping>
+    </data-source>
+  </component>
+</project>

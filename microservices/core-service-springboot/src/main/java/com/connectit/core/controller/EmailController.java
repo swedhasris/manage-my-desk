@@ -25,7 +25,7 @@ public class EmailController {
     private final CompanyEmailConfigRepository configRepo;
     private final org.springframework.mail.javamail.JavaMailSender mailSender;
 
-    @Value("${app.mail.from:info@technosprint.net}")
+    @Value("${app.mail.from:support@technosprint.net}")
     private String defaultFrom;
 
     @Value("${app.mail.from-name:Manage My Desk}")

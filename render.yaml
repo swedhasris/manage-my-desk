@@ -44,19 +44,19 @@ services:
       - key: SMTP_PORT
         value: "587"
       - key: SMTP_USER
-        sync: false
+        value: support@technosprint.net
       - key: SMTP_PASS
-        sync: false
+        value: Poland@01
       - key: EMAIL_HOST
         value: smtp.office365.com
       - key: EMAIL_PORT
         value: "587"
       - key: EMAIL_USER
-        sync: false
+        value: support@technosprint.net
       - key: EMAIL_PASSWORD
-        sync: false
+        value: Poland@01
       - key: EMAIL_FROM
-        sync: false
+        value: support@technosprint.net
       - key: MAIL_FROM_NAME
         value: "Ticklora Support"
 
@@ -66,9 +66,10 @@ services:
       - key: IMAP_PORT
         value: "993"
       - key: IMAP_USER
-        sync: false
+        value: support@technosprint.net
       - key: IMAP_PASS
-        sync: false
+        value: Poland@01
+
 
       # ── Microsoft Graph (optional) ──────────────────────────────
       - key: GRAPH_TENANT_ID

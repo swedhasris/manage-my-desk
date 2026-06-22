@@ -610,17 +610,26 @@ export async function addDoc(collectionRef: any, data: any): Promise<any> {
  return { id: String(created.id) };
  }
 
- if (path ==="settings_groups") {
- const res = await fetch("/api/settings_groups", {
- method:"POST",
- headers: {"Content-Type":"application/json" },
- body: JSON.stringify(data),
- });
- if (res.ok) {
- const created = await res.json();
- return { id: String(created.id || Date.now()) };
- }
- }
+ const settingsPaths = [
+    "settings_categories",
+    "settings_subcategories",
+    "settings_service_providers",
+    "settings_groups",
+    "settings_group_members",
+    "settings_workflows"
+  ];
+
+  if (settingsPaths.includes(path)) {
+    const res = await fetch(`/api/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (res.ok) {
+      const created = await res.json();
+      return { id: String(created.id || Date.now()) };
+    }
+  }
 
  if (path ==="sla_policies") {
  const res = await fetch("/api/sla/policies", {
@@ -680,14 +689,23 @@ export async function updateDoc(docRef: any, data: any): Promise<void> {
  return;
  }
 
- if (path ==="settings_groups") {
- await fetch(`/api/settings_groups/${id}`, {
- method:"PUT",
- headers: {"Content-Type":"application/json" },
- body: JSON.stringify(data),
- });
- return;
- }
+  const settingsPaths = [
+    "settings_categories",
+    "settings_subcategories",
+    "settings_service_providers",
+    "settings_groups",
+    "settings_group_members",
+    "settings_workflows"
+  ];
+  if (settingsPaths.includes(path)) {
+    const res = await fetch(`/api/${path}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`Failed to update ${path} via API`);
+    return;
+  }
 
  if (path ==="sla_policies") {
  const res = await fetch(`/api/sla/policies/${id}`, {
@@ -869,10 +887,19 @@ export async function deleteDoc(docRef: any): Promise<void> {
  return;
  }
 
- if (path ==="settings_groups") {
- await fetch(`/api/settings_groups/${id}`, { method:"DELETE" });
- return;
- }
+  const settingsPaths = [
+    "settings_categories",
+    "settings_subcategories",
+    "settings_service_providers",
+    "settings_groups",
+    "settings_group_members",
+    "settings_workflows"
+  ];
+  if (settingsPaths.includes(path)) {
+    const res = await fetch(`/api/${path}/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error(`Failed to delete ${path} via API`);
+    return;
+  }
 
  if (path ==="sla_policies") {
  const res = await fetch(`/api/sla/policies/${id}`, { method:"DELETE" });

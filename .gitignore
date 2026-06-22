@@ -17,3 +17,6 @@ public/uploads
 .temp/
 connectit_db_backup_utf8.sql
 maven/
+database_viewer.html
+generate_db_viewer.cjs
+

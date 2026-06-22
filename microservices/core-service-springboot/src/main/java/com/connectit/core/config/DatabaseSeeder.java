@@ -32,13 +32,13 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Value("${spring.mail.port:587}")
     private Integer smtpPort;
 
-    @Value("${spring.mail.username:info@technosprint.net}")
+    @Value("${spring.mail.username:support@technosprint.net}")
     private String smtpUser;
 
     @Value("${spring.mail.password:Poland@01}")
     private String smtpPass;
 
-    @Value("${app.mail.from:info@technosprint.net}")
+    @Value("${app.mail.from:support@technosprint.net}")
     private String mailFrom;
 
     @Value("${app.mail.from-name:TechnoSprint Support}")
@@ -50,7 +50,7 @@ public class DatabaseSeeder implements CommandLineRunner {
     @Value("${app.imap.port:993}")
     private Integer imapPort;
 
-    @Value("${app.imap.user:info@technosprint.net}")
+    @Value("${app.imap.user:support@technosprint.net}")
     private String imapUser;
 
     @Value("${app.imap.pass:Poland@01}")
