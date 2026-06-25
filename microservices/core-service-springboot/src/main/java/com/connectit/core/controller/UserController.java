@@ -7,6 +7,14 @@ import com.connectit.core.util.SimpleHash;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import java.sql.PreparedStatement;
+import java.sql.Statement;
+import com.connectit.core.util.DbUtil;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 import java.util.*;
 
@@ -17,6 +25,7 @@ public class UserController {
 
     private final UserService userService;
     private final EmailService emailService;
+    private final JdbcTemplate jdbcTemplate;
 
     @GetMapping("/users")
     public ResponseEntity<?> list() {
@@ -64,7 +73,41 @@ public class UserController {
                     : body.get("password") != null ? SimpleHash.hash((String) body.get("password")) : null)
                 .restrictedModules(restrictedModulesStr)
                 .build();
-            return ResponseEntity.status(201).body(serialize(userService.create(user)));
+            User createdUser = userService.create(user);
+            try {
+                String actorId = body.get("createdBy") != null ? (String) body.get("createdBy") : "system";
+                String actorName = "Admin";
+                String notifMsg = "In the ticketing system you have been logged";
+                
+                KeyHolder keyHolder = new GeneratedKeyHolder();
+                String insertSql = "INSERT INTO notifications (user_id, message, ticket_id, ticket_number, actor_id, actor_name, is_read) VALUES (?, ?, NULL, NULL, ?, ?, 0)";
+                jdbcTemplate.update(connection -> {
+                    PreparedStatement ps = connection.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS);
+                    ps.setString(1, createdUser.getUid());
+                    ps.setString(2, notifMsg);
+                    ps.setString(3, actorId);
+                    ps.setString(4, actorName);
+                    return ps;
+                }, keyHolder);
+
+                long newNotifId = DbUtil.getGeneratedId(keyHolder);
+
+                Map<String, Object> newNotif = new HashMap<>();
+                newNotif.put("id", String.valueOf(newNotifId));
+                newNotif.put("user_id", createdUser.getUid());
+                newNotif.put("message", notifMsg);
+                newNotif.put("ticket_id", null);
+                newNotif.put("ticket_number", null);
+                newNotif.put("actor_id", actorId);
+                newNotif.put("actor_name", actorName);
+                newNotif.put("is_read", 0);
+                newNotif.put("created_at", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+
+                NotificationController.sendNotification(createdUser.getUid(), newNotif);
+            } catch (Exception notifEx) {
+                System.err.println("[UserController] Failed to dispatch registration notification: " + notifEx.getMessage());
+            }
+            return ResponseEntity.status(201).body(serialize(createdUser));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error","Failed to create user: " + e.getMessage()));
         }
