@@ -3,6 +3,7 @@ import api from '@/lib/api';
 import React, { useState } from"react";
 import { Link, useNavigate } from"react-router-dom";
 import { type Role } from"../lib/roles";
+import { useAuth } from "../contexts/AuthContext";
 import { Loader2 } from"lucide-react";
 import { cn } from"@/lib/utils";
 
@@ -30,13 +31,27 @@ const Button = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HT
 Button.displayName ="Button";
 
 export function Login() {
- const [email, setEmail] = useState("");
- const [password, setPassword] = useState("");
- const [error, setError] = useState("");
- const [isLoading, setIsLoading] = useState(false);
- const navigate = useNavigate();
+  const { demoLogin } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
- const handleLogin = async (e: React.FormEvent) => {
+  const handleDemoLogin = async (role: Role) => {
+    setIsLoading(true);
+    setError("");
+    try {
+      await demoLogin(role);
+      window.location.href = "/";
+    } catch (err: any) {
+      setError("Demo login failed. Check connection.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
  e.preventDefault();
  if (!email.trim() || !password.trim()) {
  setError("Please enter email and password.");
@@ -137,6 +152,36 @@ export function Login() {
  </>
  ) :"Sign In"}
  </Button>
+
+ <div className="pt-4 border-t border-slate-100 flex flex-col gap-2">
+    <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Quick Demo Login</p>
+    <div className="grid grid-cols-3 gap-2">
+      <button
+        type="button"
+        disabled={isLoading}
+        onClick={() => handleDemoLogin("admin" as Role)}
+        className="py-2.5 px-1 text-xs font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 border border-blue-500/20 rounded-xl transition-all cursor-pointer text-center"
+      >
+        Admin
+      </button>
+      <button
+        type="button"
+        disabled={isLoading}
+        onClick={() => handleDemoLogin("agent" as Role)}
+        className="py-2.5 px-1 text-xs font-bold bg-sn-green/10 hover:bg-sn-green/20 text-sn-green border border-sn-green/20 rounded-xl transition-all cursor-pointer text-center"
+      >
+        Agent
+      </button>
+      <button
+        type="button"
+        disabled={isLoading}
+        onClick={() => handleDemoLogin("user" as Role)}
+        className="py-2.5 px-1 text-xs font-bold bg-slate-500/10 hover:bg-slate-500/20 text-slate-500 border border-slate-500/20 rounded-xl transition-all cursor-pointer text-center"
+      >
+        User
+      </button>
+    </div>
+  </div>
 
  <p className="text-center text-sm text-muted-foreground">
  No account? <Link to="/register" className="text-sn-green font-bold hover:underline transition-all">Register</Link>
