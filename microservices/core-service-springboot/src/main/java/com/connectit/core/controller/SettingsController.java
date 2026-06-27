@@ -11,10 +11,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
 import java.util.*;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @Slf4j
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'ULTRA_SUPER_ADMIN')")
 public class SettingsController {
 
     private final JdbcTemplate jdbcTemplate;
@@ -227,6 +230,7 @@ public class SettingsController {
 
     // ── GET Branding Settings ────────────────────────────────────────────────
     @GetMapping("/settings/branding")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<?> getBranding() {
         log.info("[Branding] Fetching branding settings");
         try {

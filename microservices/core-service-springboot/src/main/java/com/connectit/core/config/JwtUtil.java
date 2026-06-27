@@ -10,8 +10,21 @@ import java.security.Key;
 import java.util.Date;
 import java.util.Map;
 
+/**
+ * JWT utility — generates and validates signed JWTs.
+ *
+ * Tokens include:
+ *  - sub  : user uid
+ *  - email: user email
+ *  - role : user role (informational only — authoritative role is always from DB)
+ *  - iss  : issuer ("ticklora")
+ *  - iat  : issued-at
+ *  - exp  : expiration
+ */
 @Component
 public class JwtUtil {
+
+    private static final String ISSUER = "ticklora";
 
     @Value("${jwt.secret}")
     private String secret;
@@ -19,23 +32,34 @@ public class JwtUtil {
     @Value("${jwt.expiration:86400000}")
     private long expiration;
 
+    /** Cached key — computed once from secret. */
+    private volatile Key cachedKey;
+
     private Key key() {
-        byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
-        if (bytes.length < 32) {
-            // Pad to minimum 256 bits
-            byte[] padded = new byte[32];
-            System.arraycopy(bytes, 0, padded, 0, bytes.length);
-            return Keys.hmacShaKeyFor(padded);
+        if (cachedKey == null) {
+            synchronized (this) {
+                if (cachedKey == null) {
+                    byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
+                    if (bytes.length < 32) {
+                        byte[] padded = new byte[32];
+                        System.arraycopy(bytes, 0, padded, 0, bytes.length);
+                        cachedKey = Keys.hmacShaKeyFor(padded);
+                    } else {
+                        cachedKey = Keys.hmacShaKeyFor(bytes);
+                    }
+                }
+            }
         }
-        return Keys.hmacShaKeyFor(bytes);
+        return cachedKey;
     }
 
     public String generate(String uid, String email, String role) {
-        String safeUid = uid != null ? uid : "";
+        String safeUid   = uid   != null ? uid   : "";
         String safeEmail = email != null ? email : "";
-        String safeRole = role != null ? role : "user";
+        String safeRole  = role  != null ? role  : "user";
         return Jwts.builder()
             .subject(safeUid)
+            .issuer(ISSUER)
             .claims(Map.of("email", safeEmail, "role", safeRole))
             .issuedAt(new Date())
             .expiration(new Date(System.currentTimeMillis() + expiration))
@@ -43,25 +67,35 @@ public class JwtUtil {
             .compact();
     }
 
+    /**
+     * Parses and fully validates the token:
+     *  - Signature (HMAC-SHA)
+     *  - Expiry
+     *  - Issuer
+     *
+     * Throws JwtException if any check fails.
+     */
     public Claims parse(String token) {
-        return Jwts.parser().verifyWith(Keys.hmacShaKeyFor(
-            secret.getBytes(StandardCharsets.UTF_8).length >= 32
-                ? secret.getBytes(StandardCharsets.UTF_8)
-                : padSecret(secret.getBytes(StandardCharsets.UTF_8))
-        )).build().parseSignedClaims(token).getPayload();
+        return Jwts.parser()
+            .verifyWith(Keys.hmacShaKeyFor(key().getEncoded()))
+            .requireIssuer(ISSUER)
+            .build()
+            .parseSignedClaims(token)
+            .getPayload();
     }
 
+    /** Returns true only if signature, expiry, and issuer are all valid. */
     public boolean isValid(String token) {
-        try { parse(token); return true; } catch (Exception e) { return false; }
+        try {
+            parse(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
+    // Extract individual claims — parse once via isValid gate in the filter
     public String getUid(String token)   { return parse(token).getSubject(); }
     public String getRole(String token)  { return (String) parse(token).get("role"); }
     public String getEmail(String token) { return (String) parse(token).get("email"); }
-
-    private byte[] padSecret(byte[] in) {
-        byte[] out = new byte[32];
-        System.arraycopy(in, 0, out, 0, in.length);
-        return out;
-    }
 }

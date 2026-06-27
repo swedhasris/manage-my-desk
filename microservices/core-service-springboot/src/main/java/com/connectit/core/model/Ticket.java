@@ -86,9 +86,15 @@ public class Ticket {
     private String assignmentGroup;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assignment_group_id")
+    @JoinColumn(name = "assignment_group_id", foreignKey = @ForeignKey(name = "fk_ticket_assignment_group"))
     @JsonIgnore
     private AssignmentGroup assignmentGroupEntity;
+
+    /** FK to sla_policies.id — added by FIX 4A/4F */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sla_policy_id", foreignKey = @ForeignKey(name = "fk_ticket_sla_policy"))
+    @JsonIgnore
+    private SLAPolicy slaPolicy;
 
     @Column(name = "assigned_to", length = 128)
     private String assignedTo;

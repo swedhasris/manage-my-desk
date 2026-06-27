@@ -153,24 +153,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
  };
  }, []);
 
- const demoLogin = async (role: Role) => {
- // Roles other than ultra_super_admin use Password123!
- const emailMap: Record<string, string> = {
- user:"user@technosprint.net",
- agent:"agent@technosprint.net",
- admin:"admin@technosprint.net",
- super_admin:"ulter@technosprint.net",
- ultra_super_admin:"arun.g@technosprint.net",
- sub_admin:"admin@technosprint.net",
- };
- const passwordMap: Record<string, string> = {
- ultra_super_admin:"Poland@01",
- };
- const email = emailMap[role] || `demo-${role}@connectit.local`;
- const password = passwordMap[role] ||"Password123!";
-
+  const demoLogin = async (role: Role) => {
     try {
-      const res = await api.post("/api/auth/login", { email, password });
+      const res = await api.post("/api/auth/demo-login", { role });
       const userData = res.data;
       if (userData && userData.token) {
         localStorage.setItem("token", userData.token);
@@ -190,19 +175,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn("[AuthContext] demoLogin API failed:", err);
     }
 
- // Local fallback — create a mock session
- const mockUid ="demo_" + role +"_" + Date.now();
- const mockUser = {
- uid: mockUid,
- name: ROLE_LABELS[role],
- email: `demo-${role}@connectit.local`,
- role: role,
- isDemo: true,
- };
- localStorage.setItem("demo_user", JSON.stringify(mockUser));
- setUser({ uid: mockUid, email: mockUser.email, displayName: mockUser.name });
- setProfile(mockUser);
- };
+    // Local fallback — create a mock session
+    const mockUid = "demo_" + role + "_" + Date.now();
+    const mockUser = {
+      uid: mockUid,
+      name: ROLE_LABELS[role],
+      email: `demo-${role}@connectit.local`,
+      role: role,
+      isDemo: true,
+    };
+    localStorage.setItem("demo_user", JSON.stringify(mockUser));
+    setUser({ uid: mockUid, email: mockUser.email, displayName: mockUser.name });
+    setProfile(mockUser);
+  };
 
   const signOut = async () => {
     localStorage.removeItem("demo_user");

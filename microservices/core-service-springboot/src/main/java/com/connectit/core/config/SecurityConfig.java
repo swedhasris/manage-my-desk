@@ -22,34 +22,37 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
 
+    /**
+     * Allowed origins loaded from application.properties.
+     * Default: localhost dev servers.
+     * Production: set CORS_ALLOWED_ORIGINS env var or app.allowed-origins property.
+     */
     @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
-    private String[] allowedOrigins;
+    private String allowedOriginsRaw;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> cors.configurationSource(corsSource()))
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints
+                // ── Public endpoints ──────────────────────────────────────────
                 .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/settings/branding").permitAll()
                 .requestMatchers("/api/health", "/api/db-test", "/up").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // Email integration - allow test & config endpoints without auth
-                .requestMatchers("/api/email/send-test", "/api/email/send-note", "/api/email-configs/test", "/api/email-configs", "/api/email-configs/**", "/api/email/health", "/api/email/queue/process", "/api/email/smtp-test", "/api/email/smtp-update", "/api/email/queue/retry-failed").permitAll()
-                // Uploads
+                // Static file serving
                 .requestMatchers("/uploads/**", "/captures/**").permitAll()
-                // All other API requires auth
+                // ── All other /api/** endpoints require a valid JWT ────────────
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll()
             )
@@ -57,15 +60,31 @@ public class SecurityConfig {
             .build();
     }
 
+    /**
+     * Locked-down CORS configuration:
+     *  - Explicit origins only (no wildcards)
+     *  - Restricted method list
+     *  - Restricted header list: only Authorization + Content-Type
+     *  - Scoped to /api/** only
+     */
     @Bean
-    public CorsConfigurationSource corsSource() {
-        CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOriginPatterns(Arrays.asList(allowedOrigins));
-        cfg.setAllowedMethods(List.of("GET","POST","PUT","DELETE","PATCH","OPTIONS"));
-        cfg.setAllowedHeaders(List.of("*"));
-        cfg.setAllowCredentials(true);
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+
+        // Parse comma-separated origins from property
+        List<String> origins = Arrays.asList(allowedOriginsRaw.split(","));
+        config.setAllowedOrigins(origins);  // setAllowedOrigins (not Patterns) — no glob support
+
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
+        // Explicitly restrict headers — no wildcard "*"
+        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
+
+        config.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", cfg);
+        // Scope CORS to /api/** only, not the entire application
+        source.registerCorsConfiguration("/api/**", config);
         return source;
     }
 

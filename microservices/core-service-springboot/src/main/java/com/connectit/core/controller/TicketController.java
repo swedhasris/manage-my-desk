@@ -9,6 +9,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.prepost.PreAuthorize;
+import jakarta.validation.Valid;
+import com.connectit.core.dto.request.TicketCreateRequest;
+import com.connectit.core.dto.request.TicketUpdateRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -24,6 +29,7 @@ public class TicketController {
     private final UserRepository  userRepo;
     private final TicketCustomFieldRepository customFieldRepo;
     private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // ── Health ────────────────────────────────────────────────────────────────
     @GetMapping("/health")
@@ -65,11 +71,13 @@ public class TicketController {
     }
 
     @PostMapping("/tickets/create")
-    public ResponseEntity<?> create(@RequestBody Map<String,Object> body) {
+    public ResponseEntity<?> create(@Valid @RequestBody TicketCreateRequest request) {
         try {
             String uid = SecurityContextHolder.getContext().getAuthentication().getName();
             String name = userRepo.findByUid(uid).map(User::getName).orElse(uid);
             boolean adminAccess = checkAdminAccess();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = objectMapper.convertValue(request, Map.class);
             Ticket t = ticketService.createTicket(body, uid, name, adminAccess);
             return ResponseEntity.status(201).body(serialize(t));
         } catch (Exception e) {
@@ -78,11 +86,13 @@ public class TicketController {
     }
 
     @PutMapping("/tickets/{id}")
-    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody Map<String,Object> body) {
+    public ResponseEntity<?> update(@PathVariable Long id, @Valid @RequestBody TicketUpdateRequest request) {
         try {
             String uid = SecurityContextHolder.getContext().getAuthentication().getName();
             String name = userRepo.findByUid(uid).map(User::getName).orElse(uid);
             boolean adminAccess = checkAdminAccess();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = objectMapper.convertValue(request, Map.class);
             Ticket updated = ticketService.updateTicket(id, body, uid, name, adminAccess);
             return ResponseEntity.ok(serialize(updated));
         } catch (RuntimeException e) {
@@ -93,12 +103,14 @@ public class TicketController {
     }
 
     @DeleteMapping("/tickets/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'ULTRA_SUPER_ADMIN')")
     public ResponseEntity<?> delete(@PathVariable Long id) {
         ticketRepo.deleteById(id);
         return ResponseEntity.ok(Map.of("message","Ticket deleted"));
     }
 
     @DeleteMapping("/tickets/all")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ULTRA_SUPER_ADMIN')")
     public ResponseEntity<?> deleteAll() {
         ticketRepo.deleteAll();
         return ResponseEntity.ok(Map.of("message","All tickets deleted"));

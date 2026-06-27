@@ -84,9 +84,7 @@ export function IncidentCategoryManagement() {
 
  function getHeaders() {
  return {
-"Content-Type":"application/json",
-"x-user-uid": user?.uid ||"",
-"x-user-email": myEmail,
+  "Content-Type": "application/json",
  };
  }
 

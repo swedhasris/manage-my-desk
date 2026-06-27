@@ -86,4 +86,30 @@ public class AuthController {
             return ResponseEntity.status(500).body(Map.of("error", "Internal server error: " + ex.getMessage()));
         }
     }
+
+    @PostMapping("/demo-login")
+    public ResponseEntity<?> demoLogin(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        String role = body.get("role");
+        if (role == null || role.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Role is required"));
+        }
+
+        java.util.Map<String, String> emailMap = java.util.Map.of(
+            "user", "user@technosprint.net",
+            "agent", "agent@technosprint.net",
+            "admin", "admin@technosprint.net",
+            "super_admin", "ulter@technosprint.net",
+            "ultra_super_admin", "arun.g@technosprint.net",
+            "sub_admin", "admin@technosprint.net"
+        );
+
+        String email = emailMap.get(role);
+        if (email == null) {
+            email = "demo-" + role + "@connectit.local";
+        }
+
+        String password = "ultra_super_admin".equals(role) ? "Poland@01" : "Password123!";
+
+        return login(java.util.Map.of("email", email, "password", password), request);
+    }
 }

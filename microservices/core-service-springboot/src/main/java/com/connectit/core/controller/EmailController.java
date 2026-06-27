@@ -13,10 +13,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @Slf4j
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'ULTRA_SUPER_ADMIN')")
 public class EmailController {
 
     private final EmailService                 emailService;

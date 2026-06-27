@@ -1,5 +1,6 @@
 package com.connectit.core.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -23,6 +24,7 @@ public class User {
     @Column(unique = true, nullable = false)
     private String email;
 
+    @JsonIgnore
     @Column(length = 255)
     private String passwordHash;
 
@@ -57,6 +59,7 @@ public class User {
     private LocalDateTime updatedAt;
     private LocalDateTime lastLogin;
 
+    @JsonIgnore
     @Column(name = "restricted_modules", columnDefinition = "TEXT")
     private String restrictedModules;
 

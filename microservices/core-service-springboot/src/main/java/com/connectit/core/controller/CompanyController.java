@@ -17,10 +17,13 @@ import java.sql.Timestamp;
 import java.util.*;
 import com.connectit.core.util.DbUtil;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @Slf4j
+@PreAuthorize("hasAnyRole('USER', 'AGENT', 'SUB_ADMIN', 'ADMIN', 'SUPER_ADMIN', 'ULTRA_SUPER_ADMIN')")
 public class CompanyController {
 
     private final JdbcTemplate jdbcTemplate;
@@ -239,6 +242,7 @@ public class CompanyController {
     // ── 5. POST /api/companies (Create) ──────────────────────────────────────
     @PostMapping("/companies")
     @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'ULTRA_SUPER_ADMIN')")
     public ResponseEntity<?> createCompany(@RequestBody Map<String, Object> body) {
         log.info("[CompanyController] Creating new company");
         try {
@@ -301,6 +305,7 @@ public class CompanyController {
     // ── 6. PUT /api/companies/{id} (Update) ──────────────────────────────────
     @PutMapping("/companies/{id}")
     @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'ULTRA_SUPER_ADMIN')")
     public ResponseEntity<?> updateCompany(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         log.info("[CompanyController] Updating company ID: {}", id);
         try {
@@ -377,6 +382,7 @@ public class CompanyController {
     // ── 7. DELETE /api/companies/{id} (Delete) ───────────────────────────────
     @DeleteMapping("/companies/{id}")
     @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'ULTRA_SUPER_ADMIN')")
     public ResponseEntity<?> deleteCompany(@PathVariable Long id) {
         log.info("[CompanyController] Deleting company ID: {}", id);
         try {

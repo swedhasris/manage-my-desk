@@ -33,6 +33,17 @@ public class NotificationController {
             @RequestParam(name="user_id") String userId,
             @RequestParam(defaultValue="50") int limit) {
         
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        String callerUid = auth.getName();
+        boolean isAdmin = auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().matches("ROLE_(ADMIN|SUB_ADMIN|SUPER_ADMIN|ULTRA_SUPER_ADMIN)"));
+        if (!callerUid.equals(userId) && !isAdmin) {
+            return ResponseEntity.status(403).body(Map.of("error", "Access denied: Cannot view another user's notifications"));
+        }
+
         String sql = "SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?";
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, userId, limit);
         return ResponseEntity.ok(stringifyIds(rows));
@@ -41,6 +52,17 @@ public class NotificationController {
     // ── GET Unread Count ──────────────────────────────────────────────────────
     @GetMapping("/unread-count")
     public ResponseEntity<?> unreadCount(@RequestParam(name="user_id") String userId) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        String callerUid = auth.getName();
+        boolean isAdmin = auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().matches("ROLE_(ADMIN|SUB_ADMIN|SUPER_ADMIN|ULTRA_SUPER_ADMIN)"));
+        if (!callerUid.equals(userId) && !isAdmin) {
+            return ResponseEntity.status(403).body(Map.of("error", "Access denied: Cannot view another user's unread count"));
+        }
+
         String sql = "SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0";
         Map<String, Object> row = jdbcTemplate.queryForMap(sql, userId);
         return ResponseEntity.ok(Map.of("count", row.get("count")));
@@ -54,6 +76,18 @@ public class NotificationController {
         if (userId == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "user_id required"));
         }
+
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+        }
+        String callerUid = auth.getName();
+        boolean isAdmin = auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().matches("ROLE_(ADMIN|SUB_ADMIN|SUPER_ADMIN|ULTRA_SUPER_ADMIN)"));
+        if (!callerUid.equals(userId) && !isAdmin) {
+            return ResponseEntity.status(403).body(Map.of("error", "Access denied: Cannot modify another user's notifications"));
+        }
+
         jdbcTemplate.update("UPDATE notifications SET is_read = 1 WHERE user_id = ?", userId);
         return ResponseEntity.ok(Map.of("success", true));
     }
@@ -61,6 +95,17 @@ public class NotificationController {
     // ── SSE Stream Endpoint ───────────────────────────────────────────────────
     @GetMapping("/stream")
     public SseEmitter stream(@RequestParam(name="user_id") String userId) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Unauthorized");
+        }
+        String callerUid = auth.getName();
+        boolean isAdmin = auth.getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().matches("ROLE_(ADMIN|SUB_ADMIN|SUPER_ADMIN|ULTRA_SUPER_ADMIN)"));
+        if (!callerUid.equals(userId) && !isAdmin) {
+            throw new org.springframework.security.access.AccessDeniedException("Access denied");
+        }
+
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
         emitters.computeIfAbsent(userId, k -> new CopyOnWriteArrayList<>()).add(emitter);
         

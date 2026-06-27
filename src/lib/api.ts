@@ -9,16 +9,20 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  // Inject x-user-uid and x-user-email for controllers that use custom header auth
-  try {
-    const sessionStr = localStorage.getItem('demo_user');
-    if (sessionStr) {
-      const session = JSON.parse(sessionStr);
-      if (session.uid) config.headers['x-user-uid'] = session.uid;
-      if (session.email) config.headers['x-user-email'] = session.email;
-    }
-  } catch { /* ignore parse errors */ }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('demo_user');
+      localStorage.removeItem('timesheet_user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;

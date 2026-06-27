@@ -3,9 +3,11 @@ package com.connectit.core.controller;
 import com.connectit.core.model.User;
 import com.connectit.core.service.UserService;
 import com.connectit.core.service.EmailService;
-import com.connectit.core.util.SimpleHash;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -59,18 +61,25 @@ public class UserController {
                 }
             }
 
+            // Prevent privilege escalation: only authenticated admins can set a non-user role
+            String requestedRole = "user";
+            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().matches("ROLE_(ADMIN|SUPER_ADMIN|ULTRA_SUPER_ADMIN)"))) {
+                requestedRole = (String) body.getOrDefault("role", "user");
+            }
+
             User user = User.builder()
                 .uid((String) body.get("uid"))
                 .name((String) body.get("name"))
                 .email(((String) body.get("email")).toLowerCase().trim())
-                .role((String) body.getOrDefault("role","user"))
+                .role(requestedRole)
                 .phone((String) body.get("phone"))
                 .department((String) body.get("department"))
                 .isActive(body.get("is_active") == null || Boolean.parseBoolean(body.get("is_active").toString()))
                 .isDemo(Boolean.parseBoolean(body.getOrDefault("is_demo","false").toString()))
                 .passwordHash(body.get("password_hash") != null
                     ? (String) body.get("password_hash")
-                    : body.get("password") != null ? SimpleHash.hash((String) body.get("password")) : null)
+                    : body.get("password") != null ? userService.hashPassword((String) body.get("password")) : null)
                 .restrictedModules(restrictedModulesStr)
                 .build();
             User createdUser = userService.create(user);
@@ -114,16 +123,40 @@ public class UserController {
     }
 
     @PutMapping("/users/{uid}")
-    public ResponseEntity<?> update(@PathVariable String uid, @RequestBody Map<String,Object> body) {
+    public ResponseEntity<?> update(
+            @PathVariable String uid,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody Map<String,Object> body) {
         try {
+            if (userDetails == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Unauthorized: User session not found."));
+            }
+            String callerUid = userDetails.getUsername();
+            boolean isAdmin = userDetails.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().matches("ROLE_(ADMIN|SUB_ADMIN|SUPER_ADMIN|ULTRA_SUPER_ADMIN)"));
+
+            // Users can only update their own profile; admins can update any profile
+            if (!callerUid.equals(uid) && !isAdmin) {
+                return ResponseEntity.status(403).body(Map.of("error", "Access denied: Cannot edit another user's profile"));
+            }
+
             User updates = new User();
             if (body.get("name")       != null) updates.setName((String) body.get("name"));
             if (body.get("email")      != null) updates.setEmail((String) body.get("email"));
-            if (body.get("role")       != null) updates.setRole((String) body.get("role"));
+            
+            // Only admins can modify the role field
+            if (body.get("role") != null) {
+                if (isAdmin) {
+                    updates.setRole((String) body.get("role"));
+                } else {
+                    return ResponseEntity.status(403).body(Map.of("error", "Access denied: Only administrators can modify roles"));
+                }
+            }
+            
             if (body.get("phone")      != null) updates.setPhone((String) body.get("phone"));
             if (body.get("department") != null) updates.setDepartment((String) body.get("department"));
             if (body.get("is_active")  != null) updates.setIsActive(Boolean.parseBoolean(body.get("is_active").toString()));
-            if (body.get("password")   != null) updates.setPasswordHash(SimpleHash.hash((String) body.get("password")));
+            if (body.get("password")   != null) updates.setPasswordHash(userService.hashPassword((String) body.get("password")));
             if (body.get("password_hash") != null) updates.setPasswordHash((String) body.get("password_hash"));
             if (body.get("restrictedModules") != null) {
                 Object val = body.get("restrictedModules");
@@ -147,6 +180,7 @@ public class UserController {
     }
 
     @DeleteMapping("/users/{uid}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'ULTRA_SUPER_ADMIN')")
     public ResponseEntity<?> delete(@PathVariable String uid) {
         userService.softDelete(uid);
         return ResponseEntity.ok(Map.of("success",true));
@@ -155,7 +189,7 @@ public class UserController {
     @PostMapping("/users/reset-password")
     public ResponseEntity<?> resetPassword(
             @RequestBody Map<String, String> body,
-            @RequestHeader(value = "x-user-uid", required = false) String headerUid) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         String currentPassword = body.get("currentPassword");
         String newPassword = body.get("newPassword");
         String confirmNewPassword = body.get("confirmNewPassword");
@@ -164,9 +198,11 @@ public class UserController {
             return ResponseEntity.badRequest().body(Map.of("error", "All fields are required."));
         }
 
-        if (headerUid == null || headerUid.isBlank()) {
+        if (userDetails == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized: User session not found."));
         }
+
+        String headerUid = userDetails.getUsername();
 
         Optional<User> userOpt = userService.findByUid(headerUid);
         if (userOpt.isEmpty()) {
@@ -193,7 +229,7 @@ public class UserController {
 
         try {
             // 4. Encrypt/hash passwords using the current security implementation
-            String newHash = SimpleHash.hash(newPassword);
+            String newHash = userService.hashPassword(newPassword);
             
             User updates = new User();
             updates.setPasswordHash(newHash);
