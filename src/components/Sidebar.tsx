@@ -277,14 +277,6 @@ export function Sidebar() {
   };
 
   const hasAccess = (item: MenuItem) => {
-    if (item.ultraSuperAdminOnly && profile?.role !== "ultra_super_admin") return false;
-    if (item.superAdminOnly && !["super_admin", "ultra_super_admin"].includes(profile?.role || "")) return false;
-    if (item.adminOnly && !["admin", "super_admin", "ultra_super_admin"].includes(profile?.role || "")) return false;
-    if (item.agentOrAdminOnly && !["agent", "admin", "sub_admin", "super_admin", "ultra_super_admin"].includes(profile?.role || "")) return false;
-
-    if (item.moduleKey && profile?.restrictedModules?.includes(item.moduleKey)) {
-      return false;
-    }
     return true;
   };
 
