@@ -173,11 +173,29 @@ public class DatabaseSeeder implements CommandLineRunner {
                     "description TEXT, " +
                     "manager_uid VARCHAR(128), " +
                     "manager_name VARCHAR(255), " +
+                    "leader_uid VARCHAR(128), " +
+                    "leader_name VARCHAR(255), " +
+                    "sdm_uid VARCHAR(128), " +
+                    "sdm_name VARCHAR(255), " +
                     "assignment_email VARCHAR(255), " +
                     "is_active TINYINT(1) DEFAULT 1, " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
                     "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
                     "company_id VARCHAR(128))");
+
+            try {
+                jdbcTemplate.execute("ALTER TABLE settings_groups ADD COLUMN leader_uid VARCHAR(128)");
+            } catch (Exception ignored) {}
+            try {
+                jdbcTemplate.execute("ALTER TABLE settings_groups ADD COLUMN leader_name VARCHAR(255)");
+            } catch (Exception ignored) {}
+            try {
+                jdbcTemplate.execute("ALTER TABLE settings_groups ADD COLUMN sdm_uid VARCHAR(128)");
+            } catch (Exception ignored) {}
+            try {
+                jdbcTemplate.execute("ALTER TABLE settings_groups ADD COLUMN sdm_name VARCHAR(255)");
+            } catch (Exception ignored) {}
+
 
             // Settings Audit Logs
             jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS settings_audit_logs (" +

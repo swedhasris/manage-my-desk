@@ -8,7 +8,7 @@ import {
  Search, Plus, Trash2, Edit2, Users as UsersIcon, X, Shield, Zap, Clock, Globe, UserCheck,
  BarChart3, Settings, ExternalLink, Mail, MapPin, Calendar as CalendarIcon, CheckSquare,
  Trophy, MessageCircle, BookOpen, ClipboardList, Send, Sparkles, AlertCircle, Play,
- CornerDownRight, User, CheckCircle2, ChevronRight, Download, BarChart2, ShieldAlert,
+ CornerDownRight, User, CheckCircle2, ChevronRight, ChevronLeft, Download, BarChart2, ShieldAlert,
  Flame, LayoutDashboard, GitPullRequest, Map
 } from"lucide-react";
 import {
@@ -37,6 +37,8 @@ export function Groups() {
  const [groupMembers, setGroupMembers] = useState<any[]>([]);
  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
  const [activeTab, setActiveTab] = useState<string>("dashboard");
+ const [calendarDate, setCalendarDate] = useState<Date>(() => new Date());
+ const [calendarViewMode, setCalendarViewMode] = useState<"month" | "week" | "day">("month");
 
  useEffect(() => {
  const tab = searchParams.get("tab");
@@ -86,6 +88,8 @@ export function Groups() {
  type: 'Service Desk',
  managerId: '',
  managerName: '',
+ sdmId: '',
+ sdmName: '',
  leaderId: '',
  leaderName: '',
  projectName: '',
@@ -372,6 +376,7 @@ export function Groups() {
  if (!groupForm.name) return;
  try {
  const pmName = groupForm.managerId ? users.find(u => u.id === groupForm.managerId || u.uid === groupForm.managerId)?.name ||"" :"";
+ const sdmName = groupForm.sdmId ? users.find(u => u.id === groupForm.sdmId || u.uid === groupForm.sdmId)?.name ||"" :"";
  const tlName = groupForm.leaderId ? users.find(u => u.id === groupForm.leaderId || u.uid === groupForm.leaderId)?.name ||"" :"";
 
  const data = {
@@ -382,6 +387,8 @@ export function Groups() {
  type: groupForm.type,
  managerId: groupForm.managerId,
  managerName: pmName,
+ sdmId: groupForm.sdmId,
+ sdmName: sdmName,
  leaderId: groupForm.leaderId,
  leaderName: tlName,
  projectName: groupForm.projectName,
@@ -410,6 +417,10 @@ export function Groups() {
  ...data,
  managerUid: groupForm.managerId,
  managerName: pmName,
+ leaderUid: groupForm.leaderId,
+ leaderName: tlName,
+ sdmUid: groupForm.sdmId,
+ sdmName: sdmName,
  assignmentEmail: groupForm.email,
  isActive: groupForm.status === 'active',
  companyId: profile?.companyId || null
@@ -917,7 +928,15 @@ export function Groups() {
  {/* PM node */}
  <div className="w-64 border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-xl text-center shadow-sm">
  <span className="text-[9px] uppercase tracking-wider text-blue-600 dark:text-blue-400 font-semibold">Project Manager (PM)</span>
- <p className="text-sm font-bold text-sn-dark dark:text-white mt-1">{activeGroup.managerName ||"Unassigned"}</p>
+ <p className="text-sm font-bold text-sn-dark dark:text-white mt-1">{activeGroup.managerName || "Unassigned"}</p>
+ </div>
+
+ <div className="h-8 w-0.5 bg-border" />
+
+ {/* SDM node */}
+ <div className="w-64 border border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-950/20 p-4 rounded-xl text-center shadow-sm">
+ <span className="text-[9px] uppercase tracking-wider text-teal-600 dark:text-teal-400 font-semibold">Service Delivery Manager (SDM)</span>
+ <p className="text-sm font-bold text-sn-dark dark:text-white mt-1">{activeGroup.sdmName || "Unassigned"}</p>
  </div>
 
  <div className="h-8 w-0.5 bg-border" />
@@ -925,7 +944,7 @@ export function Groups() {
  {/* TL node */}
  <div className="w-64 border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-4 rounded-xl text-center shadow-sm">
  <span className="text-[9px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-semibold">Team Leader (TL)</span>
- <p className="text-sm font-bold text-sn-dark dark:text-white mt-1">{activeGroup.leaderName ||"Unassigned"}</p>
+ <p className="text-sm font-bold text-sn-dark dark:text-white mt-1">{activeGroup.leaderName || "Unassigned"}</p>
  </div>
 
  <div className="h-8 w-0.5 bg-border" />
@@ -993,6 +1012,8 @@ export function Groups() {
  type: activeGroup.type || 'Service Desk',
  managerId: activeGroup.managerId || '',
  managerName: activeGroup.managerName || '',
+ sdmId: activeGroup.sdmId || '',
+ sdmName: activeGroup.sdmName || '',
  leaderId: activeGroup.leaderId || '',
  leaderName: activeGroup.leaderName || '',
  projectName: activeGroup.projectName || '',
@@ -1147,198 +1168,431 @@ export function Groups() {
  );
  };
 
- const renderCalendar = () => {
- // Basic calendar view
- const today = new Date();
- const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
- const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const renderCalendar = () => {
+    const handlePrev = () => {
+      setCalendarDate(prev => {
+        const d = new Date(prev);
+        if (calendarViewMode === "month") {
+          d.setMonth(d.getMonth() - 1);
+        } else if (calendarViewMode === "week") {
+          d.setDate(d.getDate() - 7);
+        } else {
+          d.setDate(d.getDate() - 1);
+        }
+        return d;
+      });
+    };
 
- const getStatusColor = (status: string) => {
- switch (status) {
- case"Completed": return"bg-green-500 text-white";
- case"In Progress": return"bg-amber-500 text-white";
- case"Delayed": return"bg-rose-500 text-white";
- default: return"bg-blue-500 text-white";
- }
- };
+    const handleNext = () => {
+      setCalendarDate(prev => {
+        const d = new Date(prev);
+        if (calendarViewMode === "month") {
+          d.setMonth(d.getMonth() + 1);
+        } else if (calendarViewMode === "week") {
+          d.setDate(d.getDate() + 7);
+        } else {
+          d.setDate(d.getDate() + 1);
+        }
+        return d;
+      });
+    };
 
- return (
- <div className="space-y-6">
- <div className="flex justify-between items-center">
- <div>
- <h2 className="text-xl font-bold text-sn-dark dark:text-white">Smart Team Calendar</h2>
- <p className="text-xs text-muted-foreground">Coordinate sprints, leaves, meetings, and releases</p>
- </div>
- {canPlanOrRate && (
- <Button
- onClick={() => {
- setSelectedEvent(null);
- setEventForm({
- title:"",
- description:"",
- type:"Meeting",
- startDate: new Date().toISOString().split('T')[0],
- endDate: new Date().toISOString().split('T')[0],
- estimatedHours: 2,
- priority:"Medium",
- assigneeId:"",
- status:"Planned",
- dependencies:""
- });
- setIsEventModalOpen(true);
- }}
- className="bg-sn-green text-sn-dark text-xs uppercase font-semibold tracking-wider flex items-center gap-1.5"
- >
- <Plus className="w-4 h-4" /> Create Event
- </Button>
- )}
- </div>
+    const handleToday = () => {
+      setCalendarDate(new Date());
+    };
 
- {/* Legend */}
- <div className="flex items-center gap-4 text-xs font-semibold p-3 bg-white dark:bg-slate-900 border border-border rounded-xl">
- <span className="text-muted-foreground">Legend:</span>
- <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Planned</span>
- <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> In Progress</span>
- <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> Completed On Time</span>
- <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Delayed</span>
- </div>
+    const getMonday = (date: Date) => {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      d.setDate(diff);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
 
- {/* Monthly Grid Grid View */}
- <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-border">
- <div className="flex items-center justify-between mb-4 border-b border-border/50 pb-4">
- <h3 className="font-bold text-sm uppercase tracking-wide">
- {today.toLocaleString("default", { month:"long" })} {today.getFullYear()}
- </h3>
- <div className="flex gap-1.5 text-[10px] font-bold uppercase">
- <span className="px-2.5 py-1 bg-blue-50 text-blue-600 rounded">Monthly View</span>
- </div>
- </div>
+    const formatYmd = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
 
- <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase text-muted-foreground mb-2">
- <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
- </div>
+    const getStatusColor = (status: string) => {
+      switch (status) {
+        case "Completed": return "bg-green-500 text-white";
+        case "In Progress": return "bg-amber-500 text-white";
+        case "Delayed": return "bg-rose-500 text-white";
+        default: return "bg-blue-500 text-white";
+      }
+    };
 
- <div className="grid grid-cols-7 gap-2 auto-rows-[120px]">
- {/* Pad calendar start day */}
- {Array.from({ length: new Date(today.getFullYear(), today.getMonth(), 1).getDay() }).map((_, idx) => (
- <div key={`pad-${idx}`} className="bg-muted/10 border border-border/50 rounded-lg p-2 opacity-50" />
- ))}
+    const getTitle = () => {
+      if (calendarViewMode === "month") {
+        return calendarDate.toLocaleString("default", { month: "long" }) + " " + calendarDate.getFullYear();
+      } else if (calendarViewMode === "week") {
+        const monday = getMonday(calendarDate);
+        const sunday = new Date(monday.getTime() + 6 * 86400000);
+        return `${monday.toLocaleDateString("default", { month: 'short', day: 'numeric' })} - ${sunday.toLocaleDateString("default", { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      } else {
+        return calendarDate.toLocaleDateString("default", { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      }
+    };
 
- {daysArray.map(day => {
- const dayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
- const dayEvents = events.filter(e => e.startDate === dayStr || e.endDate === dayStr);
+    const handleEventClick = (e: any) => {
+      if (canPlanOrRate) {
+        setSelectedEvent(e);
+        setEventForm({
+          title: e.title,
+          description: e.description,
+          type: e.type,
+          startDate: e.startDate,
+          endDate: e.endDate,
+          estimatedHours: e.estimatedHours,
+          priority: e.priority,
+          assigneeId: e.assigneeId,
+          status: e.status,
+          dependencies: e.dependencies || ""
+        });
+        setIsEventModalOpen(true);
+      }
+    };
 
- return (
- <div key={day} className="border border-border rounded-lg p-2 bg-card overflow-y-auto flex flex-col justify-between hover:border-sn-green/30 transition-all duration-200">
- <span className="font-bold text-xs text-muted-foreground block">{day}</span>
- <div className="space-y-1 mt-1 flex-grow">
- {dayEvents.map(e => (
- <div
- key={e.id}
- onClick={() => {
- if (canPlanOrRate) {
- setSelectedEvent(e);
- setEventForm({
- title: e.title,
- description: e.description,
- type: e.type,
- startDate: e.startDate,
- endDate: e.endDate,
- estimatedHours: e.estimatedHours,
- priority: e.priority,
- assigneeId: e.assigneeId,
- status: e.status,
- dependencies: e.dependencies ||""
- });
- setIsEventModalOpen(true);
- }
- }}
- className={cn("text-[9px] p-1 rounded font-bold truncate cursor-pointer", getStatusColor(e.status))}
- title={`${e.type}: ${e.title}`}
- >
- {e.title}
- </div>
- ))}
- </div>
- </div>
- );
- })}
- </div>
- </div>
- </div>
- );
- };
+    // View Renders
+    const renderMonthView = () => {
+      const daysInMonth = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 0).getDate();
+      const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+      const padLength = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1).getDay();
 
- const renderPlanning = () => {
- return (
- <div className="space-y-6">
- <div className="flex justify-between items-center">
- <div>
- <h2 className="text-xl font-bold text-sn-dark dark:text-white">Target Planning Center</h2>
- <p className="text-xs text-muted-foreground">Define daily, weekly, monthly, or quarterly delivery goals</p>
- </div>
- {canPlanOrRate && (
- <Button
- onClick={() => {
- setPlanForm({
- type:"Weekly",
- objective:"",
- plannedWork: 40,
- actualWork: 0,
- completionRate: 0,
- delayRate: 0
- });
- setIsPlanModalOpen(true);
- }}
- className="bg-sn-green text-sn-dark text-xs uppercase font-semibold tracking-wider flex items-center gap-1.5"
- >
- <Plus className="w-4 h-4" /> Create Plan
- </Button>
- )}
- </div>
+      return (
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-border">
+          <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase text-muted-foreground mb-2">
+            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+          </div>
+          <div className="grid grid-cols-7 gap-2 auto-rows-[120px]">
+            {Array.from({ length: padLength }).map((_, idx) => (
+              <div key={`pad-${idx}`} className="bg-muted/10 border border-border/50 rounded-lg p-2 opacity-50" />
+            ))}
+            {daysArray.map(day => {
+              const d = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), day);
+              const dayStr = formatYmd(d);
+              const dayEvents = events.filter(e => e.startDate === dayStr || e.endDate === dayStr);
 
- {/* Plans Table */}
- <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-border">
- <div className="overflow-x-auto">
- <table className="w-full text-left text-xs">
- <thead>
- <tr className="border-b border-border uppercase font-semibold tracking-wider text-muted-foreground">
- <th className="pb-3">Type</th>
- <th className="pb-3">Objective Goal</th>
- <th className="pb-3">Planned Work (Hours)</th>
- <th className="pb-3">Actual Work (Hours)</th>
- <th className="pb-3">Completion %</th>
- <th className="pb-3">Planning Accuracy %</th>
- </tr>
- </thead>
- <tbody className="divide-y divide-border/60">
- {plans.map(p => {
- const accuracy = p.actualWork > 0 ? Math.round((p.plannedWork / p.actualWork) * 100) : 0;
- return (
- <tr key={p.id} className="hover:bg-muted/10">
- <td className="py-3.5"><span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-bold">{p.type}</span></td>
- <td className="py-3.5 font-bold text-sn-dark dark:text-white">{p.objective}</td>
- <td className="py-3.5 font-medium">{p.plannedWork} hrs</td>
- <td className="py-3.5 font-medium">{p.actualWork} hrs</td>
- <td className="py-3.5 font-bold text-emerald-600">{p.completionRate || 0}%</td>
- <td className="py-3.5 font-bold text-indigo-600">{accuracy}%</td>
- </tr>
- );
- })}
- {plans.length === 0 && (
- <tr>
- <td colSpan={6} className="py-8 text-center text-muted-foreground italic">
- No target plans created yet.
- </td>
- </tr>
- )}
- </tbody>
- </table>
- </div>
- </div>
- </div>
- );
- };
+              return (
+                <div key={day} className="border border-border rounded-lg p-2 bg-card overflow-y-auto flex flex-col justify-between hover:border-sn-green/30 transition-all duration-200">
+                  <span className="font-bold text-xs text-muted-foreground block">{day}</span>
+                  <div className="space-y-1 mt-1 flex-grow">
+                    {dayEvents.map(e => (
+                      <div
+                        key={e.id}
+                        onClick={() => handleEventClick(e)}
+                        className={cn("text-[9px] p-1 rounded font-bold truncate cursor-pointer", getStatusColor(e.status))}
+                        title={`${e.type}: ${e.title}`}
+                      >
+                        {e.title}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    };
+
+    const renderWeekView = () => {
+      const monday = getMonday(calendarDate);
+      const weekDays = Array.from({ length: 7 }, (_, i) => {
+        return new Date(monday.getTime() + i * 86400000);
+      });
+
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+          {weekDays.map((day, idx) => {
+            const dayStr = formatYmd(day);
+            const dayEvents = events.filter(e => e.startDate === dayStr || e.endDate === dayStr);
+            const isToday = formatYmd(new Date()) === dayStr;
+
+            return (
+              <div
+                key={idx}
+                className={cn(
+                  "border border-border rounded-xl p-4 bg-white dark:bg-slate-900 min-h-[300px] flex flex-col gap-3",
+                  isToday && "ring-2 ring-sn-green/30 border-sn-green/50 bg-sn-green/[0.02]"
+                )}
+              >
+                <div className="border-b border-border/50 pb-2 text-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                    {day.toLocaleDateString("default", { weekday: 'short' })}
+                  </span>
+                  <span className={cn(
+                    "text-lg font-bold mt-0.5 inline-block px-2 py-0.5 rounded-full",
+                    isToday ? "bg-sn-green text-sn-dark" : "text-foreground"
+                  )}>
+                    {day.getDate()}
+                  </span>
+                </div>
+                <div className="flex-grow space-y-2 overflow-y-auto">
+                  {dayEvents.length === 0 ? (
+                    <span className="text-[10px] text-muted-foreground/60 italic block text-center py-8">No events</span>
+                  ) : (
+                    dayEvents.map(e => (
+                      <div
+                        key={e.id}
+                        onClick={() => handleEventClick(e)}
+                        className={cn(
+                          "p-2 rounded-lg text-xs font-semibold cursor-pointer shadow-sm hover:translate-y-[-1px] transition-transform",
+                          getStatusColor(e.status)
+                        )}
+                        title={`${e.type}: ${e.description}`}
+                      >
+                        <div className="font-bold truncate">{e.title}</div>
+                        <div className="text-[9px] opacity-90 mt-0.5 flex justify-between">
+                          <span>{e.type}</span>
+                          <span>{e.estimatedHours}h</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+
+    const renderDayView = () => {
+      const dayStr = formatYmd(calendarDate);
+      const dayEvents = events.filter(e => e.startDate === dayStr || e.endDate === dayStr);
+
+      return (
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-border p-6 space-y-4">
+          <div className="border-b border-border pb-4 flex justify-between items-center">
+            <h3 className="font-bold text-sm text-sn-dark dark:text-white uppercase tracking-wider">
+              Events for this Day
+            </h3>
+            <span className="text-xs font-semibold px-2.5 py-1 bg-muted rounded-full">
+              {dayEvents.length} {dayEvents.length === 1 ? 'Event' : 'Events'}
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {dayEvents.length === 0 ? (
+              <div className="text-center py-12 text-sm text-muted-foreground italic">
+                No events scheduled for this day. Click "Create Event" to schedule one.
+              </div>
+            ) : (
+              dayEvents.map(e => (
+                <div
+                  key={e.id}
+                  onClick={() => handleEventClick(e)}
+                  className="p-4 rounded-xl border border-border bg-card hover:border-sn-green/30 hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col md:flex-row justify-between gap-4"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("px-2 py-0.5 text-[10px] font-bold rounded-full", getStatusColor(e.status))}>
+                        {e.status}
+                      </span>
+                      <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full uppercase">
+                        {e.type}
+                      </span>
+                      <span className="text-[10px] font-semibold text-muted-foreground">
+                        Priority: {e.priority}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-sm text-sn-dark dark:text-white">{e.title}</h4>
+                    <p className="text-xs text-muted-foreground">{e.description || "No description provided."}</p>
+                  </div>
+                  <div className="flex items-center gap-4 shrink-0 text-right md:flex-col md:justify-center md:items-end">
+                    <div>
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase">Estimated Effort</div>
+                      <div className="text-sm font-extrabold text-blue-600 dark:text-blue-400">{e.estimatedHours} Hours</div>
+                    </div>
+                    {e.dependencies && (
+                      <div className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">
+                        Depends on: {e.dependencies}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-sn-dark dark:text-white">Smart Team Calendar</h2>
+            <p className="text-xs text-muted-foreground">Coordinate sprints, leaves, meetings, and releases</p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3">
+            {/* View Switching */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+              {(["month", "week", "day"] as const).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setCalendarViewMode(mode)}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer capitalize",
+                    calendarViewMode === mode
+                      ? "bg-white dark:bg-slate-900 text-sn-dark dark:text-white shadow-sm font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+
+            {/* Navigation Controls */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handlePrev}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 border border-border rounded-xl transition-colors"
+                title="Previous"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleToday}
+                className="px-3 py-2 text-xs font-bold border border-border rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors uppercase tracking-wider"
+              >
+                Today
+              </button>
+              <button
+                onClick={handleNext}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 border border-border rounded-xl transition-colors"
+                title="Next"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {canPlanOrRate && (
+              <Button
+                onClick={() => {
+                  setSelectedEvent(null);
+                  setEventForm({
+                    title: "",
+                    description: "",
+                    type: "Meeting",
+                    startDate: formatYmd(calendarDate),
+                    endDate: formatYmd(calendarDate),
+                    estimatedHours: 2,
+                    priority: "Medium",
+                    assigneeId: "",
+                    status: "Planned",
+                    dependencies: ""
+                  });
+                  setIsEventModalOpen(true);
+                }}
+                className="bg-sn-green text-sn-dark text-xs uppercase font-semibold tracking-wider flex items-center gap-1.5 rounded-xl h-10"
+              >
+                <Plus className="w-4 h-4" /> Create Event
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Date Display Indicator */}
+        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 border border-border rounded-xl">
+          <h3 className="font-bold text-base text-sn-dark dark:text-white">
+            {getTitle()}
+          </h3>
+          <div className="flex items-center gap-4 text-xs font-semibold">
+            <span className="text-muted-foreground">Legend:</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Planned</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> In Progress</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> Completed</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Delayed</span>
+          </div>
+        </div>
+
+        {/* Selected View Rendering */}
+        {calendarViewMode === "month" && renderMonthView()}
+        {calendarViewMode === "week" && renderWeekView()}
+        {calendarViewMode === "day" && renderDayView()}
+      </div>
+    );
+  };
+
+
+  const renderPlanning = () => {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-bold text-sn-dark dark:text-white">Target Planning Center</h2>
+            <p className="text-xs text-muted-foreground">Define daily, weekly, monthly, or quarterly delivery goals</p>
+          </div>
+          {canPlanOrRate && (
+            <Button
+              onClick={() => {
+                setPlanForm({
+                  type: "Weekly",
+                  objective: "",
+                  plannedWork: 40,
+                  actualWork: 0,
+                  completionRate: 0,
+                  delayRate: 0
+                });
+                setIsPlanModalOpen(true);
+              }}
+              className="bg-sn-green text-sn-dark text-xs uppercase font-semibold tracking-wider flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" /> Create Plan
+            </Button>
+          )}
+        </div>
+
+        {/* Plans Table */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-border">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-border uppercase font-semibold tracking-wider text-muted-foreground">
+                  <th className="pb-3">Type</th>
+                  <th className="pb-3">Objective Goal</th>
+                  <th className="pb-3">Planned Work (Hours)</th>
+                  <th className="pb-3">Actual Work (Hours)</th>
+                  <th className="pb-3">Completion %</th>
+                  <th className="pb-3">Planning Accuracy %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {plans.map(p => {
+                  const accuracy = p.actualWork > 0 ? Math.round((p.plannedWork / p.actualWork) * 100) : 0;
+                  return (
+                    <tr key={p.id} className="hover:bg-muted/10">
+                      <td className="py-3.5"><span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-bold">{p.type}</span></td>
+                      <td className="py-3.5 font-bold text-sn-dark dark:text-white">{p.objective}</td>
+                      <td className="py-3.5 font-medium">{p.plannedWork} hrs</td>
+                      <td className="py-3.5 font-medium">{p.actualWork} hrs</td>
+                      <td className="py-3.5 font-bold text-emerald-600">{p.completionRate || 0}%</td>
+                      <td className="py-3.5 font-bold text-indigo-600">{accuracy}%</td>
+                    </tr>
+                  );
+                })}
+                {plans.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-muted-foreground italic">
+                      No target plans created yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
  const renderTimesheets = () => {
  // Mock utilization list
@@ -2136,10 +2390,19 @@ export function Groups() {
  <input value={groupForm.department} onChange={e => setGroupForm({ ...groupForm, department: e.target.value })} className="w-full border border-border rounded-lg p-2.5 text-xs outline-none focus:ring-1 focus:ring-sn-green bg-white dark:bg-slate-800" placeholder="e.g. IT Operations" />
  </div>
  </div>
- <div className="grid grid-cols-2 gap-4">
+ <div className="grid grid-cols-3 gap-4">
  <div>
  <label className="block text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">Project Manager (PM)</label>
  <select value={groupForm.managerId} onChange={e => setGroupForm({ ...groupForm, managerId: e.target.value })} className="w-full border border-border rounded-lg p-2.5 text-xs outline-none focus:ring-1 focus:ring-sn-green bg-white dark:bg-slate-800">
+ <option value="">-- Unassigned --</option>
+ {users.map(u => (
+ <option key={u.id} value={u.id}>{u.name || u.email}</option>
+ ))}
+ </select>
+ </div>
+ <div>
+ <label className="block text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">Service Delivery Manager (SDM)</label>
+ <select value={groupForm.sdmId} onChange={e => setGroupForm({ ...groupForm, sdmId: e.target.value })} className="w-full border border-border rounded-lg p-2.5 text-xs outline-none focus:ring-1 focus:ring-sn-green bg-white dark:bg-slate-800">
  <option value="">-- Unassigned --</option>
  {users.map(u => (
  <option key={u.id} value={u.id}>{u.name || u.email}</option>

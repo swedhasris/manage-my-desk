@@ -210,6 +210,19 @@ public class SettingsController {
         m.put("managerId", row.get("manager_uid"));
         m.put("manager_name", row.get("manager_name"));
         m.put("managerName", row.get("manager_name"));
+
+        m.put("leader_uid", row.get("leader_uid"));
+        m.put("leaderUid", row.get("leader_uid"));
+        m.put("leaderId", row.get("leader_uid"));
+        m.put("leader_name", row.get("leader_name"));
+        m.put("leaderName", row.get("leader_name"));
+
+        m.put("sdm_uid", row.get("sdm_uid"));
+        m.put("sdmUid", row.get("sdm_uid"));
+        m.put("sdmId", row.get("sdm_uid"));
+        m.put("sdm_name", row.get("sdm_name"));
+        m.put("sdmName", row.get("sdm_name"));
+        
         m.put("assignment_email", row.get("assignment_email"));
         m.put("assignmentEmail", row.get("assignment_email"));
         m.put("emailAlias", row.get("assignment_email"));
@@ -809,70 +822,78 @@ public class SettingsController {
         }
     }
 
-    @PostMapping("/settings_groups")
-    @Transactional
-    public ResponseEntity<?> createGroup(@RequestBody Map<String, Object> body) {
-        log.info("[Groups] Creating group: {}", body);
-        try {
-            String id = getStr(body, "id");
-            if (id == null) {
-                id = "sg_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
-            }
-            String name = getStr(body, "name");
-            String description = getStr(body, "description");
-            String managerUid = getStr(body, "manager_uid", "managerUid", "managerId");
-            String managerName = getStr(body, "manager_name", "managerName");
-            String assignmentEmail = getStr(body, "assignment_email", "assignmentEmail", "emailAlias");
-            boolean isActive = getBool(body, "is_active", "isActive");
-            String status = getStr(body, "status");
-            if (status != null) {
-                isActive = "active".equalsIgnoreCase(status);
-            }
-            Long companyId = getLong(body, "company_id", "companyId");
-
-            jdbcTemplate.update(
-                "INSERT INTO settings_groups (id, name, description, manager_uid, manager_name, assignment_email, is_active, company_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                id, name, description, managerUid, managerName, assignmentEmail, isActive ? 1 : 0, companyId
-            );
-
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM settings_groups WHERE id = ?", id);
-            return ResponseEntity.ok(mapGroup(rows.get(0)));
-        } catch (Exception e) {
-            log.error("[Groups] Failed to create group: {}", e.getMessage(), e);
-            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
-        }
-    }
-
-    @PutMapping("/settings_groups/{id}")
-    @Transactional
-    public ResponseEntity<?> updateGroup(@PathVariable String id, @RequestBody Map<String, Object> body) {
-        log.info("[Groups] Updating group {} with body: {}", id, body);
-        try {
-            String name = getStr(body, "name");
-            String description = getStr(body, "description");
-            String managerUid = getStr(body, "manager_uid", "managerUid", "managerId");
-            String managerName = getStr(body, "manager_name", "managerName");
-            String assignmentEmail = getStr(body, "assignment_email", "assignmentEmail", "emailAlias");
-            boolean isActive = getBool(body, "is_active", "isActive");
-            String status = getStr(body, "status");
-            if (status != null) {
-                isActive = "active".equalsIgnoreCase(status);
-            }
-            Long companyId = getLong(body, "company_id", "companyId");
-
-            jdbcTemplate.update(
-                "UPDATE settings_groups SET name = ?, description = ?, manager_uid = ?, manager_name = ?, assignment_email = ?, is_active = ?, company_id = ? WHERE id = ?",
-                name, description, managerUid, managerName, assignmentEmail, isActive ? 1 : 0, companyId, id
-            );
-
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM settings_groups WHERE id = ?", id);
-            if (rows.isEmpty()) return ResponseEntity.notFound().build();
-            return ResponseEntity.ok(mapGroup(rows.get(0)));
-        } catch (Exception e) {
-            log.error("[Groups] Failed to update group: {}", e.getMessage(), e);
-            return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
-        }
-    }
+     @PostMapping("/settings_groups")
+     @Transactional
+     public ResponseEntity<?> createGroup(@RequestBody Map<String, Object> body) {
+         log.info("[Groups] Creating group: {}", body);
+         try {
+             String id = getStr(body, "id");
+             if (id == null) {
+                 id = "sg_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+             }
+             String name = getStr(body, "name");
+             String description = getStr(body, "description");
+             String managerUid = getStr(body, "manager_uid", "managerUid", "managerId");
+             String managerName = getStr(body, "manager_name", "managerName");
+             String leaderUid = getStr(body, "leader_uid", "leaderUid", "leaderId");
+             String leaderName = getStr(body, "leader_name", "leaderName");
+             String sdmUid = getStr(body, "sdm_uid", "sdmUid", "sdmId");
+             String sdmName = getStr(body, "sdm_name", "sdmName");
+             String assignmentEmail = getStr(body, "assignment_email", "assignmentEmail", "emailAlias");
+             boolean isActive = getBool(body, "is_active", "isActive");
+             String status = getStr(body, "status");
+             if (status != null) {
+                 isActive = "active".equalsIgnoreCase(status);
+             }
+             Long companyId = getLong(body, "company_id", "companyId");
+ 
+             jdbcTemplate.update(
+                 "INSERT INTO settings_groups (id, name, description, manager_uid, manager_name, leader_uid, leader_name, sdm_uid, sdm_name, assignment_email, is_active, company_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                 id, name, description, managerUid, managerName, leaderUid, leaderName, sdmUid, sdmName, assignmentEmail, isActive ? 1 : 0, companyId
+             );
+ 
+             List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM settings_groups WHERE id = ?", id);
+             return ResponseEntity.ok(mapGroup(rows.get(0)));
+         } catch (Exception e) {
+             log.error("[Groups] Failed to create group: {}", e.getMessage(), e);
+             return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+         }
+     }
+ 
+     @PutMapping("/settings_groups/{id}")
+     @Transactional
+     public ResponseEntity<?> updateGroup(@PathVariable String id, @RequestBody Map<String, Object> body) {
+         log.info("[Groups] Updating group {} with body: {}", id, body);
+         try {
+             String name = getStr(body, "name");
+             String description = getStr(body, "description");
+             String managerUid = getStr(body, "manager_uid", "managerUid", "managerId");
+             String managerName = getStr(body, "manager_name", "managerName");
+             String leaderUid = getStr(body, "leader_uid", "leaderUid", "leaderId");
+             String leaderName = getStr(body, "leader_name", "leaderName");
+             String sdmUid = getStr(body, "sdm_uid", "sdmUid", "sdmId");
+             String sdmName = getStr(body, "sdm_name", "sdmName");
+             String assignmentEmail = getStr(body, "assignment_email", "assignmentEmail", "emailAlias");
+             boolean isActive = getBool(body, "is_active", "isActive");
+             String status = getStr(body, "status");
+             if (status != null) {
+                 isActive = "active".equalsIgnoreCase(status);
+             }
+             Long companyId = getLong(body, "company_id", "companyId");
+ 
+             jdbcTemplate.update(
+                 "UPDATE settings_groups SET name = ?, description = ?, manager_uid = ?, manager_name = ?, leader_uid = ?, leader_name = ?, sdm_uid = ?, sdm_name = ?, assignment_email = ?, is_active = ?, company_id = ? WHERE id = ?",
+                 name, description, managerUid, managerName, leaderUid, leaderName, sdmUid, sdmName, assignmentEmail, isActive ? 1 : 0, companyId, id
+             );
+ 
+             List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT * FROM settings_groups WHERE id = ?", id);
+             if (rows.isEmpty()) return ResponseEntity.notFound().build();
+             return ResponseEntity.ok(mapGroup(rows.get(0)));
+         } catch (Exception e) {
+             log.error("[Groups] Failed to update group: {}", e.getMessage(), e);
+             return ResponseEntity.ok(Map.of("success", false, "error", e.getMessage()));
+         }
+     }
 
     @DeleteMapping("/settings_groups/{id}")
     @Transactional

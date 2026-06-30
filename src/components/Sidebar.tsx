@@ -108,15 +108,32 @@ export function Sidebar() {
 
   const isDarkMode = resolvedTheme === "dark";
   const [expandedSections, setExpandedSections] = useState<string[]>(() => {
+    const defaultSections = [
+      "Favorites",
+      "Email Integration",
+      "Companies",
+      "Service Desk",
+      "Incident",
+      "Problem & Change",
+      "Meetings",
+      "Call Management",
+      "AI Assistant",
+      "Groups",
+      "Data Analytics",
+      "SLA Management",
+      "System Administration"
+    ];
     const saved = localStorage.getItem("sn-sidebar-expanded");
     if (saved) {
-      const parsed = JSON.parse(saved);
-      if (!parsed.includes("Data Analytics")) {
-        parsed.push("Data Analytics");
-      }
-      return parsed;
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Merge default sections with existing ones so nothing is hidden by stale cache
+          return Array.from(new Set([...parsed, ...defaultSections]));
+        }
+      } catch (e) {}
     }
-    return ["Favorites", "Incident", "Data Analytics"];
+    return defaultSections;
   });
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

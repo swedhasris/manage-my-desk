@@ -107,32 +107,14 @@ public class AiActivityController {
 
         // ── Method 2: java.awt.Robot (works when spring.main.headless=false) ──
         try {
-            java.awt.Dimension screenSize = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
-            java.awt.Rectangle screenRect = new java.awt.Rectangle(screenSize);
+            java.awt.GraphicsDevice gd = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+            int width = gd.getDisplayMode().getWidth();
+            int height = gd.getDisplayMode().getHeight();
+            java.awt.Rectangle screenRect = new java.awt.Rectangle(0, 0, width, height);
             java.awt.Robot robot = new java.awt.Robot();
             
-            // Capture full-screen screenshot at high-DPI (native resolution)
-            java.awt.image.MultiResolutionImage mrImage = robot.createMultiResolutionScreenCapture(screenRect);
-            java.awt.image.BufferedImage image = null;
-            java.util.List<java.awt.Image> variants = mrImage.getResolutionVariants();
-            if (variants != null && !variants.isEmpty()) {
-                java.awt.Image highestRes = variants.get(variants.size() - 1);
-                if (highestRes instanceof java.awt.image.BufferedImage) {
-                    image = (java.awt.image.BufferedImage) highestRes;
-                } else {
-                    image = new java.awt.image.BufferedImage(
-                        highestRes.getWidth(null),
-                        highestRes.getHeight(null),
-                        java.awt.image.BufferedImage.TYPE_INT_RGB
-                    );
-                    java.awt.Graphics2D g2 = image.createGraphics();
-                    g2.drawImage(highestRes, 0, 0, null);
-                    g2.dispose();
-                }
-            }
-            if (image == null) {
-                image = robot.createScreenCapture(screenRect);
-            }
+            // Capture full-screen screenshot at physical (native) resolution
+            java.awt.image.BufferedImage image = robot.createScreenCapture(screenRect);
 
             // Save to disk
             javax.imageio.ImageIO.write(image, "jpeg", outputFile);
@@ -145,7 +127,7 @@ public class AiActivityController {
             String dataUrl = "data:image/jpeg;base64," + base64;
 
             System.out.println("[captureScreen] Robot capture OK: " + filename +
-                " (" + (bytes.length / 1024) + " KB, " + screenSize.width + "x" + screenSize.height + ")");
+                " (" + (bytes.length / 1024) + " KB, " + width + "x" + height + ")");
             return ResponseEntity.ok(Map.of(
                 "data_url", dataUrl,
                 "image_url", "/uploads/" + filename,
