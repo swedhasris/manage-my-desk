@@ -9,8 +9,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
 import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.DriverManager;
 
 @Configuration
 @Slf4j
@@ -25,32 +23,36 @@ public class DataSourceConfig {
     @Value("${spring.datasource.password}")
     private String password;
 
-    @Value("${spring.datasource.driver-class-name:com.mysql.cj.jdbc.Driver}")
-    private String driverClassName;
-
     @Bean
     @Primary
     public DataSource dataSource() {
-        log.info("[DataSourceConfig] Checking connectivity to configured database: {}", dbUrl);
-        try {
-            Class.forName(driverClassName);
-            DriverManager.setLoginTimeout(3); // 3 seconds timeout
-            try (Connection conn = DriverManager.getConnection(dbUrl, username, password)) {
-                log.info("[DataSourceConfig] MySQL connection successful. Initializing Hikari connection pool.");
-                HikariConfig config = new HikariConfig();
-                config.setJdbcUrl(dbUrl);
-                config.setUsername(username);
-                config.setPassword(password);
-                config.setDriverClassName(driverClassName);
-                config.setMaximumPoolSize(20);
-                config.setMinimumIdle(5);
-                config.setIdleTimeout(300000);
-                config.setConnectionTimeout(20000);
-                return new HikariDataSource(config);
-            }
-        } catch (Exception e) {
-            log.error("[DataSourceConfig] Database connection check failed: {}", e.getMessage());
-            throw new RuntimeException("Database connection check failed", e);
+        // Auto-detect driver from the JDBC URL so this works for both
+        // MySQL (local dev) and PostgreSQL (Render cloud).
+        String detectedDriver;
+        if (dbUrl != null && dbUrl.startsWith("jdbc:postgresql")) {
+            detectedDriver = "org.postgresql.Driver";
+        } else {
+            detectedDriver = "com.mysql.cj.jdbc.Driver";
         }
+
+        log.info("[DataSourceConfig] Initializing HikariCP pool — url={}, driver={}", dbUrl, detectedDriver);
+
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl(dbUrl);
+        config.setUsername(username);
+        config.setPassword(password);
+        config.setDriverClassName(detectedDriver);
+        config.setMaximumPoolSize(10);
+        config.setMinimumIdle(2);
+        config.setIdleTimeout(300000);
+        config.setConnectionTimeout(30000);
+        config.setMaxLifetime(1200000);
+        config.setLeakDetectionThreshold(60000);
+        config.setConnectionTestQuery("SELECT 1");
+        // Allow HikariCP to retry connection on startup instead of failing immediately
+        config.setInitializationFailTimeout(-1);
+
+        return new HikariDataSource(config);
     }
 }
+
