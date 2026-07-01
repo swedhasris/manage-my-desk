@@ -263,7 +263,7 @@ export function TicketDetail() {
  if (!id || !user || !editedTicket) return;
 
  const hasCategoryAccess = ["admin","super_admin","ultra_super_admin"].includes(profile?.role ||"") ||
- ["arun.g@technosprint.net","swedhasris@gmail.com","ulter@technosprint.net","admin@technosprint.net","admin@connectit.local","demo-admin@connectit.local","demo-super_admin@connectit.local","demo-ultra_super_admin@connectit.local"].includes(user?.email || profile?.email ||"");
+ ["swedhasris@gmail.com","ulter@technosprint.net","admin@technosprint.net","admin@connectit.local","demo-admin@connectit.local","demo-super_admin@connectit.local","demo-ultra_super_admin@connectit.local"].includes(user?.email || profile?.email ||"");
  if (hasCategoryAccess) {
  for (const field of dynamicFields) {
  if (!editedTicket?.customFields?.[field.id]) {
@@ -1260,7 +1260,7 @@ export function TicketDetail() {
 
  {/* Incident Category Dynamic Custom Dropdowns */}
  {(["admin","super_admin","ultra_super_admin"].includes(profile?.role ||"") ||
- ["arun.g@technosprint.net","swedhasris@gmail.com","ulter@technosprint.net","admin@technosprint.net","admin@connectit.local","demo-admin@connectit.local","demo-super_admin@connectit.local","demo-ultra_super_admin@connectit.local"].includes(user?.email || profile?.email ||"")) && (
+ ["swedhasris@gmail.com","ulter@technosprint.net","admin@technosprint.net","admin@connectit.local","demo-admin@connectit.local","demo-super_admin@connectit.local","demo-ultra_super_admin@connectit.local"].includes(user?.email || profile?.email ||"")) && (
  <>
  {dynamicFields.map((field) => {
  const fieldOptions = dynamicOptions[field.id] || [];

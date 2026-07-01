@@ -494,7 +494,7 @@ export function Tickets() {
  }
 
  const hasCategoryAccess = ["admin","super_admin","ultra_super_admin"].includes(profile?.role ||"") ||
- ["arun.g@technosprint.net","swedhasris@gmail.com","ulter@technosprint.net","admin@technosprint.net","admin@connectit.local","demo-admin@connectit.local","demo-super_admin@connectit.local","demo-ultra_super_admin@connectit.local"].includes(user?.email || profile?.email ||"");
+ ["swedhasris@gmail.com","ulter@technosprint.net","admin@technosprint.net","admin@connectit.local","demo-admin@connectit.local","demo-super_admin@connectit.local","demo-ultra_super_admin@connectit.local"].includes(user?.email || profile?.email ||"");
 
  // Only validate truly required fields: caller and title are always required.
  // category, subcategory, service are required only when their feature is visible.

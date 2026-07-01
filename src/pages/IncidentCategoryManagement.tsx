@@ -37,7 +37,7 @@ export function IncidentCategoryManagement() {
  const myEmail = user?.email || profile?.email ||"";
 
  const AUTHORIZED_ROLES = ["admin","super_admin","ultra_super_admin"];
- const FALLBACK_EMAILS = ["arun.g@technosprint.net","swedhasris@gmail.com","ulter@technosprint.net","admin@technosprint.net"];
+ const FALLBACK_EMAILS = ["swedhasris@gmail.com","ulter@technosprint.net","admin@technosprint.net"];
 
  const hasAccess =
  AUTHORIZED_ROLES.includes(myRole) ||
