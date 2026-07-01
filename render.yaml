@@ -1,0 +1,85 @@
+# render.yaml — Infrastructure as Code for Render.com
+# Render reads this file automatically on every deploy.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: manage-my-desk-backend
+    runtime: docker
+    dockerfilePath: ./microservices/core-service-springboot/Dockerfile
+    dockerContext: ./microservices/core-service-springboot
+    plan: free
+    healthCheckPath: /actuator/health
+
+    envVars:
+      # ── Database (Remote Cloud MySQL) ──────────────────────────────────────
+      # Set MYSQL_HOST, MYSQL_PORT, MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD
+      # in the Render dashboard Environment tab to your cloud MySQL credentials.
+      - key: DATABASE_URL
+        value: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?useSSL=true&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
+      - key: MYSQL_HOST
+        sync: false   # Fill this in Render dashboard — your cloud MySQL hostname
+      - key: MYSQL_PORT
+        value: "3306"
+      - key: MYSQL_DATABASE
+        sync: false   # Fill this in Render dashboard — your database name
+      - key: DB_USER
+        sync: false   # Fill this in Render dashboard — your MySQL username
+      - key: DB_PASSWORD
+        sync: false   # Fill this in Render dashboard — your MySQL password
+
+      # ── Hibernate ─────────────────────────────────────────────────────────
+      - key: HIBERNATE_DIALECT
+        value: org.hibernate.dialect.MySQLDialect
+      - key: SPRING_JPA_HIBERNATE_DDL_AUTO
+        value: update
+
+      # ── Server ────────────────────────────────────────────────────────────
+      - key: PORT
+        value: "10000"
+
+      # ── JWT ───────────────────────────────────────────────────────────────
+      - key: JWT_SECRET
+        value: ConnectIT_2026_Secure_JWT_Key_987654321_minimum_32_characters
+
+      # ── Email / SMTP ──────────────────────────────────────────────────────
+      - key: EMAIL_HOST
+        value: smtp.office365.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USER
+        value: support@technosprint.net
+      - key: EMAIL_PASSWORD
+        sync: false   # Fill this in Render dashboard — your SMTP password
+      - key: EMAIL_FROM
+        value: support@technosprint.net
+      - key: MAIL_FROM_NAME
+        value: Manage My Desk
+
+      # ── IMAP ──────────────────────────────────────────────────────────────
+      - key: IMAP_HOST
+        value: outlook.office365.com
+      - key: IMAP_PORT
+        value: "993"
+      - key: IMAP_USER
+        value: support@technosprint.net
+      - key: IMAP_PASS
+        sync: false   # Fill this in Render dashboard — your IMAP password
+
+      # ── Gemini AI ─────────────────────────────────────────────────────────
+      - key: GEMINI_API_KEY
+        sync: false   # Fill this in Render dashboard — your Gemini API key
+
+      # ── Microsoft Graph ───────────────────────────────────────────────────
+      - key: GRAPH_TENANT_ID
+        value: dc9c3a4c-20c8-4af8-beeb-e0fbd4d8be82
+      - key: GRAPH_CLIENT_ID
+        value: 22021859-ed30-4ded-840b-b05c7e34c4e1
+      - key: GRAPH_CLIENT_SECRET
+        sync: false   # Fill this in Render dashboard — your Graph client secret
+      - key: GRAPH_USER_EMAIL
+        value: support@technosprint.net
+
+      # ── CORS ──────────────────────────────────────────────────────────────
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://tech-nllq.onrender.com,https://*.onrender.com
