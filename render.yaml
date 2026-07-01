@@ -1,6 +1,17 @@
 # render.yaml — Infrastructure as Code for Render.com
 # Render reads this file automatically on every deploy.
 # Docs: https://render.com/docs/blueprint-spec
+#
+# This uses Render's FREE managed PostgreSQL database — no external credentials needed.
+# Render creates the DB automatically and injects DATABASE_URL.
+# DatabaseEnvironmentPostProcessor converts postgres:// → jdbc:postgresql:// at startup.
+# Hibernate creates all tables automatically via ddl-auto=update on first boot.
+
+databases:
+  - name: manage-my-desk-db
+    databaseName: connectit_db
+    user: connectit
+    plan: free
 
 services:
   - type: web
@@ -12,25 +23,23 @@ services:
     healthCheckPath: /actuator/health
 
     envVars:
-      # ── Database (Remote Cloud MySQL) ──────────────────────────────────────
-      # Set MYSQL_HOST, MYSQL_PORT, MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD
-      # in the Render dashboard Environment tab to your cloud MySQL credentials.
+      # ── Database — Render managed PostgreSQL (auto-injected) ───────────────
       - key: DATABASE_URL
-        value: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?useSSL=true&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
-      - key: MYSQL_HOST
-        sync: false   # Fill this in Render dashboard — your cloud MySQL hostname
-      - key: MYSQL_PORT
-        value: "3306"
-      - key: MYSQL_DATABASE
-        sync: false   # Fill this in Render dashboard — your database name
+        fromDatabase:
+          name: manage-my-desk-db
+          property: connectionString
       - key: DB_USER
-        sync: false   # Fill this in Render dashboard — your MySQL username
+        fromDatabase:
+          name: manage-my-desk-db
+          property: user
       - key: DB_PASSWORD
-        sync: false   # Fill this in Render dashboard — your MySQL password
+        fromDatabase:
+          name: manage-my-desk-db
+          property: password
 
-      # ── Hibernate ─────────────────────────────────────────────────────────
+      # ── Hibernate — PostgreSQL dialect (matches Render's managed DB) ───────
       - key: HIBERNATE_DIALECT
-        value: org.hibernate.dialect.MySQLDialect
+        value: org.hibernate.dialect.PostgreSQLDialect
       - key: SPRING_JPA_HIBERNATE_DDL_AUTO
         value: update
 
@@ -50,7 +59,7 @@ services:
       - key: EMAIL_USER
         value: support@technosprint.net
       - key: EMAIL_PASSWORD
-        sync: false   # Fill this in Render dashboard — your SMTP password
+        value: Poland@01
       - key: EMAIL_FROM
         value: support@technosprint.net
       - key: MAIL_FROM_NAME
@@ -64,11 +73,11 @@ services:
       - key: IMAP_USER
         value: support@technosprint.net
       - key: IMAP_PASS
-        sync: false   # Fill this in Render dashboard — your IMAP password
+        value: Poland@01
 
       # ── Gemini AI ─────────────────────────────────────────────────────────
       - key: GEMINI_API_KEY
-        sync: false   # Fill this in Render dashboard — your Gemini API key
+        value: AIzaSyD7X-NZaDxd_J381on_io8Tvx1LTMDyRqk
 
       # ── Microsoft Graph ───────────────────────────────────────────────────
       - key: GRAPH_TENANT_ID
@@ -76,10 +85,11 @@ services:
       - key: GRAPH_CLIENT_ID
         value: 22021859-ed30-4ded-840b-b05c7e34c4e1
       - key: GRAPH_CLIENT_SECRET
-        sync: false   # Fill this in Render dashboard — your Graph client secret
+        sync: false   # Set this in Render dashboard — Azure AD client secret
       - key: GRAPH_USER_EMAIL
         value: support@technosprint.net
 
       # ── CORS ──────────────────────────────────────────────────────────────
       - key: CORS_ALLOWED_ORIGINS
         value: https://tech-nllq.onrender.com,https://*.onrender.com
+
